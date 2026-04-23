@@ -1,0 +1,40 @@
+@model AttendanceManagementSystem.ViewModels.Ui.FilterToolbarViewModel
+
+<article class="filter-toolbar-card">
+    <form method="get" asp-action="@Model.FormAction" asp-controller="@Model.FormController" class="filter-toolbar">
+        <div class="filter-toolbar-left">
+            <label class="form-label filter-label" for="attendanceDate">@Model.DateLabel</label>
+            <input id="attendanceDate" type="date" name="@Model.DateFieldName" class="form-control" value="@Model.SelectedDate.ToString("yyyy-MM-dd")" />
+            @if (!string.IsNullOrWhiteSpace(Model.ScopeLabel))
+            {
+                <span class="badge-soft badge-soft-neutral">@Model.ScopeLabel</span>
+            }
+        </div>
+        <div class="filter-toolbar-actions">
+            <button type="submit" class="btn btn-brand">
+                <i class="bi bi-funnel"></i>
+                @Model.ApplyLabel
+            </button>
+            <a class="btn btn-soft" asp-action="@Model.FormAction" asp-controller="@Model.FormController">
+                <i class="bi bi-calendar-event"></i>
+                @Model.TodayLabel
+            </a>
+            <a class="btn btn-soft btn-icon" asp-action="@Model.FormAction" asp-controller="@Model.FormController" asp-route-date="@Model.PreviousDate.ToString("yyyy-MM-dd")" aria-label="Previous day">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+            <a class="btn btn-soft btn-icon" asp-action="@Model.FormAction" asp-controller="@Model.FormController" asp-route-date="@Model.NextDate.ToString("yyyy-MM-dd")" aria-label="Next day">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.SummaryLabel) || !string.IsNullOrWhiteSpace(Model.SummaryValue))
+        {
+            <div class="filter-toolbar-summary">
+                @if (!string.IsNullOrWhiteSpace(Model.SummaryLabel))
+                {
+                    <p>@Model.SummaryLabel</p>
+                }
+                <h3>@Model.SummaryValue</h3>
+            </div>
+        }
+    </form>
+</article>

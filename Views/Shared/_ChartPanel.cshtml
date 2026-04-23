@@ -1,0 +1,19 @@
+@model AttendanceManagementSystem.ViewModels.Ui.ChartPanelViewModel
+
+<article class="panel-card h-100">
+    <header class="panel-header">
+        <div>
+            <h2>@Model.Title</h2>
+            <p class="panel-subtitle">@Model.Subtitle</p>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Model.Meta))
+        {
+            <span class="panel-meta">@Model.Meta</span>
+        }
+    </header>
+    <div class="panel-body">
+        <div class="@Model.HeightClass">
+            <canvas id="@Model.CanvasId"></canvas>
+        </div>
+    </div>
+</article>

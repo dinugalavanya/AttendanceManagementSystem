@@ -1,0 +1,144 @@
+@model AttendanceManagementSystem.Controllers.AttendanceManageViewModel
+@using AttendanceManagementSystem.Models
+@{
+    ViewData["Title"] = "Manage Attendance";
+
+    var pageHeader = new PageHeaderViewModel
+    {
+        Eyebrow = "HR Operations",
+        Title = "Manage Attendance",
+        Subtitle = "Operational control panel for daily attendance records",
+        Badges = new List<PageHeaderBadgeViewModel>
+        {
+            new() { Text = Model.ScopeLabel, Tone = "neutral", Icon = "bi-building" },
+            new() { Text = Model.SelectedDate.ToString("dddd, dd MMM yyyy"), Tone = "accent", Icon = "bi-calendar-check" }
+        }
+    };
+
+    var toolbar = new FilterToolbarViewModel
+    {
+        FormAction = "Manage",
+        FormController = "Attendance",
+        SelectedDate = Model.SelectedDate,
+        DateLabel = "Attendance Date",
+        ScopeLabel = Model.ScopeLabel,
+        SummaryLabel = "Total Worked",
+        SummaryValue = $"{Model.TotalWorkedHours:0.0}h"
+    };
+
+    var cards = new List<SummaryCardViewModel>
+    {
+        new() { Label = "Total Records", Value = Model.TotalRecords.ToString(), Icon = "bi-journal-check", Tone = "neutral", HelperText = "Entries found for selected date" },
+        new() { Label = "Present", Value = Model.PresentCount.ToString(), Icon = "bi-check2-circle", Tone = "success", HelperText = "Present records today" },
+        new() { Label = "Late", Value = Model.LateCount.ToString(), Icon = "bi-alarm", Tone = "warning", HelperText = "Late entries for selected date" },
+        new() { Label = "Absent", Value = Model.AbsentCount.ToString(), Icon = "bi-x-circle", Tone = "danger", HelperText = "Marked absent records" },
+        new() { Label = "On Leave", Value = Model.OnLeaveCount.ToString(), Icon = "bi-person-dash", Tone = "sky", HelperText = "Leave records for selected date" },
+        new() { Label = "OT Hours", Value = Model.OvertimeHours.ToString("0.0"), Icon = "bi-hourglass-split", Tone = "purple", HelperText = "Overtime hours for selected date" }
+    };
+
+    var emptyState = new EmptyStateViewModel
+    {
+        Icon = "bi-calendar-x",
+        Title = "No attendance records found",
+        Description = "No attendance entries exist for the selected date. Change the date to continue."
+    };
+
+    string StatusTone(string status) => status switch
+    {
+        AttendanceStatus.Present => "success",
+        AttendanceStatus.Late => "warning",
+        AttendanceStatus.Absent => "danger",
+        AttendanceStatus.Leave => "neutral",
+        _ => "neutral"
+    };
+}
+
+<section class="manage-shell">
+    <partial name="_PageHeader" model="pageHeader" />
+    <partial name="_FilterToolbar" model="toolbar" />
+
+    <section class="summary-grid summary-grid-compact">
+        @foreach (var card in cards)
+        {
+            <partial name="_SummaryCard" model="card" />
+        }
+    </section>
+
+    <article class="panel-card manage-table-card">
+        <header class="panel-header">
+            <div>
+                <h2>Attendance Register</h2>
+                <p class="panel-subtitle">Employee attendance logs with hours, status, and edit controls</p>
+            </div>
+            <div class="panel-meta-wrap">
+                <span class="panel-meta">@Model.TotalRecords records</span>
+                <span class="panel-meta">OT @Model.OvertimeHours.ToString("0.0")h</span>
+            </div>
+        </header>
+
+        @if (!Model.Attendances.Any())
+        {
+            <div class="panel-body">
+                <partial name="_EmptyState" model="emptyState" />
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive manage-table-wrap">
+                <table class="table table-modern table-attendance mb-0">
+                    <thead>
+                        <tr>
+                            <th>Employee Name</th>
+                            <th>Section</th>
+                            <th>In Time</th>
+                            <th>Out Time</th>
+                            <th>Worked Hours</th>
+                            <th>OT Hours</th>
+                            <th>Status</th>
+                            @if (Model.CanEdit)
+                            {
+                                <th class="text-end">Action</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var row in Model.Attendances)
+                        {
+                            var initials = $"{row.User.FirstName.FirstOrDefault()}{row.User.LastName.FirstOrDefault()}";
+                            var badgeModel = new StatusBadgeViewModel { Status = row.Status, Tone = StatusTone(row.Status) };
+
+                            <tr>
+                                <td>
+                                    <div class="employee-cell">
+                                        <div class="avatar-circle">@initials</div>
+                                        <div>
+                                            <p class="employee-name">@row.User.FullName</p>
+                                            <p class="employee-email">@row.User.Email</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>@(row.User.Section?.Name ?? "Unassigned")</td>
+                                <td>@(row.InTime?.ToString(@"hh\:mm") ?? "-")</td>
+                                <td>@(row.OutTime?.ToString(@"hh\:mm") ?? "-")</td>
+                                <td>@row.TotalWorkedDisplay</td>
+                                <td>@(row.OvertimeMinutes > 0 ? row.OvertimeDisplay : "-")</td>
+                                <td>
+                                    <partial name="_StatusBadge" model="badgeModel" />
+                                </td>
+                                @if (Model.CanEdit)
+                                {
+                                    <td class="text-end">
+                                        <a asp-action="Edit" asp-route-id="@row.Id" class="btn btn-soft btn-sm">
+                                            <i class="bi bi-pencil-square"></i>
+                                            Edit
+                                        </a>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </article>
+</section>

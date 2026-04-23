@@ -1,0 +1,65 @@
+# Ignore .NET build outputs
+bin/
+obj/
+out/
+
+# Ignore user-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Ignore NuGet packages
+*.nupkg
+**/packages/*
+!**/packages/build/
+**/*.nuget.props
+!**/*.nuget.props
+
+# Ignore Visual Studio files
+.vs/
+.vscode/
+*.vspscc
+*.vssscc
+._sss
+*.bak
+*.cache
+*.log
+*.lib
+*.sdf
+*.opensdf
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+
+# Ignore Rider files
+.idea/
+
+# Ignore macOS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Ignore SQL Server database files
+*.mdf
+*.ldf
+*.ndf
+*.sdf
+
+# Ignore SQL scripts that might contain sensitive data
+*database-reset.sql
+*fix-password.sql
+*create-tables-in-*.sql
+
+# Ignore temporary files
+password-hash-generator.cs
+*.tmp
+*.temp

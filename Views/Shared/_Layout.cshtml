@@ -1,0 +1,187 @@
+@using AttendanceManagementSystem.Models
+@{
+    var isAuthenticated = User.Identity?.IsAuthenticated == true;
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+    var currentRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "User";
+    var roleToneClass = currentRole switch
+    {
+        RoleNames.SuperAdmin => "role-super",
+        RoleNames.Admin => "role-admin",
+        RoleNames.Worker => "role-worker",
+        _ => "role-neutral"
+    };
+
+    string NavClass(string controller, string? action = null)
+    {
+        if (!string.Equals(currentController, controller, StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            return "active";
+        }
+
+        return string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase) ? "active" : string.Empty;
+    }
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Attendance Management System</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="@(isAuthenticated ? "app-authenticated" : "app-guest")">
+    @if (isAuthenticated)
+    {
+        <div class="app-shell">
+            <aside class="app-sidebar" id="appSidebar" aria-label="Main navigation">
+                <div class="app-brand">
+                    <div class="brand-icon">
+                        <i class="bi bi-clock-history"></i>
+                    </div>
+                    <div>
+                        <h1>PulseHR</h1>
+                        <p>Attendance Console</p>
+                    </div>
+                </div>
+
+                <nav class="app-nav">
+                    <a class="app-nav-link @NavClass("Dashboard")" asp-controller="Dashboard" asp-action="Index">
+                        <i class="bi bi-grid-1x2-fill"></i>
+                        <span>Dashboard</span>
+                    </a>
+
+                    @if (User.IsInRole(RoleNames.Worker))
+                    {
+                        <a class="app-nav-link @NavClass("Attendance", "Index")" asp-controller="Attendance" asp-action="Index">
+                            <i class="bi bi-person-check-fill"></i>
+                            <span>My Attendance</span>
+                        </a>
+                    }
+
+                    @if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.SuperAdmin))
+                    {
+                        <a class="app-nav-link @NavClass("Attendance", "Manage")" asp-controller="Attendance" asp-action="Manage">
+                            <i class="bi bi-clipboard-data-fill"></i>
+                            <span>Manage Attendance</span>
+                        </a>
+                    }
+
+                    @if (User.IsInRole(RoleNames.SuperAdmin))
+                    {
+                        <a class="app-nav-link @NavClass("User")" asp-controller="User" asp-action="Index">
+                            <i class="bi bi-people-fill"></i>
+                            <span>Users</span>
+                        </a>
+                        <a class="app-nav-link @NavClass("Section")" asp-controller="Section" asp-action="Index">
+                            <i class="bi bi-diagram-3-fill"></i>
+                            <span>Sections</span>
+                        </a>
+                    }
+                </nav>
+
+                <div class="app-sidebar-footer">
+                    <div class="sidebar-user">
+                        <div class="sidebar-user-icon">
+                            <i class="bi bi-person-circle"></i>
+                        </div>
+                        <div>
+                            <strong>@User.Identity?.Name</strong>
+                            <p>@currentRole</p>
+                        </div>
+                    </div>
+                    <div class="sidebar-actions">
+                        <a class="btn btn-soft btn-sm" asp-controller="Account" asp-action="Profile">
+                            <i class="bi bi-person-lines-fill"></i>
+                            Profile
+                        </a>
+                        <a class="btn btn-soft-danger btn-sm" asp-controller="Account" asp-action="Logout">
+                            <i class="bi bi-box-arrow-right"></i>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </aside>
+
+            <div class="app-main">
+                <header class="app-topbar">
+                    <div class="topbar-left">
+                        <button class="btn btn-soft btn-icon d-lg-none" id="sidebarToggle" type="button" aria-label="Toggle sidebar">
+                            <i class="bi bi-list"></i>
+                        </button>
+                        <div>
+                            <p class="topbar-label">Attendance Management System</p>
+                            <h2>@ViewData["Title"]</h2>
+                        </div>
+                    </div>
+                    <div class="topbar-right">
+                        <span class="role-pill @roleToneClass">@currentRole</span>
+                        <span class="date-pill">
+                            <i class="bi bi-calendar3"></i>
+                            @DateTime.Today.ToString("dddd, dd MMM yyyy")
+                        </span>
+                    </div>
+                </header>
+
+                <main class="app-content">
+                    @if (TempData["Success"] != null)
+                    {
+                        <div class="alert alert-success alert-dismissible fade show app-alert" role="alert">
+                            <i class="bi bi-check2-circle"></i>
+                            <span>@TempData["Success"]</span>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    }
+
+                    @if (TempData["Error"] != null)
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show app-alert" role="alert">
+                            <i class="bi bi-exclamation-circle"></i>
+                            <span>@TempData["Error"]</span>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    }
+
+                    @RenderBody()
+                </main>
+            </div>
+        </div>
+
+        <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+    }
+    else
+    {
+        <div class="auth-shell">
+            <div class="auth-card">
+                <div class="auth-brand">
+                    <div class="brand-icon"><i class="bi bi-clock-history"></i></div>
+                    <div>
+                        <h2>PulseHR</h2>
+                        <p>Attendance Console</p>
+                    </div>
+                </div>
+                @RenderBody()
+            </div>
+        </div>
+    }
+
+    <script src="~/lib/jquery/dist/jquery.min.js" asp-append-version="true"></script>
+    <script src="~/lib/jquery-validation/dist/jquery.validate.min.js" asp-append-version="true"></script>
+    <script src="~/lib/jquery-validation-unobtrusive/dist/jquery.validate.unobtrusive.min.js" asp-append-version="true"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

@@ -1,0 +1,14 @@
+@model AttendanceManagementSystem.ViewModels.Ui.SummaryCardViewModel
+
+<article class="summary-card tone-@Model.Tone">
+    <header class="summary-card-top">
+        <div class="summary-card-icon">
+            <i class="bi @Model.Icon"></i>
+        </div>
+        <p class="summary-label">@Model.Label</p>
+    </header>
+    <div class="summary-card-content">
+        <h3 class="summary-value">@Model.Value</h3>
+        <p class="summary-helper">@(!string.IsNullOrWhiteSpace(Model.HelperText) ? Model.HelperText : "Updated live from attendance logs")</p>
+    </div>
+</article>

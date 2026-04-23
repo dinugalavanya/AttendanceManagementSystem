@@ -1,0 +1,24 @@
+@model AttendanceManagementSystem.ViewModels.Ui.PageHeaderViewModel
+
+<header class="page-header">
+    <div class="page-header-main">
+        @if (!string.IsNullOrWhiteSpace(Model.Eyebrow))
+        {
+            <p class="page-eyebrow">@Model.Eyebrow</p>
+        }
+        <h1 class="page-title">@Model.Title</h1>
+        <p class="page-subtitle">@Model.Subtitle</p>
+    </div>
+    @if (Model.Badges.Any())
+    {
+        <div class="page-header-badges">
+            @foreach (var badge in Model.Badges)
+            {
+                <span class="chip chip-@badge.Tone">
+                    <i class="bi @badge.Icon"></i>
+                    @badge.Text
+                </span>
+            }
+        </div>
+    }
+</header>

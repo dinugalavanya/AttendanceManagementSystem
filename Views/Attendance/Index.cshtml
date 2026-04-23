@@ -1,0 +1,313 @@
+@model AttendanceManagementSystem.Controllers.AttendanceViewModel
+@using AttendanceManagementSystem.Models
+@{
+    ViewData["Title"] = "My Attendance";
+}
+
+<style>
+    .attendance-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 20px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        transition: transform 0.3s ease;
+    }
+    
+    .attendance-card:hover {
+        transform: translateY(-5px);
+    }
+    
+    .check-btn {
+        border-radius: 50px;
+        padding: 20px 40px;
+        font-size: 1.2rem;
+        font-weight: 600;
+        border: none;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        transition: all 0.3s ease;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .check-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 35px rgba(0,0,0,0.2);
+    }
+    
+    .check-in-btn {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        color: white;
+    }
+    
+    .check-out-btn {
+        background: linear-gradient(45deg, #dc3545, #fd7e14);
+        color: white;
+    }
+    
+    .status-icon {
+        font-size: 6rem;
+        margin-bottom: 1rem;
+        animation: pulse 2s infinite;
+    }
+    
+    @@keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    .info-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        transition: transform 0.3s ease;
+    }
+    
+    .info-card:hover {
+        transform: translateY(-3px);
+    }
+    
+    .time-display {
+        font-size: 3rem;
+        font-weight: 700;
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+    
+    .stat-item {
+        text-align: center;
+        padding: 1rem;
+        background: rgba(255,255,255,0.1);
+        border-radius: 10px;
+        backdrop-filter: blur(10px);
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: white;
+    }
+    
+    .stat-label {
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.8);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+</style>
+
+<div class="container-fluid px-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-1">Welcome back!</h1>
+                    <p class="text-muted mb-0">Today is @DateTime.Now.ToString("dddd, MMMM dd, yyyy")</p>
+                </div>
+                <div class="text-end">
+                    <div class="time-display" id="currentTime">@Model.CurrentTime.ToString("hh:mm tt")</div>
+                    <small class="text-muted">Current Time</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Attendance Card -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card attendance-card">
+                <div class="card-body text-center py-5">
+                    @if (Model.TodayAttendance == null)
+                    {
+                        <div class="status-icon text-success">
+                            <i class="bi bi-play-circle-fill"></i>
+                        </div>
+                        <h2 class="mb-3">Ready to Start Your Day</h2>
+                        <p class="mb-4">Check in to begin tracking your work hours</p>
+                        
+                        <form asp-action="CheckIn" method="post" class="d-inline">
+                            <button type="submit" class="btn check-btn check-in-btn" onclick="this.disabled=true; this.innerHTML='Checking In...';">
+                                <i class="bi bi-play-circle me-2"></i> Check In
+                            </button>
+                        </form>
+                    }
+                    else if (!Model.TodayAttendance.IsLocked)
+                    {
+                        <div class="status-icon text-warning">
+                            <i class="bi bi-clock-fill"></i>
+                        </div>
+                        <h2 class="mb-3">You're Currently Checked In</h2>
+                        <div class="mb-3">
+                            <span class="badge bg-white text-dark fs-6 px-3 py-2">
+                                @Model.TodayAttendance.Status
+                            </span>
+                        </div>
+                        <p class="mb-4">
+                            <strong>Check In Time:</strong> @Model.TodayAttendance.InTime?.ToString(@"hh\:mm")
+                        </p>
+                        
+                        <form asp-action="CheckOut" method="post" class="d-inline">
+                            <button type="submit" class="btn check-btn check-out-btn" onclick="this.disabled=true; this.innerHTML='Checking Out...';">
+                                <i class="bi bi-stop-circle me-2"></i> Check Out
+                            </button>
+                        </form>
+                    }
+                    else
+                    {
+                        <div class="status-icon text-success">
+                            <i class="bi bi-check-circle-fill"></i>
+                        </div>
+                        <h2 class="mb-3">Great Work Today!</h2>
+                        <div class="mb-3">
+                            <span class="badge bg-white text-dark fs-6 px-3 py-2">
+                                @Model.TodayAttendance.Status
+                            </span>
+                        </div>
+                        
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-value">@Model.TodayAttendance.InTime?.ToString(@"hh\:mm")</div>
+                                <div class="stat-label">Check In</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">@Model.TodayAttendance.OutTime?.ToString(@"hh\:mm")</div>
+                                <div class="stat-label">Check Out</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value">@Model.TodayAttendance.TotalWorkedDisplay</div>
+                                <div class="stat-label">Total Hours</div>
+                            </div>
+                            @if (Model.TodayAttendance.OvertimeMinutes > 0)
+                            {
+                                <div class="stat-item">
+                                    <div class="stat-value">@Model.TodayAttendance.OvertimeDisplay</div>
+                                    <div class="stat-label">Overtime</div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        
+        <!-- Info Cards -->
+        <div class="col-lg-4">
+            <div class="card info-card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="bi bi-info-circle text-primary me-2"></i>
+                        Work Schedule
+                    </h5>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <i class="bi bi-sunrise text-info me-2"></i>
+                            <strong>Start:</strong>
+                        </div>
+                        <span class="badge bg-info">8:30 AM</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <i class="bi bi-sunset text-warning me-2"></i>
+                            <strong>End:</strong>
+                        </div>
+                        <span class="badge bg-warning">4:30 PM</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="bi bi-clock text-success me-2"></i>
+                            <strong>Regular:</strong>
+                        </div>
+                        <span class="badge bg-success">8 Hours</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card info-card">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="bi bi-shield-check text-success me-2"></i>
+                        Status Guide
+                    </h5>
+                    <div class="small">
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-success me-2">Present</span>
+                            <span>Before 8:45 AM</span>
+                        </div>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-warning me-2">Late</span>
+                            <span>After 8:45 AM</span>
+                        </div>
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="badge bg-danger me-2">Absent</span>
+                            <span>No check-in</span>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-info me-2">Leave</span>
+                            <span>On leave</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex gap-3 flex-wrap">
+                <a asp-action="History" class="btn btn-outline-primary btn-lg">
+                    <i class="bi bi-calendar-history me-2"></i> View History
+                </a>
+                <a href="@Url.Action("Profile", "Account")" class="btn btn-outline-secondary btn-lg">
+                    <i class="bi bi-person-circle me-2"></i> My Profile
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // Update current time every second
+        function updateTime() {
+            const now = new Date();
+            const timeElement = document.getElementById('currentTime');
+            if (timeElement) {
+                timeElement.textContent = now.toLocaleTimeString('en-US', { 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: true 
+                });
+            }
+        }
+        
+        updateTime();
+        setInterval(updateTime, 1000);
+        
+        // Add some interactive effects
+        document.addEventListener('DOMContentLoaded', function() {
+            // Animate cards on load
+            const cards = document.querySelectorAll('.card');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.5s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+        });
+    </script>
+}
