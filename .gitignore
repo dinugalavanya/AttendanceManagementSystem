@@ -9,6 +9,7 @@ out/
 *.user
 *.userosscache
 *.sln.docstates
+.env
 
 # Ignore NuGet packages
 *.nupkg
