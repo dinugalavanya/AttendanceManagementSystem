@@ -112,8 +112,8 @@ namespace AttendanceManagementSystem.Controllers
                     .Select(a => new WorkerAttendanceRow
                     {
                         WorkerName = a.User.FirstName + " " + a.User.LastName,
-                        LoginTimeDisplay = a.InTime?.ToString("HH:mm") ?? "--",
-                        LogoutTimeDisplay = a.OutTime?.ToString("HH:mm") ?? "--",
+                        LoginTimeDisplay = a.InTime.HasValue ? a.InTime.Value.ToString(@"hh\:mm") : "--",
+                        LogoutTimeDisplay = a.OutTime.HasValue ? a.OutTime.Value.ToString(@"hh\:mm") : "--",
                         Status = a.Status,
                         LateByDisplay = a.InTime.HasValue && a.InTime.Value > workStart
                             ? $"{(a.InTime.Value - workStart).TotalMinutes:F0} min"
@@ -144,7 +144,7 @@ namespace AttendanceManagementSystem.Controllers
                     {
                         WorkerName = a.User.FirstName + " " + a.User.LastName,
                         OtHours = (decimal)(a.OutTime.Value - workEnd).TotalHours,
-                        LogoutTimeDisplay = a.OutTime.Value.ToString("HH:mm")
+                        LogoutTimeDisplay = a.OutTime.Value.ToString(@"hh\:mm")
                     })
                     .OrderByDescending(a => a.OtHours)
                     .ToList();
