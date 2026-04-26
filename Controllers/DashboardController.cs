@@ -58,12 +58,174 @@ namespace AttendanceManagementSystem.Controllers
             {
                 if (!currentUser.SectionId.HasValue)
                 {
-                    return RedirectToAction("Index", "Attendance");
+                    var adminViewModel = new AdminDashboardViewModel
+                    {
+                        HasSection = false
+                    };
+                    return View("AdminDashboard", adminViewModel);
                 }
 
                 var sectionId = currentUser.SectionId.Value;
+                var sectionName = currentUser.Section?.Name ?? string.Empty;
                 userScope = userScope.Where(u => u.SectionId == sectionId);
                 attendanceScope = attendanceScope.Where(a => a.User.SectionId == sectionId);
+
+                var sectionTotalUsers = await userScope
+                    .AsNoTracking()
+                    .CountAsync();
+
+                // Get today's attendance for section workers
+                var todayAttendances = await attendanceScope
+                    .Where(a => a.AttendanceDate >= today && a.AttendanceDate < tomorrow)
+                    .Include(a => a.User)
+                    .ToListAsync();
+
+                // Calculate today's stats
+                var presentToday = todayAttendances.Count(a => a.Status == AttendanceStatus.Present);
+                var lateToday = todayAttendances.Count(a => a.Status == AttendanceStatus.Late);
+                var leaveToday = todayAttendances.Count(a => a.Status == AttendanceStatus.Leave);
+                var workingOtToday = todayAttendances.Count(a => a.OutTime.HasValue && a.OutTime.Value > new TimeSpan(16, 30, 0));
+
+                // Calculate OT hours for today (in memory since todayAttendances is already loaded)
+                var workStart = new TimeSpan(8, 30, 0);
+                var workEnd = new TimeSpan(16, 30, 0);
+                var todayOtHours = todayAttendances
+                    .Where(a => a.OutTime.HasValue && a.OutTime.Value > workEnd)
+                    .Sum(a => (decimal)(a.OutTime.Value - workEnd).TotalHours);
+
+                // Calculate total OT hours this month (load data first, then calculate in memory)
+                var monthlyOtRows = await attendanceScope
+                    .Where(a => a.AttendanceDate >= monthStart && a.AttendanceDate < monthEndExclusive)
+                    .Where(a => a.OutTime.HasValue && a.OutTime.Value > workEnd)
+                    .Select(a => new
+                    {
+                        a.OutTime
+                    })
+                    .ToListAsync();
+
+                var monthlyOtHours = monthlyOtRows
+                    .Sum(a => (decimal)(a.OutTime!.Value - workEnd).TotalHours);
+
+                // Prepare worker attendance rows for table (in memory since todayAttendances is already loaded)
+                var todayWorkers = todayAttendances
+                    .Where(a => a.User != null)
+                    .Select(a => new WorkerAttendanceRow
+                    {
+                        WorkerName = a.User.FirstName + " " + a.User.LastName,
+                        LoginTimeDisplay = a.InTime?.ToString("HH:mm") ?? "--",
+                        LogoutTimeDisplay = a.OutTime?.ToString("HH:mm") ?? "--",
+                        Status = a.Status,
+                        LateByDisplay = a.InTime.HasValue && a.InTime.Value > workStart
+                            ? $"{(a.InTime.Value - workStart).TotalMinutes:F0} min"
+                            : "On Time",
+                        OtHoursDisplay = a.OutTime.HasValue && a.OutTime.Value > workEnd
+                            ? $"{(decimal)(a.OutTime.Value - workEnd).TotalHours:F1}h"
+                            : "0h",
+                        CurrentState = GetWorkerCurrentState(a.InTime, a.OutTime, a.Status)
+                    })
+                    .OrderBy(a => a.WorkerName)
+                    .ToList();
+
+                // Prepare work hours pie chart
+                var workHoursPieChart = todayAttendances
+                    .Where(a => a.User != null && a.InTime.HasValue && a.OutTime.HasValue)
+                    .GroupBy(a => a.User.FirstName + " " + a.User.LastName)
+                    .Select(g => new PieChartItem
+                    {
+                        Label = g.Key,
+                        Hours = (decimal)(g.Sum(a => (a.OutTime!.Value - a.InTime!.Value).TotalHours))
+                    })
+                    .ToList();
+
+                // Prepare OT workers list (in memory since todayAttendances is already loaded)
+                var otWorkers = todayAttendances
+                    .Where(a => a.User != null && a.OutTime.HasValue && a.OutTime.Value > workEnd)
+                    .Select(a => new OtWorkerItem
+                    {
+                        WorkerName = a.User.FirstName + " " + a.User.LastName,
+                        OtHours = (decimal)(a.OutTime.Value - workEnd).TotalHours,
+                        LogoutTimeDisplay = a.OutTime.Value.ToString("HH:mm")
+                    })
+                    .OrderByDescending(a => a.OtHours)
+                    .ToList();
+
+                // Prepare calendar summary (load data first, then calculate OT in memory)
+                var calendarSummaryRaw = await attendanceScope
+                    .Where(a => a.AttendanceDate >= monthStart && a.AttendanceDate < monthEndExclusive)
+                    .GroupBy(a => a.AttendanceDate.Date)
+                    .Select(g => new
+                    {
+                        Date = g.Key,
+                        PresentCount = g.Count(a => a.Status == AttendanceStatus.Present),
+                        LateCount = g.Count(a => a.Status == AttendanceStatus.Late),
+                        LeaveCount = g.Count(a => a.Status == AttendanceStatus.Leave),
+                        OutTimes = g.Where(a => a.OutTime.HasValue && a.OutTime.Value > workEnd).Select(a => a.OutTime!.Value).ToList()
+                    })
+                    .OrderBy(g => g.Date)
+                    .ToListAsync();
+
+                var calendarSummary = calendarSummaryRaw
+                    .Select(g => new DailyAttendanceSummary
+                    {
+                        Date = g.Date,
+                        PresentCount = g.PresentCount,
+                        LateCount = g.LateCount,
+                        LeaveCount = g.LeaveCount,
+                        TotalOtHours = g.OutTimes.Sum(ot => (decimal)(ot - workEnd).TotalHours)
+                    })
+                    .ToList();
+
+                // Prepare last 2 weeks calendar data (last 14 days only)
+                var twoWeeksAgo = today.AddDays(-13);
+                var lastTwoWeeksRaw = await attendanceScope
+                    .Where(a => a.AttendanceDate >= twoWeeksAgo && a.AttendanceDate < tomorrow)
+                    .GroupBy(a => a.AttendanceDate.Date)
+                    .Select(g => new
+                    {
+                        Date = g.Key,
+                        PresentCount = g.Count(a => a.Status == AttendanceStatus.Present),
+                        LateCount = g.Count(a => a.Status == AttendanceStatus.Late),
+                        LeaveCount = g.Count(a => a.Status == AttendanceStatus.Leave),
+                        OutTimes = g.Where(a => a.OutTime.HasValue && a.OutTime.Value > workEnd).Select(a => a.OutTime!.Value).ToList()
+                    })
+                    .OrderByDescending(g => g.Date)
+                    .Take(14)
+                    .ToListAsync();
+
+                var lastTwoWeeksCalendarData = lastTwoWeeksRaw
+                    .Select(g => new DailyAttendanceSummary
+                    {
+                        Date = g.Date,
+                        PresentCount = g.PresentCount,
+                        LateCount = g.LateCount,
+                        LeaveCount = g.LeaveCount,
+                        TotalOtHours = g.OutTimes.Sum(ot => (decimal)(ot - workEnd).TotalHours)
+                    })
+                    .OrderByDescending(g => g.Date)
+                    .ToList();
+
+                var adminDashboardViewModel = new AdminDashboardViewModel
+                {
+                    SectionName = sectionName,
+                    TotalWorkers = sectionTotalUsers,
+                    PresentToday = presentToday,
+                    LateToday = lateToday,
+                    LeaveToday = leaveToday,
+                    WorkingOtToday = workingOtToday,
+                    TotalOtHoursThisMonth = (double)monthlyOtHours,
+                    TodayWorkers = todayWorkers,
+                    WorkHoursPieChart = workHoursPieChart,
+                    OtWorkers = otWorkers,
+                    CalendarSummary = calendarSummary,
+                    LastTwoWeeksCalendarData = lastTwoWeeksCalendarData,
+                    HasSection = true,
+                    OnTimeCount = presentToday,
+                    LateCount = lateToday,
+                    LeaveCount = leaveToday,
+                    OtCount = workingOtToday
+                };
+
+                return View("AdminDashboard", adminDashboardViewModel);
             }
 
             var totalUsers = await userScope
@@ -241,6 +403,26 @@ namespace AttendanceManagementSystem.Controllers
             };
 
             return View(viewModel);
+        }
+
+        private string GetWorkerCurrentState(TimeSpan? inTime, TimeSpan? outTime, string status)
+        {
+            if (status == "Leave" || !inTime.HasValue)
+            {
+                return "On Leave";
+            }
+
+            if (!outTime.HasValue)
+            {
+                return "Working";
+            }
+
+            if (outTime.Value > new TimeSpan(16, 30, 0))
+            {
+                return "Working OT";
+            }
+
+            return "Completed";
         }
     }
 }

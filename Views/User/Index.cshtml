@@ -8,8 +8,14 @@
     <div class="row">
         <div class="col-12">
             <div class="card">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5><i class="bi bi-people"></i> User Management</h5>
+                    @if (ViewBag.IsSuperAdmin == true)
+                    {
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createAdminModal">
+                            <i class="bi bi-plus-circle"></i> ADD Admin
+                        </button>
+                    }
                 </div>
                 <div class="card-body">
                     <p class="text-muted mb-3">Showing live data from the Users table.</p>
@@ -25,9 +31,9 @@
                                         <th>Email</th>
                                         <th>Role</th>
                                         <th>Section</th>
+                                        <th>Login</th>
+                                        <th>Logout</th>
                                         <th>Status</th>
-                                        <th>Last Login</th>
-                                        <th>Created</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -40,17 +46,50 @@
                                             <td>@user.RoleName</td>
                                             <td>@user.SectionName</td>
                                             <td>
-                                                @if (user.IsActive)
-                                                {
-                                                    <span class="badge bg-success">Active</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge bg-secondary">Inactive</span>
-                                                }
+                                                <input type="time" 
+                                                       class="form-control form-control-sm" 
+                                                       id="login-@user.Id" 
+                                                       value="@(user.LoginTime?.ToString(@"hh\:mm") ?? "")"
+                                                       onchange="updateUserAttendance(@user.Id, 'login', this.value)" />
                                             </td>
-                                            <td>@(user.LastLoginAt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</td>
-                                            <td>@user.CreatedAt.ToString("yyyy-MM-dd")</td>
+                                            <td>
+                                                <input type="time" 
+                                                       class="form-control form-control-sm" 
+                                                       id="logout-@user.Id" 
+                                                       value="@(user.LogoutTime?.ToString(@"hh\:mm") ?? "")"
+                                                       onchange="updateUserAttendance(@user.Id, 'logout', this.value)" />
+                                            </td>
+                                            <td>
+                                                <select class="form-select form-select-sm" 
+                                                        id="status-@user.Id" 
+                                                        onchange="updateUserAttendance(@user.Id, 'status', this.value)">
+                                                    <option value="">-</option>
+                                                    @if (user.AttendanceStatus == "On Time")
+                                                    {
+                                                        <option value="On Time" selected>On Time</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="On Time">On Time</option>
+                                                    }
+                                                    @if (user.AttendanceStatus == "Late")
+                                                    {
+                                                        <option value="Late" selected>Late</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="Late">Late</option>
+                                                    }
+                                                    @if (user.AttendanceStatus == "Leave")
+                                                    {
+                                                        <option value="Leave" selected>Leave</option>
+                                                    }
+                                                    else
+                                                    {
+                                                        <option value="Leave">Leave</option>
+                                                    }
+                                                </select>
+                                            </td>
                                         </tr>
                                     }
                                 </tbody>
@@ -70,3 +109,200 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        function updateUserAttendance(userId, field, value) {
+            const data = {
+                userId: userId,
+                field: field,
+                value: value
+            };
+
+            fetch('/api/user/update-attendance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success feedback
+                    showNotification('Attendance updated successfully', 'success');
+                } else {
+                    // Show error feedback
+                    showNotification('Error updating attendance: ' + (data.message || 'Unknown error'), 'error');
+                    // Optionally revert the change
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error updating attendance', 'error');
+                location.reload();
+            });
+        }
+
+        function showNotification(message, type) {
+            // Create a simple notification
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(notification);
+            
+            // Auto-remove after 3 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 3000);
+        }
+    </script>
+}
+
+<!-- Create Admin Modal -->
+@if (ViewBag.IsSuperAdmin == true)
+{
+    <div class="modal fade" id="createAdminModal" tabindex="-1" aria-labelledby="createAdminModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createAdminModalLabel">Create Admin</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createAdminForm">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="FirstName" class="form-label">First Name *</label>
+                                <input type="text" class="form-control" id="FirstName" name="FirstName" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="LastName" class="form-label">Last Name *</label>
+                                <input type="text" class="form-control" id="LastName" name="LastName" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="Email" class="form-label">Email *</label>
+                                <input type="email" class="form-control" id="Email" name="Email" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="Phone" class="form-label">Phone</label>
+                                <input type="tel" class="form-control" id="Phone" name="Phone">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="SectionId" class="form-label">Section *</label>
+                                <select class="form-select" id="SectionId" name="SectionId" required>
+                                    <option value="">-- Select Section --</option>
+                                    @{
+    var sectionList = ViewBag.Sections as List<AttendanceManagementSystem.Models.Section>;
+}
+@if (sectionList != null)
+{
+    foreach (var sec in sectionList)
+    {
+        <option value="@sec.Id">@sec.Name</option>
+    }
+}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="Password" class="form-label">Password *</label>
+                                <input type="password" class="form-control" id="Password" name="Password" required>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="ConfirmPassword" class="form-label">Confirm Password *</label>
+                                <input type="password" class="form-control" id="ConfirmPassword" name="ConfirmPassword" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="Address" class="form-label">Address</label>
+                            <textarea class="form-control" id="Address" name="Address" rows="3"></textarea>
+                        </div>
+                        <div id="errorMessage" class="alert alert-danger d-none"></div>
+                        <div id="successMessage" class="alert alert-success d-none"></div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="createAdmin()">Create Admin</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function createAdmin() {
+            const form = document.getElementById('createAdminForm');
+            const formData = new FormData(form);
+            
+            // Clear previous messages
+            document.getElementById('errorMessage').classList.add('d-none');
+            document.getElementById('successMessage').classList.add('d-none');
+            
+            // Validate passwords match
+            const password = formData.get('Password');
+            const confirmPassword = formData.get('ConfirmPassword');
+            
+            if (password !== confirmPassword) {
+                document.getElementById('errorMessage').textContent = 'Password and Confirm Password must match.';
+                document.getElementById('errorMessage').classList.remove('d-none');
+                return;
+            }
+            
+            // Create JSON payload
+            const data = {
+                FirstName: formData.get('FirstName'),
+                LastName: formData.get('LastName'),
+                Email: formData.get('Email'),
+                Password: password,
+                Phone: formData.get('Phone') || null,
+                Address: formData.get('Address') || null,
+                SectionId: formData.get('SectionId') ? parseInt(formData.get('SectionId')) : null
+            };
+            
+            fetch('/User/CreateAdmin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    document.getElementById('successMessage').textContent = result.message || 'Admin created successfully';
+                    document.getElementById('successMessage').classList.remove('d-none');
+                    
+                    // Close modal and refresh page after 2 seconds
+                    setTimeout(() => {
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('createAdminModal'));
+                        if (modal) modal.hide();
+                        location.reload();
+                    }, 2000);
+                } else {
+                    document.getElementById('errorMessage').textContent = result.message || 'Error creating admin';
+                    document.getElementById('errorMessage').classList.remove('d-none');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('errorMessage').textContent = 'An error occurred while creating admin.';
+                document.getElementById('errorMessage').classList.remove('d-none');
+            });
+        }
+    </script>
+}

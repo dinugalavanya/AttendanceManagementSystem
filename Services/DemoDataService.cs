@@ -40,8 +40,7 @@ namespace AttendanceManagementSystem.Services
                     Address = "123 Main St, New York, NY 10001",
                     IsActive = true,
                     RoleId = 3, // Worker
-                    SectionId = 1,
-                    CreatedAt = DateTime.Now.AddDays(-30)
+                    SectionId = 1
                 },
                 new User
                 {
@@ -53,8 +52,7 @@ namespace AttendanceManagementSystem.Services
                     Address = "456 Oak Ave, New York, NY 10002",
                     IsActive = true,
                     RoleId = 3, // Worker
-                    SectionId = 1,
-                    CreatedAt = DateTime.Now.AddDays(-30)
+                    SectionId = 1
                 },
                 new User
                 {
@@ -66,8 +64,7 @@ namespace AttendanceManagementSystem.Services
                     Address = "789 Pine Rd, New York, NY 10003",
                     IsActive = true,
                     RoleId = 3, // Worker
-                    SectionId = 2,
-                    CreatedAt = DateTime.Now.AddDays(-30)
+                    SectionId = 2
                 },
                 new User
                 {
@@ -79,8 +76,7 @@ namespace AttendanceManagementSystem.Services
                     Address = "321 Elm St, New York, NY 10004",
                     IsActive = true,
                     RoleId = 3, // Worker
-                    SectionId = 2,
-                    CreatedAt = DateTime.Now.AddDays(-30)
+                    SectionId = 2
                 },
                 new User
                 {
@@ -92,8 +88,7 @@ namespace AttendanceManagementSystem.Services
                     Address = "654 Maple Dr, New York, NY 10005",
                     IsActive = true,
                     RoleId = 3, // Worker
-                    SectionId = 3,
-                    CreatedAt = DateTime.Now.AddDays(-30)
+                    SectionId = 3
                 },
                 new User
                 {
@@ -105,8 +100,7 @@ namespace AttendanceManagementSystem.Services
                     Address = "987 Cedar Ln, New York, NY 10006",
                     IsActive = true,
                     RoleId = 3, // Worker
-                    SectionId = 3,
-                    CreatedAt = DateTime.Now.AddDays(-30)
+                    SectionId = 3
                 },
                 new User
                 {
@@ -118,8 +112,7 @@ namespace AttendanceManagementSystem.Services
                     Address = "246 Birch Way, New York, NY 10007",
                     IsActive = true,
                     RoleId = 3, // Worker
-                    SectionId = 1,
-                    CreatedAt = DateTime.Now.AddDays(-30)
+                    SectionId = 1
                 },
                 new User
                 {
@@ -131,8 +124,7 @@ namespace AttendanceManagementSystem.Services
                     Address = "135 Spruce St, New York, NY 10008",
                     IsActive = true,
                     RoleId = 3, // Worker
-                    SectionId = 2,
-                    CreatedAt = DateTime.Now.AddDays(-30)
+                    SectionId = 2
                 },
                 new User
                 {
@@ -144,8 +136,7 @@ namespace AttendanceManagementSystem.Services
                     Address = "864 Willow Ave, New York, NY 10009",
                     IsActive = true,
                     RoleId = 3, // Worker
-                    SectionId = 3,
-                    CreatedAt = DateTime.Now.AddDays(-30)
+                    SectionId = 3
                 },
                 new User
                 {
@@ -157,8 +148,7 @@ namespace AttendanceManagementSystem.Services
                     Address = "573 Poplar Dr, New York, NY 10010",
                     IsActive = true,
                     RoleId = 3, // Worker
-                    SectionId = 1,
-                    CreatedAt = DateTime.Now.AddDays(-30)
+                    SectionId = 1
                 }
             };
 

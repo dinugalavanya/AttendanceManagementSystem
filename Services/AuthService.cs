@@ -31,10 +31,6 @@ namespace AttendanceManagementSystem.Services
             if (!BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
                 return null;
 
-            // Update last login
-            user.LastLoginAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
-
             return user;
         }
 

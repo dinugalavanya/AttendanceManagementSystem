@@ -50,6 +50,10 @@ namespace AttendanceManagementSystem.Data
                 entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(255);
                 entity.Property(e => e.Phone).HasColumnName("Phone").HasMaxLength(20);
                 entity.Property(e => e.Address).HasMaxLength(200);
+                entity.Property(e => e.UpdatedAt);
+                entity.Property(e => e.LoginTime);
+                entity.Property(e => e.LogoutTime);
+                entity.Property(e => e.AttendanceStatus).HasMaxLength(20);
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
                 entity.HasIndex(e => e.Email).IsUnique();
 
@@ -143,7 +147,6 @@ namespace AttendanceManagementSystem.Data
                 Phone = "1234567890",
                 RoleId = 1, // Super Admin
                 SectionId = null,
-                CreatedAt = DateTime.UtcNow,
                 IsActive = true
             };
 

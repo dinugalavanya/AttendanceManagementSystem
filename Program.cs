@@ -56,6 +56,7 @@ builder.Services.AddHttpContextAccessor();
 // Register custom services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
+builder.Services.AddScoped<DatabaseMigrationService>();
 
 var app = builder.Build();
 
@@ -94,8 +95,9 @@ using (var scope = app.Services.CreateScope())
                 logger.LogWarning("Initial DB connectivity check failed. Attempting EnsureCreated for database {Database}.", sqlBuilder.InitialCatalog);
             }
 
-            await DatabaseInitializer.EnsureCoreDataAsync(dbContext, logger);
-            await SampleUserSeeder.EnsureSampleUsersAsync(dbContext, logger);
+            // Initialize database and add missing columns
+            var dbMigration = scope.ServiceProvider.GetRequiredService<DatabaseMigrationService>();
+            await dbMigration.InitializeAsync();
             canConnect = await dbContext.Database.CanConnectAsync();
 
             if (canConnect)

@@ -101,8 +101,7 @@ namespace AttendanceManagementSystem.Data
                     Phone = "1234567890",
                     RoleId = superAdminRoleId,
                     SectionId = null,
-                    IsActive = true,
-                    CreatedAt = DateTime.UtcNow
+                    IsActive = true
                 });
 
                 await context.SaveChangesAsync(cancellationToken);

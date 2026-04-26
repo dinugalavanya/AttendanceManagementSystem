@@ -30,9 +30,15 @@ namespace AttendanceManagementSystem.Models
         [StringLength(200)]
         public string? Address { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
 
-        public DateTime? LastLoginAt { get; set; }
+        // Attendance fields for User Management page
+        public TimeSpan? LoginTime { get; set; }
+
+        public TimeSpan? LogoutTime { get; set; }
+
+        [StringLength(20)]
+        public string? AttendanceStatus { get; set; }
 
         public bool IsActive { get; set; } = true;
 
