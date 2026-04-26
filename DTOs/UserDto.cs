@@ -25,10 +25,6 @@ namespace AttendanceManagementSystem.DTOs
         [StringLength(200)]
         public string? Address { get; set; }
 
-        public DateTime CreatedAt { get; set; }
-
-        public DateTime? LastLoginAt { get; set; }
-
         public bool IsActive { get; set; }
 
         // Foreign key properties (no navigation properties to avoid cycles)

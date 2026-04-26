@@ -64,8 +64,6 @@ namespace AttendanceManagementSystem.Data
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(DefaultSamplePassword),
                     Phone = $"077{i:000000}",
                     Address = $"Sample Address {i}",
-                    CreatedAt = DateTime.Now,
-                    LastLoginAt = null,
                     IsActive = true,
                     RoleId = roleId,
                     SectionId = sectionId

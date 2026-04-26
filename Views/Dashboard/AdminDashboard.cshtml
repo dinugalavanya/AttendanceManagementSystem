@@ -1,0 +1,475 @@
+@model AttendanceManagementSystem.ViewModels.AdminDashboardViewModel
+@using AttendanceManagementSystem.Models
+@{
+    ViewData["Title"] = "Admin Dashboard";
+}
+
+@if (!Model.HasSection)
+{
+    <div class="container-fluid px-4">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card border-danger">
+                    <div class="card-body text-center">
+                        <i class="bi bi-exclamation-triangle text-danger" style="font-size: 3rem;"></i>
+                        <h4 class="text-danger mt-3">@Model.NoSectionMessage</h4>
+                        <a href="/Account/Logout" class="btn btn-primary mt-3">Contact SuperAdmin</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="container-fluid px-4">
+        <!-- Page Header - Command Center -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h1 class="h3 mb-1 text-white">@Model.SectionName Section Command Center</h1>
+                                <p class="text-white-50 mb-0">Today's attendance, late arrivals, overtime, and worker status</p>
+                            </div>
+                            <div>
+                                <span class="badge bg-white text-primary px-3 py-2">
+                                    <i class="bi bi-building me-1"></i>@Model.SectionName
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="row mb-4">
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="rounded-circle bg-primary bg-opacity-10 p-3">
+                                    <i class="bi bi-people-fill text-primary"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="text-muted mb-1">Section Workers</h6>
+                                <h3 class="mb-0">@Model.TotalWorkers</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="rounded-circle bg-success bg-opacity-10 p-3">
+                                    <i class="bi bi-check-circle text-success"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="text-muted mb-1">Checked In Today</h6>
+                                <h3 class="mb-0 text-success">@Model.PresentToday</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="rounded-circle bg-warning bg-opacity-10 p-3">
+                                    <i class="bi bi-alarm text-warning"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="text-muted mb-1">Late After 8:30</h6>
+                                <h3 class="mb-0 text-warning">@Model.LateToday</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="rounded-circle bg-danger bg-opacity-10 p-3">
+                                    <i class="bi bi-person-dash text-danger"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="text-muted mb-1">On Leave / No Login</h6>
+                                <h3 class="mb-0 text-danger">@Model.LeaveToday</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="rounded-circle bg-info bg-opacity-10 p-3">
+                                    <i class="bi bi-clock text-info"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="text-muted mb-1">Working OT After 4:30</h6>
+                                <h3 class="mb-0 text-info">@Model.WorkingOtToday</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="rounded-circle bg-purple bg-opacity-10 p-3">
+                                    <i class="bi bi-hourglass-split text-purple"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="text-muted mb-1">Total OT Hours Today</h6>
+                                <h3 class="mb-0 text-purple">@Model.TotalOtHoursThisMonth.ToString("F1")</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Dashboard Layout -->
+        <div class="row">
+            <!-- Left Side: Today Worker Status Table (70%) -->
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">
+                            <i class="bi bi-person-lines-fill me-2"></i>Today Worker Status
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (!Model.TodayWorkers.Any())
+                        {
+                            <div class="text-center py-5">
+                                <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+                                <p class="text-muted mt-3">No attendance records for your section today.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Worker Name</th>
+                                            <th>Login Time</th>
+                                            <th>Logout Time</th>
+                                            <th>Status</th>
+                                            <th>Late By</th>
+                                            <th>OT Hours</th>
+                                            <th>Current State</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var worker in Model.TodayWorkers)
+                                        {
+                                            <tr>
+                                                <td>@worker.WorkerName</td>
+                                                <td>@worker.LoginTimeDisplay</td>
+                                                <td>@worker.LogoutTimeDisplay</td>
+                                                <td>
+                                                    @switch (worker.Status)
+                                                    {
+                                                        case "Present":
+                                                            <span class="badge bg-success text-white">On Time</span>
+                                                            break;
+                                                        case "Late":
+                                                            <span class="badge bg-warning text-dark">Late</span>
+                                                            break;
+                                                        case "Leave":
+                                                            <span class="badge bg-danger text-white">Leave</span>
+                                                            break;
+                                                        default:
+                                                            <span class="badge bg-secondary text-white">@worker.Status</span>
+                                                            break;
+                                                    }
+                                                </td>
+                                                <td>@worker.LateByDisplay</td>
+                                                <td>@worker.OtHoursDisplay</td>
+                                                <td>
+                                                    @switch (worker.CurrentState)
+                                                    {
+                                                        case "On Leave":
+                                                            <span class="badge bg-danger text-white">On Leave</span>
+                                                            break;
+                                                        case "Working":
+                                                            <span class="badge bg-primary text-white">Working</span>
+                                                            break;
+                                                        case "Completed":
+                                                            <span class="badge bg-success text-white">Completed</span>
+                                                            break;
+                                                        case "Working OT":
+                                                            <span class="badge bg-purple text-white">Working OT</span>
+                                                            break;
+                                                        default:
+                                                            <span class="badge bg-secondary text-white">@worker.CurrentState</span>
+                                                            break;
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Charts (30%) -->
+            <div class="col-lg-4">
+                <!-- Doughnut Chart: Today Status Breakdown -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">
+                            <i class="bi bi-pie-chart me-2"></i>Today Status Breakdown
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        @if (Model.OnTimeCount == 0 && Model.LateCount == 0 && Model.LeaveCount == 0 && Model.OtCount == 0)
+                        {
+                            <div class="text-center py-4">
+                                <i class="bi bi-pie-chart text-muted" style="font-size: 2rem;"></i>
+                                <p class="text-muted mt-2">No status data available today</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <canvas id="statusBreakdownChart" width="400" height="300"></canvas>
+                        }
+                    </div>
+                </div>
+
+                <!-- Doughnut Chart: Work Hours Distribution -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">
+                            <i class="bi bi-clock-history me-2"></i>Work Hours Distribution
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        @if (Model.WorkHoursPieChart.Any())
+                        {
+                            <canvas id="workHoursPieChart" width="400" height="300"></canvas>
+                        }
+                        else
+                        {
+                            <div class="text-center py-4">
+                                <i class="bi bi-clock text-muted" style="font-size: 2rem;"></i>
+                                <p class="text-muted mt-2">No work hours data for today.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- OT Workers Today Card -->
+                <div class="card border-0 shadow-sm mb-4">
+                    <div class="card-header bg-light">
+                        <h6 class="mb-0">
+                            <i class="bi bi-clock-history me-2"></i>OT Workers Today
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        @if (Model.OtWorkers.Any())
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var otWorker in Model.OtWorkers.Take(5))
+                                {
+                                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>@otWorker.WorkerName</strong>
+                                            <br>
+                                            <small class="text-muted">Logout: @otWorker.LogoutTimeDisplay</small>
+                                        </div>
+                                        <div>
+                                            <span class="badge bg-purple text-white">@otWorker.OtHours.ToString("F1")h</span>
+                                        </div>
+                                    </div>
+                                }
+                                @if (Model.OtWorkers.Count > 5)
+                                {
+                                    <div class="list-group-item text-center">
+                                        <small class="text-muted">... and @(Model.OtWorkers.Count - 5) more</small>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-4">
+                                <i class="bi bi-clock text-muted" style="font-size: 2rem;"></i>
+                                <p class="text-muted mt-2">No overtime workers today.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2-Week Calendar Summary -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">
+                            <i class="bi bi-calendar3 me-2"></i>Last 2 Weeks Attendance Calendar
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (Model.LastTwoWeeksCalendarData.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>On Time</th>
+                                            <th>Late</th>
+                                            <th>Leave</th>
+                                            <th>OT Hours</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var day in Model.LastTwoWeeksCalendarData)
+                                        {
+                                            <tr>
+                                                <td>@day.Date.ToString("ddd, dd MMM yyyy")</td>
+                                                <td><span class="badge bg-success text-white">@day.PresentCount</span></td>
+                                                <td><span class="badge bg-warning text-dark">@day.LateCount</span></td>
+                                                <td><span class="badge bg-danger text-white">@day.LeaveCount</span></td>
+                                                <td><span class="badge bg-purple text-white">@day.TotalOtHours.ToString("F1")h</span></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-4">
+                                <i class="bi bi-calendar3 text-muted" style="font-size: 2rem;"></i>
+                                <p class="text-muted mt-2">No attendance data for the last 2 weeks.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        @if (Model.HasSection)
+        {
+            <text>
+            // Today Status Breakdown Doughnut Chart
+            const statusCtx = document.getElementById('statusBreakdownChart');
+            if (statusCtx) {
+                new Chart(statusCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['On Time', 'Late', 'Leave', 'OT'],
+                        datasets: [{
+                            data: [@Model.OnTimeCount, @Model.LateCount, @Model.LeaveCount, @Model.OtCount],
+                            backgroundColor: ['#28a745', '#ffc107', '#dc3545', '#6f42c1'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.label + ': ' + context.parsed + ' workers';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            </text>
+        }
+
+        @if (Model.HasSection && Model.WorkHoursPieChart.Any())
+        {
+            <text>
+            // Work Hours Doughnut Chart
+            const workHoursCtx = document.getElementById('workHoursPieChart');
+            if (workHoursCtx) {
+                new Chart(workHoursCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: @Html.Raw(Json.Serialize(Model.WorkHoursPieChart.Select(x => x.Label))),
+                        datasets: [{
+                            data: @Html.Raw(Json.Serialize(Model.WorkHoursPieChart.Select(x => x.Hours))),
+                            backgroundColor: [
+                                '#28a745', '#20c997', '#ffc107', '#dc3545', '#6c757d', '#17a2b8'
+                            ],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.label + ': ' + context.parsed + ' hours';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            </text>
+        }
+    </script>
+}
+
+<style>
+    .bg-purple {
+        background-color: #6f42c1 !important;
+    }
+    .text-purple {
+        color: #6f42c1 !important;
+    }
+    .bg-purple.bg-opacity-10 {
+        background-color: rgba(111, 66, 193, 0.1) !important;
+    }
+</style>
