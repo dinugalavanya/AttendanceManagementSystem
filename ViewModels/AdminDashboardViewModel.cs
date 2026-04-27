@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AttendanceManagementSystem.ViewModels;
 
 namespace AttendanceManagementSystem.ViewModels
 {
@@ -33,6 +34,45 @@ namespace AttendanceManagementSystem.ViewModels
         public int PresentCount { get; set; }
         public int LateCount1 { get; set; }
         public int AbsentCount { get; set; }
+        public int OnLeaveCount { get; set; }
+        public int OvertimeMinutesToday { get; set; }
+        public int OvertimeMinutesMonth { get; set; }
+        public int WorkingDaysToDate { get; set; }
+        public int AttendedDaysToDate { get; set; }
+        public int MonthlyPresentCount { get; set; }
+        public int MonthlyLateCount { get; set; }
+        public int MonthlyAbsentCount { get; set; }
+        public decimal AttendanceTargetPercent { get; set; }
+        public string ScopeTitle { get; set; } = string.Empty;
+        public bool IsSuperAdmin { get; set; }
+        public bool IsAdmin { get; set; }
+        public bool IsWorker { get; set; }
+        public List<string> TrendLabels { get; set; } = new();
+        public List<int> PresentTrend { get; set; } = new();
+        public List<int> LateTrend { get; set; } = new();
+        public List<int> AbsentTrend { get; set; } = new();
+        public List<int> OvertimeTrendHours { get; set; } = new();
+        public List<string> DistributionLabels { get; set; } = new();
+        public List<int> DistributionValues { get; set; } = new();
+        public List<SectionSnapshotItem> SectionSnapshots { get; set; } = new();
+        public List<RecentAttendanceItem> RecentAttendance { get; set; } = new();
+        public string UserName { get; set; } = string.Empty;
+        
+        // Worker search functionality
+        public bool IsWorkerSearchMode { get; set; }
+        public string? SearchServiceId { get; set; }
+        public string? WorkerSearchMessage { get; set; }
+        public WorkerHistorySearchViewModel? WorkerHistorySearchResult { get; set; }
+        
+        // Properties for Add Employee form
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string Phone { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+        public int? SectionId { get; set; }
     }
 
     public class WorkerAttendanceRow

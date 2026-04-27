@@ -36,6 +36,11 @@ namespace AttendanceManagementSystem.ViewModels
         public List<RecentAttendanceItem> RecentAttendance { get; set; } = new();
 
         public string UserName { get; set; } = string.Empty;
+
+        // Worker search functionality
+        public string? SearchServiceId { get; set; }
+        public string? WorkerSearchMessage { get; set; }
+        public WorkerHistorySearchViewModel? WorkerHistorySearchResult { get; set; }
     }
 
     public class SectionSnapshotItem

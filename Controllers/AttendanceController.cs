@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using AttendanceManagementSystem.Models;
 using AttendanceManagementSystem.Services;
 using AttendanceManagementSystem.Data;
+using AttendanceManagementSystem.ViewModels;
+using AttendanceManagementSystem.DTOs;
 
 namespace AttendanceManagementSystem.Controllers
 {
@@ -245,6 +247,295 @@ namespace AttendanceManagementSystem.Controllers
             {
                 ModelState.AddModelError("", "An error occurred while updating attendance.");
                 return View(model);
+            }
+        }
+
+        // AJAX GET: Get attendance data for edit modal
+        [HttpGet]
+        [Authorize(Roles = $"{RoleNames.SuperAdmin},{RoleNames.Admin}")]
+        public async Task<IActionResult> GetAttendanceForEdit(int id)
+        {
+            try
+            {
+                Console.WriteLine($"[DEBUG] GetAttendanceForEdit called with id: {id}");
+
+                var currentUser = _authService.GetCurrentUser();
+                if (currentUser == null)
+                {
+                    Console.WriteLine("[DEBUG] Current user is null");
+                    return Json(new { success = false, message = "User not authenticated" });
+                }
+
+                if (currentUser.Role == null)
+                {
+                    Console.WriteLine("[DEBUG] Current user role is null");
+                    return Json(new { success = false, message = "User role not found" });
+                }
+
+                Console.WriteLine($"[DEBUG] Current user: {currentUser.FullName}, Role: {currentUser.Role.Name}");
+
+                // Load attendance with User and Section navigation properties
+                var attendance = await _context.Attendances
+                    .Include(a => a.User)
+                    .ThenInclude(u => u.Section)
+                    .FirstOrDefaultAsync(a => a.Id == id);
+
+                if (attendance == null)
+                {
+                    Console.WriteLine($"[DEBUG] Attendance not found for id: {id}");
+                    return Json(new { success = false, message = "Attendance record not found" });
+                }
+
+                if (attendance.User == null)
+                {
+                    Console.WriteLine($"[DEBUG] Attendance.User is null for attendance id: {id}");
+                    return Json(new { success = false, message = "User information not found for attendance record" });
+                }
+
+                Console.WriteLine($"[DEBUG] Found attendance: UserId={attendance.UserId}, UserName={attendance.User.FullName}, Section={attendance.User.Section?.Name}");
+
+                // Check if user has permission to edit this attendance
+                if (currentUser.Role.Name == RoleNames.Admin)
+                {
+                    if (currentUser.SectionId != attendance.User.SectionId)
+                    {
+                        Console.WriteLine($"[DEBUG] Permission denied: Admin section mismatch. UserSection={currentUser.SectionId}, AttendanceSection={attendance.User.SectionId}");
+                        return Json(new { success = false, message = "You don't have permission to edit this record" });
+                    }
+                }
+
+                var model = new AttendanceUpdateViewModel
+                {
+                    Id = attendance.Id,
+                    UserId = attendance.UserId,
+                    EmployeeName = attendance.User?.FullName ?? "Unknown",
+                    InTime = attendance.InTime,
+                    OutTime = attendance.OutTime,
+                    Status = attendance.Status,
+                    AttendanceDate = attendance.AttendanceDate,
+                    WorkedHours = attendance.TotalWorkedMinutes > 0 ? Math.Round(attendance.TotalWorkedMinutes / 60m, 2) : 0,
+                    OTHours = attendance.OvertimeMinutes > 0 ? Math.Round(attendance.OvertimeMinutes / 60m, 2) : 0,
+                    // Add formatted time strings for HTML input compatibility (24-hour format)
+                    InTimeString = attendance.InTime?.ToString(@"hh\:mm"),
+                    OutTimeString = attendance.OutTime?.ToString(@"hh\:mm")
+                };
+
+                Console.WriteLine($"[DEBUG] Returning model with InTimeString: {model.InTimeString}, OutTimeString: {model.OutTimeString}");
+
+                return Json(new { success = true, data = model });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[DEBUG] Error in GetAttendanceForEdit: {ex.Message}");
+                Console.WriteLine($"[DEBUG] Stack Trace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"[DEBUG] Inner Exception: {ex.InnerException.Message}");
+                }
+                return Json(new { success = false, message = $"An error occurred while loading attendance data: {ex.Message}" });
+            }
+        }
+
+        // AJAX POST: Update attendance record
+        [HttpPost]
+        [Authorize(Roles = $"{RoleNames.SuperAdmin},{RoleNames.Admin}")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateAttendance([FromBody] AttendanceUpdateDTO dto)
+        {
+            try
+            {
+                Console.WriteLine($"[DEBUG] UpdateAttendance called with: Id={dto?.Id}, InTime={dto?.InTime}, OutTime={dto?.OutTime}, Status={dto?.Status}");
+
+                // Log ModelState errors if any
+                if (!ModelState.IsValid)
+                {
+                    Console.WriteLine("[DEBUG] ModelState is invalid:");
+                    foreach (var state in ModelState)
+                    {
+                        foreach (var error in state.Value.Errors)
+                        {
+                            Console.WriteLine($"[DEBUG] {state.Key}: {error.ErrorMessage}");
+                        }
+                    }
+                    var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList();
+                    return Json(new { success = false, message = "Validation failed", errors = errors });
+                }
+
+                // Manual validation
+                if (dto == null)
+                {
+                    Console.WriteLine("[DEBUG] DTO is null");
+                    return Json(new { success = false, message = "Invalid request data" });
+                }
+
+                if (dto.Id <= 0)
+                {
+                    Console.WriteLine($"[DEBUG] Invalid Id: {dto.Id}");
+                    return Json(new { success = false, message = "Invalid attendance record ID" });
+                }
+
+                if (string.IsNullOrWhiteSpace(dto.InTime))
+                {
+                    Console.WriteLine("[DEBUG] InTime is null or empty");
+                    return Json(new { success = false, message = "In Time is required" });
+                }
+
+                if (string.IsNullOrWhiteSpace(dto.OutTime))
+                {
+                    Console.WriteLine("[DEBUG] OutTime is null or empty");
+                    return Json(new { success = false, message = "Out Time is required" });
+                }
+
+                if (string.IsNullOrWhiteSpace(dto.Status))
+                {
+                    Console.WriteLine("[DEBUG] Status is null or empty");
+                    return Json(new { success = false, message = "Status is required" });
+                }
+
+                var currentUser = _authService.GetCurrentUser();
+                if (currentUser == null)
+                {
+                    Console.WriteLine("[DEBUG] User not authenticated");
+                    return Json(new { success = false, message = "User not authenticated" });
+                }
+
+                // Check current user role
+                if (currentUser.Role == null)
+                {
+                    Console.WriteLine("[DEBUG] Current user role is null");
+                    return Json(new { success = false, message = "User role not found" });
+                }
+
+                Console.WriteLine($"[DEBUG] Current user: {currentUser.FullName}, Role: {currentUser.Role.Name}");
+
+                // Validate and normalize status
+                var normalizedStatus = dto.Status;
+                if (dto.Status == "On Time")
+                {
+                    normalizedStatus = AttendanceStatus.Present;
+                    Console.WriteLine($"[DEBUG] Converting 'On Time' to 'Present'");
+                }
+
+                // Validate status against allowed values
+                var validStatuses = new[] { AttendanceStatus.Present, AttendanceStatus.Late, AttendanceStatus.Absent, AttendanceStatus.Leave };
+                if (!validStatuses.Contains(normalizedStatus))
+                {
+                    Console.WriteLine($"[DEBUG] Invalid status: {normalizedStatus}");
+                    return Json(new { success = false, message = "Invalid status value" });
+                }
+
+                // Parse time strings "hh:mm" to TimeSpan with fallback
+                TimeSpan inTimeSpan, outTimeSpan;
+                
+                if (!TimeSpan.TryParseExact(dto.InTime, @"hh\:mm", System.Globalization.CultureInfo.InvariantCulture, out inTimeSpan))
+                {
+                    if (!TimeSpan.TryParse(dto.InTime, System.Globalization.CultureInfo.InvariantCulture, out inTimeSpan))
+                    {
+                        Console.WriteLine($"[DEBUG] Failed to parse InTime: {dto.InTime}");
+                        return Json(new { success = false, message = "Invalid In Time format. Use HH:mm format (e.g., 09:30)" });
+                    }
+                }
+
+                if (!TimeSpan.TryParseExact(dto.OutTime, @"hh\:mm", System.Globalization.CultureInfo.InvariantCulture, out outTimeSpan))
+                {
+                    if (!TimeSpan.TryParse(dto.OutTime, System.Globalization.CultureInfo.InvariantCulture, out outTimeSpan))
+                    {
+                        Console.WriteLine($"[DEBUG] Failed to parse OutTime: {dto.OutTime}");
+                        return Json(new { success = false, message = "Invalid Out Time format. Use HH:mm format (e.g., 17:30)" });
+                    }
+                }
+
+                Console.WriteLine($"[DEBUG] Parsed times: InTime={inTimeSpan}, OutTime={outTimeSpan}");
+
+                // Validate time logic
+                if (inTimeSpan >= outTimeSpan)
+                {
+                    Console.WriteLine($"[DEBUG] Time validation failed: {inTimeSpan} >= {outTimeSpan}");
+                    return Json(new { success = false, message = "Out Time must be after In Time" });
+                }
+
+                // Load attendance with User and Section navigation properties using Id only
+                var attendance = await _context.Attendances
+                    .Include(a => a.User)
+                    .ThenInclude(u => u.Section)
+                    .FirstOrDefaultAsync(a => a.Id == dto.Id);
+
+                if (attendance == null)
+                {
+                    Console.WriteLine($"[DEBUG] Attendance record not found for Id: {dto.Id}");
+                    return Json(new { success = false, message = "Attendance record not found" });
+                }
+
+                if (attendance.User == null)
+                {
+                    Console.WriteLine("[DEBUG] Attendance.User is null");
+                    return Json(new { success = false, message = "User information not found for attendance record" });
+                }
+
+                Console.WriteLine($"[DEBUG] Found attendance: UserId={attendance.UserId}, UserName={attendance.User.FullName}, Section={attendance.User.Section?.Name}");
+
+                // Check permissions
+                if (currentUser.Role.Name == RoleNames.Admin)
+                {
+                    if (currentUser.SectionId != attendance.User.SectionId)
+                    {
+                        Console.WriteLine($"[DEBUG] Permission denied: Admin section mismatch. UserSection={currentUser.SectionId}, AttendanceSection={attendance.User.SectionId}");
+                        return Json(new { success = false, message = "You don't have permission to edit this record" });
+                    }
+                }
+
+                Console.WriteLine($"[DEBUG] Updating attendance with: InTime={inTimeSpan}, OutTime={outTimeSpan}, Status={normalizedStatus}");
+
+                // Update attendance fields
+                attendance.InTime = inTimeSpan;
+                attendance.OutTime = outTimeSpan;
+                attendance.Status = normalizedStatus;
+                attendance.UpdatedAt = DateTime.UtcNow;
+
+                // Calculate worked minutes
+                var totalWorkedMinutes = (int)(outTimeSpan - inTimeSpan).TotalMinutes;
+                attendance.TotalWorkedMinutes = totalWorkedMinutes;
+
+                // Calculate regular and overtime minutes (8 hours = 480 minutes)
+                var regularWorkMinutes = Math.Min(totalWorkedMinutes, 480);
+                var overtimeMinutes = Math.Max(0, totalWorkedMinutes - 480);
+
+                attendance.RegularWorkedMinutes = regularWorkMinutes;
+                attendance.OvertimeMinutes = overtimeMinutes;
+
+                // Save changes
+                await _context.SaveChangesAsync();
+
+                Console.WriteLine($"[DEBUG] Successfully updated attendance: {attendance.Id}");
+
+                // Return updated data for table refresh
+                var responseData = new
+                {
+                    id = attendance.Id,
+                    inTime = attendance.InTime?.ToString(@"hh\:mm"),
+                    outTime = attendance.OutTime?.ToString(@"hh\:mm"),
+                    workedHours = Math.Round(attendance.TotalWorkedMinutes / 60m, 2),
+                    otHours = Math.Round(attendance.OvertimeMinutes / 60m, 2),
+                    status = attendance.Status
+                };
+
+                return Json(new { success = true, message = "Attendance updated successfully", data = responseData });
+            }
+            catch (InvalidOperationException ex)
+            {
+                Console.WriteLine($"[DEBUG] InvalidOperationException: {ex.Message}");
+                Console.WriteLine($"[DEBUG] Stack Trace: {ex.StackTrace}");
+                return Json(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[DEBUG] Exception: {ex.Message}");
+                Console.WriteLine($"[DEBUG] Stack Trace: {ex.StackTrace}");
+                if (ex.InnerException != null)
+                {
+                    Console.WriteLine($"[DEBUG] Inner Exception: {ex.InnerException.Message}");
+                }
+                return Json(new { success = false, message = $"An error occurred while updating attendance: {ex.Message}" });
             }
         }
     }

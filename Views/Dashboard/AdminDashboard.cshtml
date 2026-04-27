@@ -1,8 +1,192 @@
 @model AttendanceManagementSystem.ViewModels.AdminDashboardViewModel
 @using AttendanceManagementSystem.Models
+@using System.Text.Json
 @{
     ViewData["Title"] = "Admin Dashboard";
 }
+
+<style>
+.dashboard-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.section-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: #1f2937;
+}
+
+.search-container {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.search-input {
+    flex: 1;
+    height: 44px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
+}
+
+.search-button {
+    height: 44px;
+    padding: 0 20px;
+    border-radius: 8px;
+}
+
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.summary-card {
+    padding: 16px;
+    border-radius: 10px;
+    background: #f8f9fb;
+    text-align: center;
+    border: 1px solid #e9ecef;
+}
+
+.table-container {
+    margin-top: 16px;
+}
+
+.table th, .table td {
+    padding: 12px;
+    text-align: center;
+}
+
+.dashboard-charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.dashboard-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    margin-top: 24px;
+    align-items: stretch;
+}
+
+.dashboard-chart-card {
+    background: #ffffff;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+    min-height: 360px;
+    max-height: 420px;
+}
+
+.chart-card-header {
+    padding: 16px 20px;
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    border-bottom: 1px solid #e5e7eb;
+    background: #ffffff;
+}
+
+.chart-box {
+    position: relative;
+    height: 300px;
+    padding: 20px;
+}
+
+.chart-box canvas {
+    max-height: 260px !important;
+    width: 100% !important;
+}
+
+.worker-history-table-wrap {
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.dashboard-content {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.section-divider {
+    margin: 30px 0;
+    border-top: 1px solid #eee;
+}
+
+.worker-profile-info {
+    background: #f8f9fb;
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid #e9ecef;
+}
+
+.profile-item label {
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+
+.profile-item div {
+    margin-bottom: 8px;
+}
+
+.worker-chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+    margin: 24px 0;
+}
+
+.worker-chart-card {
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.worker-chart-box {
+    position: relative;
+    height: 280px;
+}
+
+.worker-chart-box canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+@@media (max-width: 768px) {
+    .dashboard-charts {
+        grid-template-columns: 1fr;
+    }
+    
+    .summary-cards {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+}
+
+@@media (max-width: 992px) {
+    .dashboard-chart-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-chart-card {
+        max-height: none;
+    }
+}
+</style>
 
 @if (!Model.HasSection)
 {
@@ -22,7 +206,7 @@
 }
 else
 {
-    <div class="container-fluid px-4">
+    <div class="dashboard-content">
         <!-- Page Header - Command Center -->
         <div class="row mb-4">
             <div class="col-12">
@@ -38,151 +222,472 @@ else
                                     <i class="bi bi-building me-1"></i>@Model.SectionName
                                 </span>
                             </div>
+                            <div>
+                                @if (User.IsInRole("Admin"))
+                                {
+                                    <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addEmployeeModal">
+                                        <i class="bi bi-person-plus me-1"></i>Add Employees
+                                    </button>
+                                }
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Summary Cards -->
-        <div class="row mb-4">
-            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center">
-                            <div class="flex-shrink-0">
-                                <div class="rounded-circle bg-primary bg-opacity-10 p-3">
-                                    <i class="bi bi-people-fill text-primary"></i>
-                                </div>
+        <!-- Service ID Search -->
+        <div class="dashboard-card">
+            <h5 class="section-title">
+                <i class="bi bi-search me-2"></i>Search Worker
+            </h5>
+            <p class="text-muted mb-3">Search worker by Service ID for attendance history</p>
+            
+            <form method="get" asp-controller="Dashboard" asp-action="Index">
+                <div class="search-container">
+                    <input type="text" 
+                           class="form-control search-input" 
+                           id="serviceId" 
+                           name="serviceId" 
+                           placeholder="Enter Service ID..."
+                           value="@Model.SearchServiceId">
+                    <button type="submit" class="btn btn-primary search-button">
+                        <i class="bi bi-search me-2"></i>Search
+                    </button>
+                    @if (!string.IsNullOrEmpty(Model.SearchServiceId))
+                    {
+                        <a href="/Dashboard/Index" class="btn btn-outline-secondary search-button">
+                            <i class="bi bi-x-lg me-2"></i>Clear
+                        </a>
+                    }
+                </div>
+            </form>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.WorkerSearchMessage))
+        {
+            <div class="dashboard-card">
+                <div class="alert alert-info">
+                    @Model.WorkerSearchMessage
+                </div>
+            </div>
+        }
+        
+        @if (!string.IsNullOrEmpty(TempData["SuccessMessage"]?.ToString()))
+        {
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <strong>Success!</strong> @TempData["SuccessMessage"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        }
+
+        @if (Model.WorkerHistorySearchResult != null)
+        {
+            var worker = Model.WorkerHistorySearchResult;
+
+            <div class="alert alert-info">
+                <i class="bi bi-search me-2"></i>Showing results for Service ID: @worker.ServiceId
+            </div>
+
+            <!-- Worker Profile Header Card -->
+            <div class="dashboard-card">
+                <h5 class="section-title">
+                    <i class="bi bi-person-badge me-2"></i>Worker Details
+                </h5>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="worker-profile-info">
+                            <div class="profile-item">
+                                <label class="text-muted small">Full Name</label>
+                                <div class="fw-bold fs-5">@worker.FullName</div>
                             </div>
-                            <div class="flex-grow-1 ms-3">
-                                <h6 class="text-muted mb-1">Section Workers</h6>
-                                <h3 class="mb-0">@Model.TotalWorkers</h3>
+                            <div class="profile-item mt-2">
+                                <label class="text-muted small">Service ID</label>
+                                <div class="fw-bold">@worker.ServiceId</div>
+                            </div>
+                            <div class="profile-item mt-2">
+                                <label class="text-muted small">Email</label>
+                                <div>@worker.Email</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="worker-profile-info">
+                            <div class="profile-item">
+                                <label class="text-muted small">Section</label>
+                                <div class="fw-bold">@worker.SectionName</div>
+                            </div>
+                            <div class="profile-item mt-2">
+                                <label class="text-muted small">Current Status</label>
+                                <div class="badge bg-@(worker.LatestStatus == "Present" ? "success" : worker.LatestStatus == "Late" ? "warning" : worker.LatestStatus == "Leave" ? "danger" : "secondary") fs-6">
+                                    @worker.LatestStatus
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center">
-                            <div class="flex-shrink-0">
-                                <div class="rounded-circle bg-success bg-opacity-10 p-3">
-                                    <i class="bi bi-check-circle text-success"></i>
+
+            <!-- Main Worker Stats Cards -->
+            <div class="dashboard-card">
+                <h5 class="section-title">
+                    <i class="bi bi-bar-chart me-2"></i>Worker Statistics
+                </h5>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="summary-card">
+                            <div class="d-flex align-items-center justify-content-center mb-2">
+                                <div class="rounded-circle bg-primary bg-opacity-10 p-2">
+                                    <i class="bi bi-briefcase text-primary"></i>
                                 </div>
                             </div>
-                            <div class="flex-grow-1 ms-3">
-                                <h6 class="text-muted mb-1">Checked In Today</h6>
-                                <h3 class="mb-0 text-success">@Model.PresentToday</h3>
+                            <h6 class="text-muted mb-1">Total Worked Hours</h6>
+                            <h4 class="mb-0">@worker.TotalWorkedHours h</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="summary-card">
+                            <div class="d-flex align-items-center justify-content-center mb-2">
+                                <div class="rounded-circle bg-purple bg-opacity-10 p-2">
+                                    <i class="bi bi-clock text-purple"></i>
+                                </div>
                             </div>
+                            <h6 class="text-muted mb-1">Total OT Hours</h6>
+                            <h4 class="mb-0 text-purple">@worker.TotalOTHours h</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="summary-card">
+                            <div class="d-flex align-items-center justify-content-center mb-2">
+                                <div class="rounded-circle bg-info bg-opacity-10 p-2">
+                                    <i class="bi bi-calendar-check text-info"></i>
+                                </div>
+                            </div>
+                            <h6 class="text-muted mb-1">OT Days</h6>
+                            <h4 class="mb-0 text-info">@worker.OTDaysCount</h4>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center">
-                            <div class="flex-shrink-0">
-                                <div class="rounded-circle bg-warning bg-opacity-10 p-3">
+                <div class="row g-3 mt-2">
+                    <div class="col-md-4">
+                        <div class="summary-card">
+                            <div class="d-flex align-items-center justify-content-center mb-2">
+                                <div class="rounded-circle bg-danger bg-opacity-10 p-2">
+                                    <i class="bi bi-calendar-x text-danger"></i>
+                                </div>
+                            </div>
+                            <h6 class="text-muted mb-1">Leave Days</h6>
+                            <h4 class="mb-0 text-danger">@worker.LeaveDaysCount</h4>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="summary-card">
+                            <div class="d-flex align-items-center justify-content-center mb-2">
+                                <div class="rounded-circle bg-warning bg-opacity-10 p-2">
                                     <i class="bi bi-alarm text-warning"></i>
                                 </div>
                             </div>
-                            <div class="flex-grow-1 ms-3">
-                                <h6 class="text-muted mb-1">Late After 8:30</h6>
-                                <h3 class="mb-0 text-warning">@Model.LateToday</h3>
-                            </div>
+                            <h6 class="text-muted mb-1">Late Days</h6>
+                            <h4 class="mb-0 text-warning">@worker.LateDaysCount</h4>
                         </div>
                     </div>
-                </div>
-            </div>
-            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center">
-                            <div class="flex-shrink-0">
-                                <div class="rounded-circle bg-danger bg-opacity-10 p-3">
-                                    <i class="bi bi-person-dash text-danger"></i>
+                    <div class="col-md-4">
+                        <div class="summary-card">
+                            <div class="d-flex align-items-center justify-content-center mb-2">
+                                <div class="rounded-circle bg-success bg-opacity-10 p-2">
+                                    <i class="bi bi-check-circle text-success"></i>
                                 </div>
                             </div>
-                            <div class="flex-grow-1 ms-3">
-                                <h6 class="text-muted mb-1">On Leave / No Login</h6>
-                                <h3 class="mb-0 text-danger">@Model.LeaveToday</h3>
-                            </div>
+                            <h6 class="text-muted mb-1">On Time Days</h6>
+                            <h4 class="mb-0 text-success">@worker.OnTimeDaysCount</h4>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center">
-                            <div class="flex-shrink-0">
-                                <div class="rounded-circle bg-info bg-opacity-10 p-3">
-                                    <i class="bi bi-clock text-info"></i>
-                                </div>
-                            </div>
-                            <div class="flex-grow-1 ms-3">
-                                <h6 class="text-muted mb-1">Working OT After 4:30</h6>
-                                <h3 class="mb-0 text-info">@Model.WorkingOtToday</h3>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center">
-                            <div class="flex-shrink-0">
-                                <div class="rounded-circle bg-purple bg-opacity-10 p-3">
-                                    <i class="bi bi-hourglass-split text-purple"></i>
-                                </div>
-                            </div>
-                            <div class="flex-grow-1 ms-3">
-                                <h6 class="text-muted mb-1">Total OT Hours Today</h6>
-                                <h3 class="mb-0 text-purple">@Model.TotalOtHoursThisMonth.ToString("F1")</h3>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <!-- Main Dashboard Layout -->
-        <div class="row">
-            <!-- Left Side: Today Worker Status Table (70%) -->
-            <div class="col-lg-8">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-light">
-                        <h5 class="mb-0">
-                            <i class="bi bi-person-lines-fill me-2"></i>Today Worker Status
-                        </h5>
+            <!-- Latest Attendance Card -->
+            @if (worker.LatestAttendance != null)
+            {
+                <div class="dashboard-card">
+                    <h5 class="section-title">
+                        <i class="bi bi-clock-history me-2"></i>Latest Attendance
+                    </h5>
+                    <div class="row g-3">
+                        <div class="col-md-2">
+                            <strong>Date</strong>
+                            <div>@worker.LatestAttendance.Date.ToString("dd MMM yyyy")</div>
+                        </div>
+                        <div class="col-md-2">
+                            <strong>In Time</strong>
+                            <div>@worker.LatestAttendance.InTime</div>
+                        </div>
+                        <div class="col-md-2">
+                            <strong>Out Time</strong>
+                            <div>@worker.LatestAttendance.OutTime</div>
+                        </div>
+                        <div class="col-md-2">
+                            <strong>Worked Hours</strong>
+                            <div>@worker.LatestAttendance.WorkedHours</div>
+                        </div>
+                        <div class="col-md-2">
+                            <strong>OT Hours</strong>
+                            <div>@worker.LatestAttendance.OTHours</div>
+                        </div>
+                        <div class="col-md-2">
+                            <strong>Status</strong>
+                            <div>@worker.LatestAttendance.Status</div>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        @if (!Model.TodayWorkers.Any())
+                </div>
+            }
+
+            <!-- Worker Charts -->
+            <div class="worker-chart-grid">
+                <!-- Attendance Status Donut Chart -->
+                <div class="worker-chart-card">
+                    <div class="chart-card-header">
+                        <i class="bi bi-pie-chart me-2"></i>Attendance Status
+                    </div>
+                    <div class="worker-chart-box">
+                        <canvas id="workerStatusChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- OT Hours Bar Chart -->
+                <div class="worker-chart-card">
+                    <div class="chart-card-header">
+                        <i class="bi bi-clock-fill me-2"></i>OT Hours by Date
+                    </div>
+                    <div class="worker-chart-box">
+                        @if (worker.OTHistory.Any())
                         {
-                            <div class="text-center py-5">
-                                <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
-                                <p class="text-muted mt-3">No attendance records for your section today.</p>
-                            </div>
+                            <canvas id="workerOTChart"></canvas>
                         }
                         else
                         {
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Worker Name</th>
-                                            <th>Login Time</th>
-                                            <th>Logout Time</th>
-                                            <th>Status</th>
-                                            <th>Late By</th>
-                                            <th>OT Hours</th>
-                                            <th>Current State</th>
-                                        </tr>
-                                    </thead>
+                            <div class="text-center d-flex flex-column justify-content-center h-100">
+                                <i class="bi bi-clock text-muted" style="font-size: 2rem;"></i>
+                                <p class="text-muted mt-2">No overtime records found.</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Worked Hours Line Chart -->
+                <div class="worker-chart-card">
+                    <div class="chart-card-header">
+                        <i class="bi bi-graph-up me-2"></i>Worked Hours by Date
+                    </div>
+                    <div class="worker-chart-box">
+                        <canvas id="workerWorkedChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OT Focus Table -->
+            <div class="dashboard-card">
+                <h5 class="section-title">
+                    <i class="bi bi-clock-fill me-2"></i>Overtime History
+                </h5>
+                @if (worker.OTHistory.Any())
+                {
+                    <div class="worker-history-table-wrap">
+                        <table class="table table-sm table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>In Time</th>
+                                    <th>Out Time</th>
+                                    <th>Worked Hours</th>
+                                    <th>OT Hours</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in worker.OTHistory)
+                                {
+                                    <tr>
+                                        <td>@row.Date.ToString("dd MMM yyyy")</td>
+                                        <td>@row.InTime</td>
+                                        <td>@row.OutTime</td>
+                                        <td>@row.WorkedHours</td>
+                                        <td class="fw-bold text-purple">@row.OTHours</td>
+                                        <td>@row.Status</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-4">
+                        <i class="bi bi-clock text-muted" style="font-size: 2rem;"></i>
+                        <p class="text-muted mt-2">No overtime records found for this worker.</p>
+                    </div>
+                }
+            </div>
+
+            <!-- Full Attendance History Table -->
+            <div class="dashboard-card">
+                <h5 class="section-title">
+                    <i class="bi bi-calendar3 me-2"></i>Full Attendance History (Last 30 Records)
+                </h5>
+                @if (worker.History.Any())
+                {
+                    <div class="worker-history-table-wrap">
+                        <table class="table table-sm table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>In Time</th>
+                                    <th>Out Time</th>
+                                    <th>Worked Hours</th>
+                                    <th>OT Hours</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in worker.History)
+                                {
+                                    <tr>
+                                        <td>@row.Date.ToString("dd MMM yyyy")</td>
+                                        <td>@row.InTime</td>
+                                        <td>@row.OutTime</td>
+                                        <td>@row.WorkedHours</td>
+                                        <td>@row.OTHours</td>
+                                        <td>@row.Status</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-4">
+                        <i class="bi bi-calendar3 text-muted" style="font-size: 2rem;"></i>
+                        <p class="text-muted mt-2">No attendance history found for this worker.</p>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Summary Cards -->
+        @if (!Model.IsWorkerSearchMode)
+        {
+            <!-- Show full section dashboard cards -->
+            <div class="dashboard-card">
+                <h5 class="section-title">Summary Overview</h5>
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <div class="rounded-circle bg-primary bg-opacity-10 p-2">
+                                <i class="bi bi-people-fill text-primary"></i>
+                            </div>
+                        </div>
+                        <h6 class="text-muted mb-1">Section Workers</h6>
+                        <h3 class="mb-0">@Model.TotalWorkers</h3>
+                    </div>
+                    <div class="summary-card">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <div class="rounded-circle bg-success bg-opacity-10 p-2">
+                                <i class="bi bi-check-circle text-success"></i>
+                            </div>
+                        </div>
+                        <h6 class="text-muted mb-1">Checked In Today</h6>
+                        <h3 class="mb-0 text-success">@Model.PresentToday</h3>
+                    </div>
+                    <div class="summary-card">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <div class="rounded-circle bg-warning bg-opacity-10 p-2">
+                                <i class="bi bi-alarm text-warning"></i>
+                            </div>
+                        </div>
+                        <h6 class="text-muted mb-1">Late After 8:30</h6>
+                        <h3 class="mb-0 text-warning">@Model.LateToday</h3>
+                    </div>
+                    <div class="summary-card">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <div class="rounded-circle bg-danger bg-opacity-10 p-2">
+                                <i class="bi bi-person-dash text-danger"></i>
+                            </div>
+                        </div>
+                        <h6 class="text-muted mb-1">On Leave / No Login</h6>
+                        <h3 class="mb-0 text-danger">@Model.LeaveToday</h3>
+                    </div>
+                    <div class="summary-card">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <div class="rounded-circle bg-info bg-opacity-10 p-2">
+                                <i class="bi bi-clock text-info"></i>
+                            </div>
+                        </div>
+                        <h6 class="text-muted mb-1">Working OT After 4:30</h6>
+                        <h3 class="mb-0 text-info">@Model.WorkingOtToday</h3>
+                    </div>
+                    <div class="summary-card">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <div class="rounded-circle bg-purple bg-opacity-10 p-2">
+                                <i class="bi bi-hourglass-split text-purple"></i>
+                            </div>
+                        </div>
+                        <h6 class="text-muted mb-1">Total OT Hours Today</h6>
+                        <h3 class="mb-0 text-purple">@Model.TotalOtHoursThisMonth.ToString("F1")</h3>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <!-- Show only worker-specific card -->
+            <div class="dashboard-card">
+                <h5 class="section-title">Worker Search Results</h5>
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <div class="d-flex align-items-center justify-content-center mb-2">
+                            <div class="rounded-circle bg-primary bg-opacity-10 p-2">
+                                <i class="bi bi-person-fill text-primary"></i>
+                            </div>
+                        </div>
+                        <h6 class="text-muted mb-1">Searched Worker</h6>
+                        <h3 class="mb-0">1</h3>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Main Dashboard Layout -->
+        @if (!Model.IsWorkerSearchMode)
+        {
+            <div class="row">
+                <!-- Left Side: Today Worker Status Table (70%) -->
+                <div class="col-lg-8">
+                    <div class="dashboard-card">
+                        <h5 class="section-title">
+                            <i class="bi bi-person-lines-fill me-2"></i>Today Worker Status
+                        </h5>
+                    @if (!Model.TodayWorkers.Any())
+                    {
+                        <div class="text-center py-5">
+                            <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+                            <p class="text-muted mt-3">No attendance records for your section today.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-container">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Worker Name</th>
+                                        <th>Login Time</th>
+                                        <th>Logout Time</th>
+                                        <th>Status</th>
+                                        <th>Late By</th>
+                                        <th>OT Hours</th>
+                                        <th>Current State</th>
+                                    </tr>
+                                </thead>
                                     <tbody>
                                         @foreach (var worker in Model.TodayWorkers)
                                         {
@@ -240,94 +745,79 @@ else
             </div>
 
             <!-- Right Side: Charts (30%) -->
-            <div class="col-lg-4">
-                <!-- Doughnut Chart: Today Status Breakdown -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-light">
-                        <h6 class="mb-0">
-                            <i class="bi bi-pie-chart me-2"></i>Today Status Breakdown
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        @if (Model.OnTimeCount == 0 && Model.LateCount == 0 && Model.LeaveCount == 0 && Model.OtCount == 0)
-                        {
-                            <div class="text-center py-4">
-                                <i class="bi bi-pie-chart text-muted" style="font-size: 2rem;"></i>
-                                <p class="text-muted mt-2">No status data available today</p>
+                <div class="col-lg-4">
+                    <div class="dashboard-chart-grid">
+                        <!-- Doughnut Chart: Today Status Breakdown -->
+                        <div class="dashboard-chart-card">
+                            <div class="chart-card-header">
+                                <i class="bi bi-pie-chart me-2"></i>Today Status Breakdown
                             </div>
-                        }
-                        else
-                        {
-                            <canvas id="statusBreakdownChart" width="400" height="300"></canvas>
-                        }
+                        <div class="chart-box">
+                            @if (Model.OnTimeCount == 0 && Model.LateCount == 0 && Model.LeaveCount == 0 && Model.OtCount == 0)
+                            {
+                                <div class="text-center d-flex flex-column justify-content-center h-100">
+                                    <i class="bi bi-pie-chart text-muted" style="font-size: 2rem;"></i>
+                                    <p class="text-muted mt-2">No status data available today</p>
+                                </div>
+                            }
+                            else
+                            {
+                                <canvas id="statusBreakdownChart"></canvas>
+                            }
+                        </div>
                     </div>
-                </div>
 
-                <!-- Doughnut Chart: Work Hours Distribution -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-light">
-                        <h6 class="mb-0">
+                    <!-- Doughnut Chart: Work Hours Distribution -->
+                    <div class="dashboard-chart-card">
+                        <div class="chart-card-header">
                             <i class="bi bi-clock-history me-2"></i>Work Hours Distribution
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        @if (Model.WorkHoursPieChart.Any())
-                        {
-                            <canvas id="workHoursPieChart" width="400" height="300"></canvas>
-                        }
-                        else
-                        {
-                            <div class="text-center py-4">
-                                <i class="bi bi-clock text-muted" style="font-size: 2rem;"></i>
-                                <p class="text-muted mt-2">No work hours data for today.</p>
-                            </div>
-                        }
+                        </div>
+                        <div class="chart-box">
+                            @if (Model.WorkHoursPieChart.Any())
+                            {
+                                <canvas id="workHoursPieChart"></canvas>
+                            }
+                            else
+                            {
+                                <div class="text-center d-flex flex-column justify-content-center h-100">
+                                    <i class="bi bi-clock-history text-muted" style="font-size: 2rem;"></i>
+                                    <p class="text-muted mt-2">No work hours data for today.</p>
+                                </div>
+                            }
+                        </div>
                     </div>
                 </div>
 
                 <!-- OT Workers Today Card -->
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-light">
-                        <h6 class="mb-0">
-                            <i class="bi bi-clock-history me-2"></i>OT Workers Today
-                        </h6>
-                    </div>
-                    <div class="card-body">
-                        @if (Model.OtWorkers.Any())
-                        {
-                            <div class="list-group list-group-flush">
-                                @foreach (var otWorker in Model.OtWorkers.Take(5))
-                                {
-                                    <div class="list-group-item d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <strong>@otWorker.WorkerName</strong>
-                                            <br>
-                                            <small class="text-muted">Logout: @otWorker.LogoutTimeDisplay</small>
-                                        </div>
-                                        <div>
-                                            <span class="badge bg-purple text-white">@otWorker.OtHours.ToString("F1")h</span>
-                                        </div>
+                <div class="dashboard-card">
+                    <h6 class="section-title">
+                        <i class="bi bi-clock-history me-2"></i>@(Model.IsWorkerSearchMode ? "Worker OT Details" : "OT Workers Today")
+                    </h6>
+                    @if (!Model.OtWorkers.Any())
+                    {
+                        <div class="text-center py-4">
+                            <i class="bi bi-clock text-muted" style="font-size: 2rem;"></i>
+                            <p class="text-muted mt-2">@(Model.IsWorkerSearchMode ? "No overtime for this worker today." : "No overtime workers today")</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="list-group list-group-flush">
+                            @foreach (var otWorker in Model.OtWorkers.Take(5))
+                            {
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>@otWorker.WorkerName</strong>
+                                        <br>
+                                        <small class="text-muted">Logout: @otWorker.LogoutTimeDisplay</small>
                                     </div>
-                                }
-                                @if (Model.OtWorkers.Count > 5)
-                                {
-                                    <div class="list-group-item text-center">
-                                        <small class="text-muted">... and @(Model.OtWorkers.Count - 5) more</small>
-                                    </div>
-                                }
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="text-center py-4">
-                                <i class="bi bi-clock text-muted" style="font-size: 2rem;"></i>
-                                <p class="text-muted mt-2">No overtime workers today.</p>
-                            </div>
-                        }
-                    </div>
+                                    <span class="badge bg-info rounded-pill">@otWorker.OtHours.ToString("F2")h</span>
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
             </div>
-        </div>
 
         <!-- 2-Week Calendar Summary -->
         <div class="row mt-4">
@@ -377,7 +867,9 @@ else
                     </div>
                 </div>
             </div>
-        </div>
+            </div>
+        }
+        }
     </div>
 }
 
@@ -403,9 +895,14 @@ else
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        cutout: '65%',
                         plugins: {
                             legend: {
-                                position: 'bottom'
+                                position: 'bottom',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 16
+                                }
                             },
                             tooltip: {
                                 callbacks: {
@@ -442,9 +939,14 @@ else
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        cutout: '65%',
                         plugins: {
                             legend: {
-                                position: 'bottom'
+                                position: 'bottom',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 16
+                                }
                             },
                             tooltip: {
                                 callbacks: {
@@ -459,8 +961,226 @@ else
             }
             </text>
         }
+            </text>
+        }
+
+        @if (Model.WorkerHistorySearchResult != null)
+        {
+            var worker = Model.WorkerHistorySearchResult;
+            <text>
+            // Worker Status Donut Chart
+            const workerStatusCtx = document.getElementById('workerStatusChart');
+            if (workerStatusCtx) {
+                new Chart(workerStatusCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['On Time', 'Late', 'Leave', 'Absent'],
+                        datasets: [{
+                            data: [@worker.OnTimeDaysCount, @worker.LateDaysCount, @worker.LeaveDaysCount, @(worker.History.Count - worker.OnTimeDaysCount - worker.LateDaysCount - worker.LeaveDaysCount)],
+                            backgroundColor: ['#28a745', '#ffc107', '#dc3545', '#6c757d'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '65%',
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 16
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.label + ': ' + context.parsed + ' days';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Worker OT Hours Bar Chart
+            const workerOTCtx = document.getElementById('workerOTChart');
+            if (workerOTCtx && worker.OTHistory.Any()) {
+                new Chart(workerOTCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: [@Html.Raw(System.Text.Json.JsonSerializer.Serialize(worker.ChartLabels))],
+                        datasets: [{
+                            label: 'OT Hours',
+                            data: [@Html.Raw(System.Text.Json.JsonSerializer.Serialize(worker.OTHoursChartData))],
+                            backgroundColor: '#6f42c1',
+                            borderColor: '#6f42c1',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'OT Hours: ' + context.parsed.y;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Hours'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Worker Worked Hours Line Chart
+            const workerWorkedCtx = document.getElementById('workerWorkedChart');
+            if (workerWorkedCtx) {
+                new Chart(workerWorkedCtx, {
+                    type: 'line',
+                    data: {
+                        labels: [@Html.Raw(System.Text.Json.JsonSerializer.Serialize(worker.ChartLabels))],
+                        datasets: [{
+                            label: 'Worked Hours',
+                            data: [@Html.Raw(System.Text.Json.JsonSerializer.Serialize(worker.WorkedHoursChartData))],
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'Worked Hours: ' + context.parsed.y;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Hours'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            </text>
+        }
     </script>
 }
+
+<!-- Add Employee Modal -->
+<div class="modal fade" id="addEmployeeModal" tabindex="-1" aria-labelledby="addEmployeeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addEmployeeModalLabel">
+                    <i class="bi bi-person-plus me-2"></i>Add New Employee
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form asp-controller="User" asp-action="CreateEmployee" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="FirstName" class="form-label">First Name</label>
+                            <input asp-for="FirstName" class="form-control" required>
+                            <span asp-validation-for="FirstName" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="LastName" class="form-label">Last Name</label>
+                            <input asp-for="LastName" class="form-control" required>
+                            <span asp-validation-for="LastName" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="Email" class="form-label">Email</label>
+                            <input asp-for="Email" class="form-control" type="email" required>
+                            <span asp-validation-for="Email" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Phone" class="form-label">Phone</label>
+                            <input asp-for="Phone" class="form-control" type="tel">
+                            <span asp-validation-for="Phone" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="Address" class="form-label">Address</label>
+                            <textarea asp-for="Address" class="form-control" rows="3"></textarea>
+                            <span asp-validation-for="Address" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="Password" class="form-label">Password</label>
+                            <input asp-for="Password" class="form-control" type="password" required>
+                            <span asp-validation-for="Password" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="ConfirmPassword" class="form-label">Confirm Password</label>
+                            <input asp-for="ConfirmPassword" class="form-control" type="password" required>
+                            <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="SectionId" class="form-label">Section</label>
+                            <select asp-for="SectionId" class="form-control">
+                                <option value="">Select Section</option>
+                                @if (ViewBag.Sections != null)
+                                {
+                                    @foreach (var sec in ViewBag.Sections)
+                                    {
+                                        <option value="@sec.Id">@sec.Name</option>
+                                    }
+                                }
+                            </select>
+                            <span asp-validation-for="SectionId" class="text-danger"></span>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-person-check me-2"></i>Add Employee
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 
 <style>
     .bg-purple {

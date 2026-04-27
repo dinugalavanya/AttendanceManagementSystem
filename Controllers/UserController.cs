@@ -224,6 +224,131 @@ namespace AttendanceManagementSystem.Controllers
                 return Json(new { success = false, message = $"Error creating admin: {ex.Message}" });
             }
         }
+
+        // POST: User/CreateEmployee
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateEmployee(CreateEmployeeViewModel model)
+        {
+            try
+            {
+                var currentUser = _authService.GetCurrentUser();
+                if (currentUser == null)
+                {
+                    return RedirectToAction("Login", "Account");
+                }
+
+                // Only Admin can add employees
+                if (currentUser.Role?.Name != RoleNames.Admin && currentUser.Role?.Name != RoleNames.SuperAdmin)
+                {
+                    return RedirectToAction("Index", "Dashboard");
+                }
+
+                // Validate required fields
+                if (string.IsNullOrWhiteSpace(model.FirstName) ||
+                    string.IsNullOrWhiteSpace(model.LastName) ||
+                    string.IsNullOrWhiteSpace(model.Email) ||
+                    string.IsNullOrWhiteSpace(model.Password))
+                {
+                    ModelState.AddModelError("", "All required fields must be filled.");
+                    return View(model);
+                }
+
+                // Validate password confirmation
+                if (model.Password != model.ConfirmPassword)
+                {
+                    ModelState.AddModelError("", "Password and confirmation password do not match.");
+                    return View(model);
+                }
+
+                // Get current admin's section for validation
+                var currentAdmin = await _context.Users
+                    .Include(u => u.Section)
+                    .FirstOrDefaultAsync(u => u.Id == currentUser.Id);
+
+                // Validate section assignment
+                int? adminSectionId = currentAdmin?.SectionId;
+                int? requestSectionId = model.SectionId;
+
+                // If admin tries to assign a different section, ignore and use admin's section
+                if (requestSectionId.HasValue && adminSectionId.HasValue && requestSectionId != adminSectionId)
+                {
+                    requestSectionId = adminSectionId;
+                }
+
+                // Check if email already exists
+                var existingUser = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Email.ToLower() == model.Email.ToLower());
+                
+                if (existingUser != null)
+                {
+                    ModelState.AddModelError("", "Email already exists.");
+                    return View(model);
+                }
+
+                // Get Worker role (RoleId = 3)
+                var workerRole = await _context.Roles
+                    .FirstOrDefaultAsync(r => r.Id == 3);
+                
+                if (workerRole == null)
+                {
+                    ModelState.AddModelError("", "Worker role not found.");
+                    return View(model);
+                }
+
+                // Hash password using BCrypt
+                string hashedPassword = BCrypt.Net.BCrypt.HashPassword(model.Password);
+
+                // Generate ServiceId: EMP + padded 3-digit ID
+                var lastEmployeeId = await _context.Users
+                    .Where(u => u.ServiceId != null && u.ServiceId.StartsWith("EMP"))
+                    .OrderByDescending(u => u.Id)
+                    .Select(u => u.ServiceId.Substring(3))
+                    .FirstOrDefaultAsync();
+                
+                int nextId = 1;
+                if (lastEmployeeId != null)
+                {
+                    int lastId = int.Parse(lastEmployeeId);
+                    nextId = lastId + 1;
+                }
+
+                string newServiceId = "EMP" + nextId.ToString().PadLeft(3, '0');
+
+                // Create new employee with Worker role
+                var newEmployee = new User
+                {
+                    FirstName = model.FirstName.Trim(),
+                    LastName = model.LastName.Trim(),
+                    Email = model.Email.Trim().ToLower(),
+                    PasswordHash = hashedPassword,
+                    Phone = string.IsNullOrWhiteSpace(model.Phone) ? null : model.Phone.Trim(),
+                    Address = string.IsNullOrWhiteSpace(model.Address) ? null : model.Address.Trim(),
+                    RoleId = 3, // Worker role
+                    IsActive = true,
+                    SectionId = requestSectionId, // Use validated section
+                    ServiceId = newServiceId,
+                    UpdatedAt = DateTime.UtcNow,
+                    LoginTime = null,
+                    LogoutTime = null,
+                    AttendanceStatus = null
+                };
+
+                _context.Users.Add(newEmployee);
+                await _context.SaveChangesAsync();
+
+                // Add success message to TempData
+                TempData["SuccessMessage"] = "Employee created successfully.";
+
+                return RedirectToAction("Index", "Dashboard");
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError("", $"Error creating employee: {ex.Message}");
+                return View(model);
+            }
+        }
+
     }
 
     public class UserListItemViewModel
@@ -246,6 +371,18 @@ namespace AttendanceManagementSystem.Controllers
         public int UserId { get; set; }
         public string Field { get; set; } = string.Empty;
         public string Value { get; set; } = string.Empty;
+    }
+
+    public class CreateEmployeeViewModel
+    {
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string? Phone { get; set; }
+        public string? Address { get; set; }
+        public string Password { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+        public int? SectionId { get; set; }
     }
 
     public class CreateAdminRequest
