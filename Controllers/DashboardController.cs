@@ -18,9 +18,9 @@ namespace AttendanceManagementSystem.Controllers
             _context = context;
         }
 
-        public async Task<IActionResult> Index(string? serviceId)
+        public async Task<IActionResult> Index(string? serviceId, DateTime? selectedDate)
         {
-            Console.WriteLine($"[WORKER SEARCH] serviceId received: {serviceId}");
+            Console.WriteLine($"[WORKER SEARCH] serviceId received: {serviceId}, selectedDate: {selectedDate?.ToString("yyyy-MM-dd")}");
 
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!int.TryParse(userIdClaim, out var userId))
@@ -566,6 +566,111 @@ namespace AttendanceManagementSystem.Controllers
                 }
             }
 
+            // Selected date attendance logic
+            SelectedDateAttendanceViewModel? selectedDateAttendance = null;
+            if (!string.IsNullOrWhiteSpace(serviceId) && selectedDate.HasValue && workerHistorySearchResult != null)
+            {
+                Console.WriteLine($"[SELECTED DATE] Processing selected date {selectedDate.Value:yyyy-MM-dd} for worker {serviceId}");
+                
+                var attendanceOnDate = await _context.Attendances
+                    .Where(a => a.UserId == workerHistorySearchResult.WorkerId && a.AttendanceDate == selectedDate.Value)
+                    .FirstOrDefaultAsync();
+
+                if (attendanceOnDate != null)
+                {
+                    Console.WriteLine($"[SELECTED DATE] Found attendance record for {selectedDate.Value:yyyy-MM-dd}");
+                    
+                    // Calculate worked hours
+                    var workedHours = "-";
+                    if (attendanceOnDate.TotalWorkedMinutes > 0)
+                    {
+                        var hours = attendanceOnDate.TotalWorkedMinutes / 60;
+                        var minutes = attendanceOnDate.TotalWorkedMinutes % 60;
+                        workedHours = $"{hours}:{minutes:D2}";
+                    }
+
+                    // Calculate OT hours
+                    var otHours = "-";
+                    if (attendanceOnDate.OvertimeMinutes > 0)
+                    {
+                        var hours = attendanceOnDate.OvertimeMinutes / 60;
+                        var minutes = attendanceOnDate.OvertimeMinutes % 60;
+                        otHours = $"{hours}:{minutes:D2}";
+                    }
+
+                    // Calculate late by
+                    var lateBy = "-";
+                    if (attendanceOnDate.InTime.HasValue && attendanceOnDate.Status == "Late")
+                    {
+                        var workStartTime = new TimeSpan(8, 30, 0); // 8:30 AM
+                        var actualTime = attendanceOnDate.InTime.Value;
+                        if (actualTime > workStartTime)
+                        {
+                            var diff = actualTime - workStartTime;
+                            lateBy = $"{diff.Hours}h {diff.Minutes}m";
+                        }
+                    }
+
+                    // Determine current state
+                    var currentState = "Completed";
+                    if (attendanceOnDate.Status == "Leave")
+                    {
+                        currentState = "On Leave";
+                    }
+                    else if (attendanceOnDate.OutTime.HasValue)
+                    {
+                        if (attendanceOnDate.OvertimeMinutes > 0)
+                        {
+                            currentState = "Working OT";
+                        }
+                        else
+                        {
+                            currentState = "Completed";
+                        }
+                    }
+                    else if (attendanceOnDate.InTime.HasValue)
+                    {
+                        currentState = "Working";
+                    }
+
+                    selectedDateAttendance = new SelectedDateAttendanceViewModel
+                    {
+                        WorkerName = workerHistorySearchResult.FullName,
+                        ServiceId = workerHistorySearchResult.ServiceId,
+                        SectionName = workerHistorySearchResult.SectionName,
+                        SelectedDate = selectedDate.Value,
+                        InTime = attendanceOnDate.InTime?.ToString(@"hh\:mm") ?? "-",
+                        OutTime = attendanceOnDate.OutTime?.ToString(@"hh\:mm") ?? "-",
+                        WorkedHours = workedHours,
+                        OTHours = otHours,
+                        Status = attendanceOnDate.Status,
+                        LateBy = lateBy,
+                        CurrentState = currentState,
+                        HasRecord = true
+                    };
+                }
+                else
+                {
+                    Console.WriteLine($"[SELECTED DATE] No attendance record found for {selectedDate.Value:yyyy-MM-dd}");
+                    
+                    selectedDateAttendance = new SelectedDateAttendanceViewModel
+                    {
+                        WorkerName = workerHistorySearchResult.FullName,
+                        ServiceId = workerHistorySearchResult.ServiceId,
+                        SectionName = workerHistorySearchResult.SectionName,
+                        SelectedDate = selectedDate.Value,
+                        InTime = "-",
+                        OutTime = "-",
+                        WorkedHours = "-",
+                        OTHours = "-",
+                        Status = "Absent",
+                        LateBy = "-",
+                        CurrentState = "Absent",
+                        HasRecord = false
+                    };
+                }
+            }
+
             var viewModel = new DashboardViewModel
             {
                 TotalUsers = totalUsers,
@@ -616,10 +721,100 @@ namespace AttendanceManagementSystem.Controllers
                 // Search results
                 SearchServiceId = serviceId,
                 WorkerSearchMessage = workerSearchMessage,
-                WorkerHistorySearchResult = workerHistorySearchResult
+                WorkerHistorySearchResult = workerHistorySearchResult,
+                SelectedDateAttendance = selectedDateAttendance
             };
 
             return View(viewModel);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetWorkerAttendanceByDate(string serviceId, DateTime date)
+        {
+            Console.WriteLine($"[WORKER DATE SEARCH] serviceId: {serviceId}, date: {date:yyyy-MM-dd}");
+
+            if (string.IsNullOrWhiteSpace(serviceId))
+            {
+                return Json(new { success = false, message = "Service ID is required." });
+            }
+
+            // Step 1: Find worker from Users table by ServiceId
+            var worker = await _context.Users
+                .Include(u => u.Section)
+                .FirstOrDefaultAsync(u => u.ServiceId == serviceId);
+
+            if (worker == null)
+            {
+                Console.WriteLine($"[WORKER DATE SEARCH] Worker with ServiceId {serviceId} not found");
+                return Json(new { success = false, message = "Worker not found" });
+            }
+
+            Console.WriteLine($"[WORKER DATE SEARCH] Found worker: {worker.FirstName} {worker.LastName} (ID: {worker.Id})");
+
+            // Step 2: Find attendance from Attendances using UserId and date range
+            var targetDate = date.Date;
+            var attendance = await _context.Attendances
+                .FirstOrDefaultAsync(a =>
+                    a.UserId == worker.Id &&
+                    a.AttendanceDate >= targetDate &&
+                    a.AttendanceDate < targetDate.AddDays(1));
+
+            if (attendance == null)
+            {
+                Console.WriteLine($"[WORKER DATE SEARCH] No attendance record found for {serviceId} on {targetDate:yyyy-MM-dd}");
+                return Json(new { 
+                    success = false,
+                    workerName = $"{worker.FirstName} {worker.LastName}",
+                    serviceId = worker.ServiceId,
+                    date = targetDate,
+                    message = $"No attendance record found for {serviceId} on {targetDate:MMM dd, yyyy}."
+                });
+            }
+
+            Console.WriteLine($"[WORKER DATE SEARCH] Found attendance record: InTime={attendance.InTime}, OutTime={attendance.OutTime}, Status={attendance.Status}");
+
+            // Step 3: Calculate current state
+            var currentState = "Completed";
+            if (attendance.Status == "Leave")
+            {
+                currentState = "On Leave";
+            }
+            else if (attendance.OutTime.HasValue)
+            {
+                if (attendance.OvertimeMinutes > 0)
+                {
+                    currentState = "Working OT";
+                }
+                else
+                {
+                    currentState = "Completed";
+                }
+            }
+            else if (attendance.InTime.HasValue)
+            {
+                currentState = "Working";
+            }
+
+            Console.WriteLine($"[WORKER DATE SEARCH] Current state calculated: {currentState}");
+
+            // Step 4: Return success response with record object
+            return Json(new { 
+                success = true,
+                record = new
+                {
+                    workerName = $"{worker.FirstName} {worker.LastName}",
+                    serviceId = worker.ServiceId,
+                    section = worker.Section?.Name ?? "Unassigned",
+                    date = attendance.AttendanceDate,
+                    loginTime = attendance.InTime,
+                    logoutTime = attendance.OutTime,
+                    status = attendance.Status,
+                    workedHours = attendance.TotalWorkedMinutes,
+                    regularWorkedMinutes = attendance.RegularWorkedMinutes,
+                    otHours = attendance.OvertimeMinutes,
+                    currentState = currentState
+                }
+            });
         }
 
         private string GetWorkerCurrentState(TimeSpan? inTime, TimeSpan? outTime, string status)

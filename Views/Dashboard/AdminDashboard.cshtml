@@ -3,96 +3,490 @@
 @using System.Text.Json
 @{
     ViewData["Title"] = "Admin Dashboard";
+    var isWorkerSearchMode = Model.WorkerHistorySearchResult != null;
+}
+
+@functions {
+    public string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Present" => "status-badge success",
+            "Late" => "status-badge warning",
+            "Leave" => "status-badge danger",
+            "Absent" => "status-badge secondary",
+            _ => "status-badge info"
+        };
+    }
+
+    public string GetStateBadgeClass(string state)
+    {
+        return state switch
+        {
+            "Completed" => "bg-info",
+            "Working" => "bg-success",
+            "Working OT" => "bg-purple",
+            "On Leave" => "bg-danger",
+            "Absent" => "bg-secondary",
+            _ => "bg-secondary"
+        };
+    }
+
+    public string GetStatusIcon(string status)
+    {
+        return status switch
+        {
+            "Present" => "<i class=\"bi bi-check-circle\"></i>",
+            "Late" => "<i class=\"bi bi-clock\"></i>",
+            "Leave" => "<i class=\"bi bi-calendar-x\"></i>",
+            "Absent" => "<i class=\"bi bi-x-circle\"></i>",
+            _ => "<i class=\"bi bi-question-circle\"></i>"
+        };
+    }
 }
 
 <style>
-.dashboard-card {
-    background: #ffffff;
+/* Modern Dashboard Layout */
+.dashboard-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+    background: #f8fafc;
+    min-height: 100vh;
+}
+
+/* Page Header */
+.page-header {
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 10px 30px rgba(30, 58, 138, 0.2);
+    color: white;
+}
+
+.page-header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.page-title-section h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    color: white;
+}
+
+.page-title-section p {
+    opacity: 0.9;
+    margin: 0;
+    font-size: 1rem;
+}
+
+.page-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.section-badge {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* KPI Cards Grid */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.kpi-card {
+    background: white;
     border-radius: 12px;
-    padding: 24px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+}
+
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.kpi-icon.success { background: #dcfce7; color: #16a34a; }
+.kpi-icon.warning { background: #fef3c7; color: #d97706; }
+.kpi-icon.danger { background: #fee2e2; color: #dc2626; }
+.kpi-icon.info { background: #dbeafe; color: #2563eb; }
+.kpi-icon.purple { background: #f3e8ff; color: #9333ea; }
+
+.kpi-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.25rem;
+    line-height: 1;
+}
+
+.kpi-label {
+    color: #64748b;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Dashboard Sections */
+.dashboard-section {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e2e8f0;
 }
 
 .section-title {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 16px;
-    color: #1f2937;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.section-subtitle {
+    color: #64748b;
+    font-size: 0.875rem;
+    margin: 0.25rem 0 0 0;
+}
+
+/* Two Column Layout */
+.two-column-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Full Width Sections */
+.full-width-section {
+    grid-column: 1 / -1;
+}
+
+/* Search Section */
+.search-section {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
 }
 
 .search-container {
     display: flex;
-    gap: 12px;
-    align-items: center;
-    margin-top: 10px;
+    gap: 1rem;
+    align-items: end;
+    flex-wrap: wrap;
 }
 
 .search-input {
     flex: 1;
-    height: 44px;
-    padding: 0 12px;
+    min-width: 250px;
+    height: 48px;
+    padding: 0.75rem 1rem;
+    border: 2px solid #e2e8f0;
     border-radius: 8px;
-    border: 1px solid #d1d5db;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .search-button {
-    height: 44px;
-    padding: 0 20px;
+    height: 48px;
+    padding: 0 1.5rem;
     border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
 }
 
-.summary-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 16px;
-    margin-top: 16px;
+/* Charts */
+.chart-container {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+    height: 400px;
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.chart-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.chart-body {
+    flex: 1;
+    position: relative;
+    min-height: 300px;
+}
+
+/* Tables */
+.data-table {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
+}
+
+.data-table table {
+    margin: 0;
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.data-table th {
+    background: #f8fafc;
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: #475569;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.data-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.data-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.status-badge.success { background: #dcfce7; color: #16a34a; }
+.status-badge.warning { background: #fef3c7; color: #d97706; }
+.status-badge.danger { background: #fee2e2; color: #dc2626; }
+.status-badge.info { background: #dbeafe; color: #2563eb; }
+.status-badge.purple { background: #f3e8ff; color: #9333ea; }
+
+/* Empty States */
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: #64748b;
+}
+
+.empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-state-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #475569;
+}
+
+.empty-state-description {
+    font-size: 0.875rem;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+/* Responsive Design */
+@@media (max-width: 1200px) {
+    .dashboard-content {
+        padding: 1.5rem;
+    }
+    
+    .two-column-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@@media (max-width: 768px) {
+    .dashboard-content {
+        padding: 1rem;
+    }
+    
+    .page-header {
+        padding: 1.5rem;
+    }
+    
+    .page-header-content {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .page-title-section h1 {
+        font-size: 1.5rem;
+    }
+    
+    .kpi-grid {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+    }
+    
+    .kpi-card {
+        padding: 1rem;
+    }
+    
+    .kpi-value {
+        font-size: 1.5rem;
+    }
+    
+    .search-container {
+        flex-direction: column;
+    }
+    
+    .search-input {
+        width: 100%;
+    }
+    
+    .search-button {
+        width: 100%;
+    }
+}
+
+@@media (max-width: 480px) {
+    .kpi-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .page-header-actions {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .section-badge {
+        width: 100%;
+        text-align: center;
+    }
+}
+
+/* Legacy styles for compatibility */
+.dashboard-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e2e8f0;
 }
 
 .summary-card {
-    padding: 16px;
+    padding: 1rem;
     border-radius: 10px;
     background: #f8f9fb;
     text-align: center;
     border: 1px solid #e9ecef;
 }
 
-.table-container {
-    margin-top: 16px;
-}
-
-.table th, .table td {
-    padding: 12px;
-    text-align: center;
-}
-
-.dashboard-charts {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-}
-
-.dashboard-chart-grid {
+.worker-chart-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 24px;
-    margin-top: 24px;
-    align-items: stretch;
+    gap: 1.5rem;
+    margin: 1.5rem 0;
 }
 
-.dashboard-chart-card {
-    background: #ffffff;
+.worker-chart-card {
+    background: #fff;
     border-radius: 16px;
     border: 1px solid #e5e7eb;
+    padding: 1.5rem;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-    overflow: hidden;
-    min-height: 360px;
-    max-height: 420px;
+}
+
+.worker-chart-box {
+    position: relative;
+    height: 280px;
 }
 
 .chart-card-header {
-    padding: 16px 20px;
-    font-size: 16px;
+    padding: 1rem 1.25rem;
+    font-size: 1rem;
     font-weight: 700;
     color: #0f172a;
     border-bottom: 1px solid #e5e7eb;
@@ -102,12 +496,7 @@
 .chart-box {
     position: relative;
     height: 300px;
-    padding: 20px;
-}
-
-.chart-box canvas {
-    max-height: 260px !important;
-    width: 100% !important;
+    padding: 1.25rem;
 }
 
 .worker-history-table-wrap {
@@ -115,76 +504,20 @@
     overflow-y: auto;
 }
 
-.dashboard-content {
-    max-width: 1440px;
-    margin: 0 auto;
-    padding: 24px;
-}
-
-.section-divider {
-    margin: 30px 0;
-    border-top: 1px solid #eee;
-}
-
 .worker-profile-info {
     background: #f8f9fb;
-    padding: 20px;
+    padding: 1.25rem;
     border-radius: 10px;
     border: 1px solid #e9ecef;
 }
 
 .profile-item label {
-    margin-bottom: 4px;
+    margin-bottom: 0.25rem;
     font-weight: 500;
 }
 
 .profile-item div {
-    margin-bottom: 8px;
-}
-
-.worker-chart-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 24px;
-    margin: 24px 0;
-}
-
-.worker-chart-card {
-    background: #fff;
-    border-radius: 16px;
-    border: 1px solid #e5e7eb;
-    padding: 20px;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-}
-
-.worker-chart-box {
-    position: relative;
-    height: 280px;
-}
-
-.worker-chart-box canvas {
-    width: 100% !important;
-    height: 100% !important;
-}
-
-@@media (max-width: 768px) {
-    .dashboard-charts {
-        grid-template-columns: 1fr;
-    }
-    
-    .summary-cards {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    }
-}
-
-@@media (max-width: 992px) {
-    .dashboard-chart-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .dashboard-chart-card {
-        max-height: none;
-    }
+    margin-bottom: 0.5rem;
 }
 </style>
 
@@ -207,41 +540,37 @@
 else
 {
     <div class="dashboard-content">
-        <!-- Page Header - Command Center -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h1 class="h3 mb-1 text-white">@Model.SectionName Section Command Center</h1>
-                                <p class="text-white-50 mb-0">Today's attendance, late arrivals, overtime, and worker status</p>
-                            </div>
-                            <div>
-                                <span class="badge bg-white text-primary px-3 py-2">
-                                    <i class="bi bi-building me-1"></i>@Model.SectionName
-                                </span>
-                            </div>
-                            <div>
-                                @if (User.IsInRole("Admin"))
-                                {
-                                    <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addEmployeeModal">
-                                        <i class="bi bi-person-plus me-1"></i>Add Employees
-                                    </button>
-                                }
-                            </div>
-                        </div>
-                    </div>
+        <!-- Modern Page Header -->
+        <div class="page-header">
+            <div class="page-header-content">
+                <div class="page-title-section">
+                    <h1>@Model.SectionName Section Command Center</h1>
+                    <p>Today's attendance, late arrivals, overtime, and worker status</p>
+                </div>
+                <div class="page-header-actions">
+                    <span class="section-badge">
+                        <i class="bi bi-building me-1"></i>@Model.SectionName
+                    </span>
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addEmployeeModal">
+                            <i class="bi bi-person-plus me-1"></i>Add Employees
+                        </button>
+                    }
                 </div>
             </div>
         </div>
 
         <!-- Service ID Search -->
-        <div class="dashboard-card">
-            <h5 class="section-title">
-                <i class="bi bi-search me-2"></i>Search Worker
-            </h5>
-            <p class="text-muted mb-3">Search worker by Service ID for attendance history</p>
+        <div class="search-section">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title">
+                        <i class="bi bi-search me-2"></i>Search Worker
+                    </h2>
+                    <p class="section-subtitle">Search worker by Service ID for attendance history</p>
+                </div>
+            </div>
             
             <form method="get" asp-controller="Dashboard" asp-action="Index">
                 <div class="search-container">
@@ -328,6 +657,31 @@ else
                 </div>
             </div>
 
+            <!-- Date Filter Section -->
+            <div class="dashboard-card">
+                <h5 class="section-title">
+                    <i class="bi bi-calendar-date me-2"></i>Select Attendance Date
+                </h5>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-8">
+                        <label for="attendanceDate" class="form-label">Select Attendance Date</label>
+                        <input type="date" id="attendanceDate" class="form-control" 
+                               value="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" id="applyDateFilter" class="btn btn-primary w-100">
+                            <i class="bi bi-check-circle me-2"></i>Apply Date
+                        </button>
+                    </div>
+                    <div class="col-md-2">
+                        <a href="@Url.Action("Index", "Dashboard", new { serviceId = Model.SearchServiceId })" class="btn btn-secondary w-100">
+                            <i class="bi bi-x-circle me-2"></i>Clear
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            
             <!-- Main Worker Stats Cards -->
             <div class="dashboard-card">
                 <h5 class="section-title">
@@ -441,49 +795,7 @@ else
                 </div>
             }
 
-            <!-- Worker Charts -->
-            <div class="worker-chart-grid">
-                <!-- Attendance Status Donut Chart -->
-                <div class="worker-chart-card">
-                    <div class="chart-card-header">
-                        <i class="bi bi-pie-chart me-2"></i>Attendance Status
-                    </div>
-                    <div class="worker-chart-box">
-                        <canvas id="workerStatusChart"></canvas>
-                    </div>
-                </div>
-
-                <!-- OT Hours Bar Chart -->
-                <div class="worker-chart-card">
-                    <div class="chart-card-header">
-                        <i class="bi bi-clock-fill me-2"></i>OT Hours by Date
-                    </div>
-                    <div class="worker-chart-box">
-                        @if (worker.OTHistory.Any())
-                        {
-                            <canvas id="workerOTChart"></canvas>
-                        }
-                        else
-                        {
-                            <div class="text-center d-flex flex-column justify-content-center h-100">
-                                <i class="bi bi-clock text-muted" style="font-size: 2rem;"></i>
-                                <p class="text-muted mt-2">No overtime records found.</p>
-                            </div>
-                        }
-                    </div>
-                </div>
-
-                <!-- Worked Hours Line Chart -->
-                <div class="worker-chart-card">
-                    <div class="chart-card-header">
-                        <i class="bi bi-graph-up me-2"></i>Worked Hours by Date
-                    </div>
-                    <div class="worker-chart-box">
-                        <canvas id="workerWorkedChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
+            
             <!-- OT Focus Table -->
             <div class="dashboard-card">
                 <h5 class="section-title">
@@ -573,67 +885,48 @@ else
             </div>
         }
 
-        <!-- Summary Cards -->
+        <!-- Modern KPI Cards Grid -->
         @if (!Model.IsWorkerSearchMode)
         {
-            <!-- Show full section dashboard cards -->
-            <div class="dashboard-card">
-                <h5 class="section-title">Summary Overview</h5>
-                <div class="summary-cards">
-                    <div class="summary-card">
-                        <div class="d-flex align-items-center justify-content-center mb-2">
-                            <div class="rounded-circle bg-primary bg-opacity-10 p-2">
-                                <i class="bi bi-people-fill text-primary"></i>
-                            </div>
-                        </div>
-                        <h6 class="text-muted mb-1">Section Workers</h6>
-                        <h3 class="mb-0">@Model.TotalWorkers</h3>
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-icon success">
+                        <i class="bi bi-check-circle"></i>
                     </div>
-                    <div class="summary-card">
-                        <div class="d-flex align-items-center justify-content-center mb-2">
-                            <div class="rounded-circle bg-success bg-opacity-10 p-2">
-                                <i class="bi bi-check-circle text-success"></i>
-                            </div>
-                        </div>
-                        <h6 class="text-muted mb-1">Checked In Today</h6>
-                        <h3 class="mb-0 text-success">@Model.PresentToday</h3>
+                    <div class="kpi-value">@Model.PresentToday</div>
+                    <div class="kpi-label">Checked In Today</div>
+                </div>
+                
+                <div class="kpi-card">
+                    <div class="kpi-icon warning">
+                        <i class="bi bi-alarm"></i>
                     </div>
-                    <div class="summary-card">
-                        <div class="d-flex align-items-center justify-content-center mb-2">
-                            <div class="rounded-circle bg-warning bg-opacity-10 p-2">
-                                <i class="bi bi-alarm text-warning"></i>
-                            </div>
-                        </div>
-                        <h6 class="text-muted mb-1">Late After 8:30</h6>
-                        <h3 class="mb-0 text-warning">@Model.LateToday</h3>
+                    <div class="kpi-value">@Model.LateToday</div>
+                    <div class="kpi-label">Late After 8:30</div>
+                </div>
+                
+                <div class="kpi-card">
+                    <div class="kpi-icon danger">
+                        <i class="bi bi-person-dash"></i>
                     </div>
-                    <div class="summary-card">
-                        <div class="d-flex align-items-center justify-content-center mb-2">
-                            <div class="rounded-circle bg-danger bg-opacity-10 p-2">
-                                <i class="bi bi-person-dash text-danger"></i>
-                            </div>
-                        </div>
-                        <h6 class="text-muted mb-1">On Leave / No Login</h6>
-                        <h3 class="mb-0 text-danger">@Model.LeaveToday</h3>
+                    <div class="kpi-value">@Model.LeaveToday</div>
+                    <div class="kpi-label">On Leave / No Login</div>
+                </div>
+                
+                <div class="kpi-card">
+                    <div class="kpi-icon info">
+                        <i class="bi bi-clock"></i>
                     </div>
-                    <div class="summary-card">
-                        <div class="d-flex align-items-center justify-content-center mb-2">
-                            <div class="rounded-circle bg-info bg-opacity-10 p-2">
-                                <i class="bi bi-clock text-info"></i>
-                            </div>
-                        </div>
-                        <h6 class="text-muted mb-1">Working OT After 4:30</h6>
-                        <h3 class="mb-0 text-info">@Model.WorkingOtToday</h3>
+                    <div class="kpi-value">@Model.WorkingOtToday</div>
+                    <div class="kpi-label">Working OT After 4:30</div>
+                </div>
+                
+                <div class="kpi-card">
+                    <div class="kpi-icon purple">
+                        <i class="bi bi-hourglass-split"></i>
                     </div>
-                    <div class="summary-card">
-                        <div class="d-flex align-items-center justify-content-center mb-2">
-                            <div class="rounded-circle bg-purple bg-opacity-10 p-2">
-                                <i class="bi bi-hourglass-split text-purple"></i>
-                            </div>
-                        </div>
-                        <h6 class="text-muted mb-1">Total OT Hours Today</h6>
-                        <h3 class="mb-0 text-purple">@Model.TotalOtHoursThisMonth.ToString("F1")</h3>
-                    </div>
+                    <div class="kpi-value">@Model.TotalOtHoursThisMonth.ToString("F1")</div>
+                    <div class="kpi-label">Total OT Hours Today</div>
                 </div>
             </div>
         }
@@ -656,27 +949,89 @@ else
             </div>
         }
 
-        <!-- Main Dashboard Layout -->
+        <!-- General Dashboard Sections (Only show when NOT in worker search mode) -->
         @if (!Model.IsWorkerSearchMode)
         {
-            <div class="row">
-                <!-- Left Side: Today Worker Status Table (70%) -->
-                <div class="col-lg-8">
-                    <div class="dashboard-card">
-                        <h5 class="section-title">
-                            <i class="bi bi-person-lines-fill me-2"></i>Today Worker Status
-                        </h5>
+            <!-- Two Column Grid for Charts -->
+            <div class="two-column-grid">
+                <!-- Today Status Breakdown Chart -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h3 class="chart-title">
+                            <i class="bi bi-pie-chart me-2"></i>Today Status Breakdown
+                        </h3>
+                    </div>
+                    <div class="chart-body">
+                        @if (Model.OnTimeCount == 0 && Model.LateCount == 0 && Model.LeaveCount == 0 && Model.OtCount == 0)
+                        {
+                            <div class="empty-state">
+                                <div class="empty-state-icon">
+                                    <i class="bi bi-pie-chart"></i>
+                                </div>
+                                <div class="empty-state-title">No status data available today</div>
+                                <div class="empty-state-description">There are no attendance records for today.</div>
+                            </div>
+                        }
+                        else
+                        {
+                            <canvas id="statusBreakdownChart"></canvas>
+                        }
+                    </div>
+                </div>
+
+                <!-- Work Hours Distribution Chart -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h3 class="chart-title">
+                            <i class="bi bi-clock-history me-2"></i>Work Hours Distribution
+                        </h3>
+                    </div>
+                    <div class="chart-body">
+                        @if (Model.WorkHoursPieChart.Any())
+                        {
+                            <canvas id="workHoursPieChart"></canvas>
+                        }
+                        else
+                        {
+                            <div class="empty-state">
+                                <div class="empty-state-icon">
+                                    <i class="bi bi-clock-history"></i>
+                                </div>
+                                <div class="empty-state-title">No work hours data for today</div>
+                                <div class="empty-state-description">Work hours distribution will appear here once data is available.</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Full Width Sections -->
+            <div class="full-width-section">
+                <!-- Today Worker Status Table -->
+                <div class="dashboard-section">
+                    <div class="section-header">
+                        <div>
+                            <h2 class="section-title">
+                                <i class="bi bi-person-lines-fill me-2"></i>Today Worker Status
+                            </h2>
+                            <p class="section-subtitle">Real-time attendance status for all workers in your section</p>
+                        </div>
+                    </div>
+                    
                     @if (!Model.TodayWorkers.Any())
                     {
-                        <div class="text-center py-5">
-                            <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
-                            <p class="text-muted mt-3">No attendance records for your section today.</p>
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <i class="bi bi-inbox"></i>
+                            </div>
+                            <div class="empty-state-title">No attendance records for your section today</div>
+                            <div class="empty-state-description">Workers haven't checked in yet or there are no scheduled workers for today.</div>
                         </div>
                     }
                     else
                     {
-                        <div class="table-container">
-                            <table class="table table-hover">
+                        <div class="data-table">
+                            <table>
                                 <thead>
                                     <tr>
                                         <th>Worker Name</th>
@@ -688,187 +1043,162 @@ else
                                         <th>Current State</th>
                                     </tr>
                                 </thead>
-                                    <tbody>
-                                        @foreach (var worker in Model.TodayWorkers)
-                                        {
-                                            <tr>
-                                                <td>@worker.WorkerName</td>
-                                                <td>@worker.LoginTimeDisplay</td>
-                                                <td>@worker.LogoutTimeDisplay</td>
-                                                <td>
-                                                    @switch (worker.Status)
-                                                    {
-                                                        case "Present":
-                                                            <span class="badge bg-success text-white">On Time</span>
-                                                            break;
-                                                        case "Late":
-                                                            <span class="badge bg-warning text-dark">Late</span>
-                                                            break;
-                                                        case "Leave":
-                                                            <span class="badge bg-danger text-white">Leave</span>
-                                                            break;
-                                                        default:
-                                                            <span class="badge bg-secondary text-white">@worker.Status</span>
-                                                            break;
-                                                    }
-                                                </td>
-                                                <td>@worker.LateByDisplay</td>
-                                                <td>@worker.OtHoursDisplay</td>
-                                                <td>
-                                                    @switch (worker.CurrentState)
-                                                    {
-                                                        case "On Leave":
-                                                            <span class="badge bg-danger text-white">On Leave</span>
-                                                            break;
-                                                        case "Working":
-                                                            <span class="badge bg-primary text-white">Working</span>
-                                                            break;
-                                                        case "Completed":
-                                                            <span class="badge bg-success text-white">Completed</span>
-                                                            break;
-                                                        case "Working OT":
-                                                            <span class="badge bg-purple text-white">Working OT</span>
-                                                            break;
-                                                        default:
-                                                            <span class="badge bg-secondary text-white">@worker.CurrentState</span>
-                                                            break;
-                                                    }
-                                                </td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                    </div>
+                                <tbody>
+                                    @foreach (var worker in Model.TodayWorkers)
+                                    {
+                                        <tr>
+                                            <td>@worker.WorkerName</td>
+                                            <td>@worker.LoginTimeDisplay</td>
+                                            <td>@worker.LogoutTimeDisplay</td>
+                                            <td>
+                                                @switch (worker.Status)
+                                                {
+                                                    case "Present":
+                                                        <span class="status-badge success">On Time</span>
+                                                        break;
+                                                    case "Late":
+                                                        <span class="status-badge warning">Late</span>
+                                                        break;
+                                                    case "Leave":
+                                                        <span class="status-badge danger">Leave</span>
+                                                        break;
+                                                    default:
+                                                        <span class="status-badge info">@worker.Status</span>
+                                                        break;
+                                                }
+                                            </td>
+                                            <td>@worker.LateByDisplay</td>
+                                            <td>@worker.OtHoursDisplay</td>
+                                            <td>
+                                                @switch (worker.CurrentState)
+                                                {
+                                                    case "On Leave":
+                                                        <span class="status-badge danger">On Leave</span>
+                                                        break;
+                                                    case "Working":
+                                                        <span class="status-badge success">Working</span>
+                                                        break;
+                                                    case "Completed":
+                                                        <span class="status-badge info">Completed</span>
+                                                        break;
+                                                    case "Working OT":
+                                                        <span class="status-badge purple">Working OT</span>
+                                                        break;
+                                                    default:
+                                                        <span class="status-badge">@worker.CurrentState</span>
+                                                        break;
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
                 </div>
             </div>
 
-            <!-- Right Side: Charts (30%) -->
-                <div class="col-lg-4">
-                    <div class="dashboard-chart-grid">
-                        <!-- Doughnut Chart: Today Status Breakdown -->
-                        <div class="dashboard-chart-card">
-                            <div class="chart-card-header">
-                                <i class="bi bi-pie-chart me-2"></i>Today Status Breakdown
-                            </div>
-                        <div class="chart-box">
-                            @if (Model.OnTimeCount == 0 && Model.LateCount == 0 && Model.LeaveCount == 0 && Model.OtCount == 0)
-                            {
-                                <div class="text-center d-flex flex-column justify-content-center h-100">
-                                    <i class="bi bi-pie-chart text-muted" style="font-size: 2rem;"></i>
-                                    <p class="text-muted mt-2">No status data available today</p>
-                                </div>
-                            }
-                            else
-                            {
-                                <canvas id="statusBreakdownChart"></canvas>
-                            }
+            <div class="full-width-section">
+                <!-- OT Workers Today -->
+                <div class="dashboard-section">
+                    <div class="section-header">
+                        <div>
+                            <h2 class="section-title">
+                                <i class="bi bi-clock-history me-2"></i>OT Workers Today
+                            </h2>
+                            <p class="section-subtitle">Workers currently working overtime or who have completed overtime today</p>
                         </div>
                     </div>
-
-                    <!-- Doughnut Chart: Work Hours Distribution -->
-                    <div class="dashboard-chart-card">
-                        <div class="chart-card-header">
-                            <i class="bi bi-clock-history me-2"></i>Work Hours Distribution
-                        </div>
-                        <div class="chart-box">
-                            @if (Model.WorkHoursPieChart.Any())
-                            {
-                                <canvas id="workHoursPieChart"></canvas>
-                            }
-                            else
-                            {
-                                <div class="text-center d-flex flex-column justify-content-center h-100">
-                                    <i class="bi bi-clock-history text-muted" style="font-size: 2rem;"></i>
-                                    <p class="text-muted mt-2">No work hours data for today.</p>
-                                </div>
-                            }
-                        </div>
-                    </div>
-                </div>
-
-                <!-- OT Workers Today Card -->
-                <div class="dashboard-card">
-                    <h6 class="section-title">
-                        <i class="bi bi-clock-history me-2"></i>@(Model.IsWorkerSearchMode ? "Worker OT Details" : "OT Workers Today")
-                    </h6>
+                    
                     @if (!Model.OtWorkers.Any())
                     {
-                        <div class="text-center py-4">
-                            <i class="bi bi-clock text-muted" style="font-size: 2rem;"></i>
-                            <p class="text-muted mt-2">@(Model.IsWorkerSearchMode ? "No overtime for this worker today." : "No overtime workers today")</p>
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <i class="bi bi-clock"></i>
+                            </div>
+                            <div class="empty-state-title">No overtime workers today</div>
+                            <div class="empty-state-description">No workers are currently working overtime or have completed overtime today.</div>
                         </div>
                     }
                     else
                     {
-                        <div class="list-group list-group-flush">
-                            @foreach (var otWorker in Model.OtWorkers.Take(5))
-                            {
-                                <div class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <strong>@otWorker.WorkerName</strong>
-                                        <br>
-                                        <small class="text-muted">Logout: @otWorker.LogoutTimeDisplay</small>
-                                    </div>
-                                    <span class="badge bg-info rounded-pill">@otWorker.OtHours.ToString("F2")h</span>
-                                </div>
-                            }
+                        <div class="data-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Worker</th>
+                                        <th>OT Hours</th>
+                                        <th>Logout Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var otWorker in Model.OtWorkers)
+                                    {
+                                        <tr>
+                                            <td>@otWorker.WorkerName</td>
+                                            <td>@otWorker.OtHours.ToString("F1")h</td>
+                                            <td>@otWorker.LogoutTimeDisplay</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
                         </div>
                     }
                 </div>
             </div>
 
-        <!-- 2-Week Calendar Summary -->
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card border-0 shadow-sm">
-                    <div class="card-header bg-light">
-                        <h5 class="mb-0">
-                            <i class="bi bi-calendar3 me-2"></i>Last 2 Weeks Attendance Calendar
-                        </h5>
+            <div class="full-width-section">
+                <!-- Last 2 Weeks Attendance Calendar -->
+                <div class="dashboard-section">
+                    <div class="section-header">
+                        <div>
+                            <h2 class="section-title">
+                                <i class="bi bi-calendar3 me-2"></i>Last 2 Weeks Attendance Calendar
+                            </h2>
+                            <p class="section-subtitle">Attendance overview for the past two weeks</p>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        @if (Model.LastTwoWeeksCalendarData.Any())
-                        {
-                            <div class="table-responsive">
-                                <table class="table table-sm">
-                                    <thead>
+                    
+                    @if (Model.LastTwoWeeksCalendarData.Any())
+                    {
+                        <div class="data-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>On Time</th>
+                                        <th>Late</th>
+                                        <th>Leave</th>
+                                        <th>OT Hours</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var day in Model.LastTwoWeeksCalendarData)
+                                    {
                                         <tr>
-                                            <th>Date</th>
-                                            <th>On Time</th>
-                                            <th>Late</th>
-                                            <th>Leave</th>
-                                            <th>OT Hours</th>
+                                            <td>@day.Date.ToString("ddd, dd MMM yyyy")</td>
+                                            <td><span class="status-badge success">@day.PresentCount</span></td>
+                                            <td><span class="status-badge warning">@day.LateCount</span></td>
+                                            <td><span class="status-badge danger">@day.LeaveCount</span></td>
+                                            <td><span class="status-badge purple">@day.TotalOtHours.ToString("F1")h</span></td>
                                         </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var day in Model.LastTwoWeeksCalendarData)
-                                        {
-                                            <tr>
-                                                <td>@day.Date.ToString("ddd, dd MMM yyyy")</td>
-                                                <td><span class="badge bg-success text-white">@day.PresentCount</span></td>
-                                                <td><span class="badge bg-warning text-dark">@day.LateCount</span></td>
-                                                <td><span class="badge bg-danger text-white">@day.LeaveCount</span></td>
-                                                <td><span class="badge bg-purple text-white">@day.TotalOtHours.ToString("F1")h</span></td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="empty-state">
+                            <div class="empty-state-icon">
+                                <i class="bi bi-calendar3"></i>
                             </div>
-                        }
-                        else
-                        {
-                            <div class="text-center py-4">
-                                <i class="bi bi-calendar3 text-muted" style="font-size: 2rem;"></i>
-                                <p class="text-muted mt-2">No attendance data for the last 2 weeks.</p>
-                            </div>
-                        }
-                    </div>
+                            <div class="empty-state-title">No attendance data for the last 2 weeks</div>
+                            <div class="empty-state-description">Attendance calendar data will appear here once available.</div>
+                        </div>
+                    }
                 </div>
             </div>
-            </div>
-        }
         }
     </div>
 }
@@ -876,7 +1206,7 @@ else
 @section Scripts {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        @if (Model.HasSection)
+        @if (Model.HasSection && !Model.IsWorkerSearchMode)
         {
             <text>
             // Today Status Breakdown Doughnut Chart
@@ -887,7 +1217,7 @@ else
                     data: {
                         labels: ['On Time', 'Late', 'Leave', 'OT'],
                         datasets: [{
-                            data: [@Model.OnTimeCount, @Model.LateCount, @Model.LeaveCount, @Model.OtCount],
+                            data: [@Html.Raw(Json.Serialize(Model.OnTimeCount)), @Html.Raw(Json.Serialize(Model.LateCount)), @Html.Raw(Json.Serialize(Model.LeaveCount)), @Html.Raw(Json.Serialize(Model.OtCount))],
                             backgroundColor: ['#28a745', '#ffc107', '#dc3545', '#6f42c1'],
                             borderWidth: 0
                         }]
@@ -918,7 +1248,7 @@ else
             </text>
         }
 
-        @if (Model.HasSection && Model.WorkHoursPieChart.Any())
+        @if (Model.HasSection && !Model.IsWorkerSearchMode && Model.WorkHoursPieChart.Any())
         {
             <text>
             // Work Hours Doughnut Chart
@@ -961,141 +1291,268 @@ else
             }
             </text>
         }
-            </text>
-        }
 
+        // Attendance Modal Functionality (only when worker search is active)
         @if (Model.WorkerHistorySearchResult != null)
         {
-            var worker = Model.WorkerHistorySearchResult;
             <text>
-            // Worker Status Donut Chart
-            const workerStatusCtx = document.getElementById('workerStatusChart');
-            if (workerStatusCtx) {
-                new Chart(workerStatusCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['On Time', 'Late', 'Leave', 'Absent'],
-                        datasets: [{
-                            data: [@worker.OnTimeDaysCount, @worker.LateDaysCount, @worker.LeaveDaysCount, @(worker.History.Count - worker.OnTimeDaysCount - worker.LateDaysCount - worker.LeaveDaysCount)],
-                            backgroundColor: ['#28a745', '#ffc107', '#dc3545', '#6c757d'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '65%',
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    boxWidth: 12,
-                                    padding: 16
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return context.label + ': ' + context.parsed + ' days';
-                                    }
-                                }
-                            }
+            const currentServiceId = @Html.Raw(Json.Serialize(Model.WorkerHistorySearchResult.ServiceId));
+            const attendanceModal = document.getElementById('attendanceModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalWorkerInfo = document.getElementById('modalWorkerInfo');
+            const modalBody = document.getElementById('modalBody');
+            const applyDateBtn = document.getElementById('applyDateFilter');
+            const attendanceDateInput = document.getElementById('attendanceDate');
+
+            console.log('Attendance modal script loaded for worker:', currentServiceId);
+
+            // Apply Date button click handler
+            if (applyDateBtn && attendanceDateInput && attendanceModal) {
+                applyDateBtn.addEventListener('click', async function(e) {
+                    console.log('Apply Date clicked - Opening modal');
+                    e.preventDefault();
+                    
+                    const selectedDate = attendanceDateInput.value;
+                    console.log('serviceId sent:', currentServiceId);
+                    console.log('date sent:', selectedDate);
+                    
+                    if (!selectedDate) {
+                        alert('Please select a date');
+                        return;
+                    }
+
+                    // Format date for API (ensure yyyy-MM-dd format)
+                    const formattedDate = new Date(selectedDate).toISOString().split('T')[0];
+                    console.log('Formatted date for API:', formattedDate);
+
+                    // Show loading state
+                    applyDateBtn.disabled = true;
+                    applyDateBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Loading...';
+
+                    try {
+                        const apiUrl = `/Dashboard/GetWorkerAttendanceByDate?serviceId=${encodeURIComponent(currentServiceId)}&date=${formattedDate}`;
+                        console.log('API URL:', apiUrl);
+                        
+                        const response = await fetch(apiUrl);
+                        console.log('Response status:', response.status);
+                        
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
                         }
+                        
+                        const data = await response.json();
+                        console.log('API response:', data);
+
+                        if (data.success === true && data.record) {
+                            console.log('Success, showing modal with record data');
+                            showAttendanceModal(data.record, formattedDate);
+                        } else {
+                            console.log('Backend returned error or no record:', data.message);
+                            showAttendanceModal(null, formattedDate, data.message);
+                        }
+                    } catch (error) {
+                        console.error('Error fetching attendance data:', error);
+                        showAttendanceModal(null, formattedDate, 'An error occurred while fetching attendance data: ' + error.message);
+                    } finally {
+                        // Reset button state
+                        applyDateBtn.disabled = false;
+                        applyDateBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Apply Date';
                     }
                 });
             }
 
-            // Worker OT Hours Bar Chart
-            const workerOTCtx = document.getElementById('workerOTChart');
-            if (workerOTCtx && worker.OTHistory.Any()) {
-                new Chart(workerOTCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: [@Html.Raw(System.Text.Json.JsonSerializer.Serialize(worker.ChartLabels))],
-                        datasets: [{
-                            label: 'OT Hours',
-                            data: [@Html.Raw(System.Text.Json.JsonSerializer.Serialize(worker.OTHoursChartData))],
-                            backgroundColor: '#6f42c1',
-                            borderColor: '#6f42c1',
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return 'OT Hours: ' + context.parsed.y;
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: 'Hours'
-                                }
-                            }
-                        }
-                    }
+            function showAttendanceModal(record, date, errorMessage = null) {
+                console.log('Showing attendance modal with record:', record);
+                console.log('Date:', date);
+                console.log('Error message:', errorMessage);
+                
+                // Format date for display
+                const dateObj = new Date(date);
+                const formattedDate = dateObj.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
                 });
+                
+                modalTitle.textContent = `Attendance Details - ${formattedDate}`;
+                
+                // Check if we have valid record data
+                if (record && !errorMessage) {
+                    console.log('Rendering attendance record with data:', record);
+                    
+                    // Use fallback values to prevent undefined display
+                    const workerName = record.workerName ?? "-";
+                    const serviceId = record.serviceId ?? "-";
+                    const sectionName = record.section ?? "-";
+                    const loginTime = record.loginTime ? record.loginTime.toString().substring(0, 5) : "-";
+                    const logoutTime = record.logoutTime ? record.logoutTime.toString().substring(0, 5) : "-";
+                    const workedHours = record.workedHours ? formatMinutes(record.workedHours) : "-";
+                    const otHours = record.otHours ? formatMinutes(record.otHours) : "0h";
+                    const status = record.status ?? "Unknown";
+                    const currentState = record.currentState ?? "Unknown";
+                    
+                    modalWorkerInfo.textContent = `${workerName} - ${serviceId}`;
+                    
+                    const statusBadgeClass = getStatusBadgeClass(status);
+                    const stateBadgeClass = getStateBadgeClass(currentState);
+                    const statusIcon = getStatusIcon(status);
+                    
+                    modalBody.innerHTML = `
+                        <div class="attendance-detail-grid">
+                            <div class="attendance-detail-item">
+                                <div class="attendance-detail-label">Worker Name</div>
+                                <div class="attendance-detail-value">${workerName}</div>
+                            </div>
+                            <div class="attendance-detail-item">
+                                <div class="attendance-detail-label">Service ID</div>
+                                <div class="attendance-detail-value">${serviceId}</div>
+                            </div>
+                            <div class="attendance-detail-item">
+                                <div class="attendance-detail-label">Date</div>
+                                <div class="attendance-detail-value">${formattedDate}</div>
+                            </div>
+                            <div class="attendance-detail-item">
+                                <div class="attendance-detail-label">Section</div>
+                                <div class="attendance-detail-value">${sectionName}</div>
+                            </div>
+                            <div class="attendance-detail-item">
+                                <div class="attendance-detail-label">Login Time</div>
+                                <div class="attendance-detail-value">${loginTime}</div>
+                            </div>
+                            <div class="attendance-detail-item">
+                                <div class="attendance-detail-label">Logout Time</div>
+                                <div class="attendance-detail-value">${logoutTime}</div>
+                            </div>
+                            <div class="attendance-detail-item">
+                                <div class="attendance-detail-label">Worked Hours</div>
+                                <div class="attendance-detail-value">${workedHours}</div>
+                            </div>
+                            <div class="attendance-detail-item">
+                                <div class="attendance-detail-label">OT Hours</div>
+                                <div class="attendance-detail-value ${otHours !== '0h' ? 'text-purple' : 'text-muted'}">
+                                    ${otHours !== '0h' ? otHours : 'No OT recorded'}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="text-align: center; margin-top: 20px;">
+                            <div class="attendance-status-badge ${statusBadgeClass}">
+                                ${statusIcon} ${status}
+                            </div>
+                            <div style="margin-top: 8px;">
+                                <span class="attendance-current-state ${stateBadgeClass}">${currentState}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    console.log('No attendance record found or error occurred');
+                    modalWorkerInfo.textContent = currentServiceId;
+                    
+                    const message = errorMessage || `No attendance record found for ${currentServiceId} on ${formattedDate}.`;
+                    
+                    modalBody.innerHTML = `
+                        <div class="attendance-empty-state">
+                            <div class="attendance-empty-state-icon">
+                                <i class="bi bi-calendar-x"></i>
+                            </div>
+                            <div class="attendance-empty-state-title">No Record Found</div>
+                            <div class="attendance-empty-state-description">${message}</div>
+                        </div>
+                    `;
+                }
+                
+                // Show modal
+                attendanceModal.classList.remove('hidden');
+                setTimeout(() => {
+                    attendanceModal.classList.add('show');
+                }, 10);
             }
 
-            // Worker Worked Hours Line Chart
-            const workerWorkedCtx = document.getElementById('workerWorkedChart');
-            if (workerWorkedCtx) {
-                new Chart(workerWorkedCtx, {
-                    type: 'line',
-                    data: {
-                        labels: [@Html.Raw(System.Text.Json.JsonSerializer.Serialize(worker.ChartLabels))],
-                        datasets: [{
-                            label: 'Worked Hours',
-                            data: [@Html.Raw(System.Text.Json.JsonSerializer.Serialize(worker.WorkedHoursChartData))],
-                            borderColor: '#667eea',
-                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                            borderWidth: 2,
-                            fill: true,
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: false
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return 'Worked Hours: ' + context.parsed.y;
-                                    }
-                                }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                title: {
-                                    display: true,
-                                    text: 'Hours'
-                                }
-                            }
-                        }
-                    }
-                });
+            // Helper function to format minutes to hours:minutes
+            function formatMinutes(minutes) {
+                if (!minutes || minutes === 0) return "-";
+                const hours = Math.floor(minutes / 60);
+                const mins = minutes % 60;
+                return `${hours}h ${mins}m`;
+            }
+
+            function closeAttendanceModal() {
+                console.log('Closing attendance modal');
+                attendanceModal.classList.remove('show');
+                setTimeout(() => {
+                    attendanceModal.classList.add('hidden');
+                }, 300);
+            }
+
+            // Close modal on ESC key
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && !attendanceModal.classList.contains('hidden')) {
+                    closeAttendanceModal();
+                }
+            });
+
+            // Helper functions
+            function getStatusBadgeClass(status) {
+                switch(status) {
+                    case 'Present': return 'success';
+                    case 'Late': return 'warning';
+                    case 'Leave': return 'danger';
+                    case 'Absent': return 'secondary';
+                    default: return 'info';
+                }
+            }
+
+            function getStateBadgeClass(state) {
+                switch(state) {
+                    case 'Completed': return 'bg-success';
+                    case 'Working': return 'bg-success';
+                    case 'Working OT': return 'bg-purple';
+                    case 'On Leave': return 'bg-danger';
+                    case 'Absent': return 'bg-secondary';
+                    default: return 'bg-secondary';
+                }
+            }
+
+            function getStatusIcon(status) {
+                switch(status) {
+                    case 'Present': return '<i class="bi bi-check-circle"></i>';
+                    case 'Late': return '<i class="bi bi-clock"></i>';
+                    case 'Leave': return '<i class="bi bi-calendar-x"></i>';
+                    case 'Absent': return '<i class="bi bi-x-circle"></i>';
+                    default: return '<i class="bi bi-question-circle"></i>';
+                }
             }
             </text>
         }
     </script>
 }
+
+<!-- Attendance Details Modal -->
+<div id="attendanceModal" class="attendance-modal hidden">
+    <div class="attendance-modal-overlay" onclick="closeAttendanceModal()"></div>
+    <div class="attendance-modal-content">
+        <div class="attendance-modal-header">
+            <h3 class="attendance-modal-title">
+                <i class="bi bi-calendar-check me-2"></i>
+                <span id="modalTitle">Attendance Details</span>
+            </h3>
+            <button class="attendance-modal-close" onclick="closeAttendanceModal()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="attendance-modal-subheader">
+            <span id="modalWorkerInfo"></span>
+        </div>
+        <div class="attendance-modal-body">
+            <div id="modalBody">
+                <!-- Content will be populated dynamically -->
+            </div>
+        </div>
+        <div class="attendance-modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeAttendanceModal()">Close</button>
+        </div>
+    </div>
+</div>
 
 <!-- Add Employee Modal -->
 <div class="modal fade" id="addEmployeeModal" tabindex="-1" aria-labelledby="addEmployeeModalLabel" aria-hidden="true">
@@ -1191,5 +1648,296 @@ else
     }
     .bg-purple.bg-opacity-10 {
         background-color: rgba(111, 66, 193, 0.1) !important;
+    }
+
+    /* Date Filter Styles */
+    .attendance-detail-item {
+        padding: 0.75rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #e9ecef;
+    }
+
+    .attendance-status-badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        border-radius: 25px;
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .attendance-metric {
+        text-align: center;
+        padding: 1rem;
+        background: #fff;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s ease;
+    }
+
+    .attendance-metric:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .metric-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+    }
+
+    .metric-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #2c3e50;
+    }
+
+    .metric-value.text-purple {
+        color: #6f42c1 !important;
+    }
+
+    .metric-value.text-warning {
+        color: #ffc107 !important;
+    }
+
+    .metric-value.text-muted {
+        color: #6c757d !important;
+    }
+
+    /* Date filter button loading state */
+    #applyDateFilter:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    /* Responsive adjustments */
+    @@media (max-width: 768px) {
+        .attendance-metric {
+            margin-bottom: 1rem;
+        }
+        
+        .metric-value {
+            font-size: 1.1rem;
+        }
+    }
+
+    /* Attendance Details Modal */
+    .attendance-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .attendance-modal.show {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .attendance-modal.hidden {
+        opacity: 0;
+        visibility: hidden;
+    }
+
+    .attendance-modal-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+    }
+
+    .attendance-modal-content {
+        position: relative;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        max-width: 500px;
+        width: 90%;
+        max-height: 80vh;
+        overflow-y: auto;
+        transform: scale(0.8) translateY(20px);
+        transition: all 0.3s ease;
+    }
+
+    .attendance-modal.show .attendance-modal-content {
+        transform: scale(1) translateY(0);
+    }
+
+    .attendance-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 24px 24px 16px 24px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .attendance-modal-title {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #1f2937;
+        display: flex;
+        align-items: center;
+    }
+
+    .attendance-modal-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        color: #6b7280;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+    }
+
+    .attendance-modal-close:hover {
+        background: #f3f4f6;
+        color: #374151;
+    }
+
+    .attendance-modal-subheader {
+        padding: 0 24px 16px 24px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .attendance-modal-subheader span {
+        color: #6b7280;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .attendance-modal-body {
+        padding: 24px;
+    }
+
+    .attendance-modal-footer {
+        padding: 16px 24px;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+
+    /* Modal Content Styles */
+    .attendance-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    .attendance-detail-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .attendance-detail-label {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #6b7280;
+    }
+
+    .attendance-detail-value {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #1f2937;
+    }
+
+    .attendance-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .attendance-status-badge.success {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .attendance-status-badge.warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .attendance-status-badge.danger {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .attendance-status-badge.secondary {
+        background: #f3f4f6;
+        color: #4b5563;
+    }
+
+    .attendance-current-state {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: uppercase;
+    }
+
+    .attendance-current-state.bg-success {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .attendance-current-state.bg-purple {
+        background: #f3e8ff;
+        color: #7c3aed;
+    }
+
+    .attendance-current-state.bg-danger {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .attendance-current-state.bg-secondary {
+        background: #f3f4f6;
+        color: #4b5563;
+    }
+
+    .attendance-empty-state {
+        text-align: center;
+        padding: 40px 20px;
+    }
+
+    .attendance-empty-state-icon {
+        font-size: 3rem;
+        color: #d1d5db;
+        margin-bottom: 16px;
+    }
+
+    .attendance-empty-state-title {
+        font-size: 1.125rem;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 8px;
+    }
+
+    .attendance-empty-state-description {
+        color: #6b7280;
+        font-size: 0.875rem;
     }
 </style>
