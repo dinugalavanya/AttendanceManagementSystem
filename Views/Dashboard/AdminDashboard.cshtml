@@ -12,6 +12,7 @@
         return status switch
         {
             "Present" => "status-badge success",
+            "On Time" => "status-badge success",
             "Late" => "status-badge warning",
             "Leave" => "status-badge danger",
             "Absent" => "status-badge secondary",
@@ -333,21 +334,7 @@
     background: #f8fafc;
 }
 
-/* Status Badges */
-.status-badge {
-    padding: 0.25rem 0.75rem;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.status-badge.success { background: #dcfce7; color: #16a34a; }
-.status-badge.warning { background: #fef3c7; color: #d97706; }
-.status-badge.danger { background: #fee2e2; color: #dc2626; }
-.status-badge.info { background: #dbeafe; color: #2563eb; }
-.status-badge.purple { background: #f3e8ff; color: #9333ea; }
+/* Legacy Status Badges - Removed to avoid conflicts with new badge system */
 
 /* Empty States */
 .empty-state {
@@ -623,33 +610,79 @@ else
                 <h5 class="section-title">
                     <i class="bi bi-person-badge me-2"></i>Worker Details
                 </h5>
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <div class="worker-profile-info">
+                <div class="worker-details-grid">
+                    <!-- Left Column: Worker Info Card -->
+                    <div class="worker-info-card">
+                        <div class="card-header">
+                            <h6 class="card-title">
+                                <i class="bi bi-person-circle me-2"></i>Worker Profile
+                            </h6>
+                        </div>
+                        <div class="card-body">
                             <div class="profile-item">
-                                <label class="text-muted small">Full Name</label>
-                                <div class="fw-bold fs-5">@worker.FullName</div>
+                                <label class="profile-label">Full Name</label>
+                                <div class="profile-value">@worker.FullName</div>
                             </div>
-                            <div class="profile-item mt-2">
-                                <label class="text-muted small">Service ID</label>
-                                <div class="fw-bold">@worker.ServiceId</div>
+                            <div class="profile-item">
+                                <label class="profile-label">Service ID</label>
+                                <div class="profile-value">@worker.ServiceId</div>
                             </div>
-                            <div class="profile-item mt-2">
-                                <label class="text-muted small">Email</label>
-                                <div>@worker.Email</div>
+                            <div class="profile-item">
+                                <label class="profile-label">Email</label>
+                                <div class="profile-value">@worker.Email</div>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="worker-profile-info">
-                            <div class="profile-item">
-                                <label class="text-muted small">Section</label>
-                                <div class="fw-bold">@worker.SectionName</div>
+
+                    <!-- Right Column: Section Status and OT Counter -->
+                    <div class="worker-side-column">
+                        <!-- Section & Status Card -->
+                        <div class="section-status-card">
+                            <div class="card-header">
+                                <h6 class="card-title">
+                                    <i class="bi bi-building me-2"></i>Section & Status
+                                </h6>
                             </div>
-                            <div class="profile-item mt-2">
-                                <label class="text-muted small">Current Status</label>
-                                <div class="badge bg-@(worker.LatestStatus == "Present" ? "success" : worker.LatestStatus == "Late" ? "warning" : worker.LatestStatus == "Leave" ? "danger" : "secondary") fs-6">
-                                    @worker.LatestStatus
+                            <div class="card-body">
+                                <div class="profile-item">
+                                    <label class="profile-label">Section</label>
+                                    <div class="profile-value">@worker.SectionName</div>
+                                </div>
+                                <div class="profile-item">
+                                    <label class="profile-label">Current Status</label>
+                                    <div class="profile-value">
+                                        <span class="status-badge @(worker.LatestStatus == "Present" ? "success" : worker.LatestStatus == "Late" ? "warning" : worker.LatestStatus == "Leave" ? "danger" : "secondary")">
+                                            @worker.LatestStatus
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- OT Counter Card -->
+                        <div class="ot-counter-card">
+                            <div class="card-header">
+                                <h6 class="card-title">
+                                    <i class="bi bi-clock-history me-2"></i>OT Counter
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="ot-stats-grid">
+                                    <div class="ot-stat-item">
+                                        <div class="ot-stat-label">Total OT Hours</div>
+                                        <div class="ot-stat-value text-purple">
+                                            @{
+                                                var totalOTMinutes = (int)(worker.TotalOTHours * 60);
+                                                var totalOTHours = totalOTMinutes / 60;
+                                                var totalOTMinutesRemainder = totalOTMinutes % 60;
+                                            }
+                                            @(totalOTHours)h @(totalOTMinutesRemainder)m
+                                        </div>
+                                    </div>
+                                    <div class="ot-stat-item">
+                                        <div class="ot-stat-label">OT Days</div>
+                                        <div class="ot-stat-value text-dark">@worker.OTDaysCount</div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1369,12 +1402,13 @@ else
                 // Format date for display
                 const dateObj = new Date(date);
                 const formattedDate = dateObj.toLocaleDateString('en-US', { 
-                    year: 'numeric', 
                     month: 'short', 
-                    day: 'numeric' 
+                    day: 'numeric', 
+                    year: 'numeric' 
                 });
                 
-                modalTitle.textContent = `Attendance Details - ${formattedDate}`;
+                // Update modal header and date
+                document.getElementById('modalDate').textContent = formattedDate;
                 
                 // Check if we have valid record data
                 if (record && !errorMessage) {
@@ -1384,79 +1418,112 @@ else
                     const workerName = record.workerName ?? "-";
                     const serviceId = record.serviceId ?? "-";
                     const sectionName = record.section ?? "-";
-                    const loginTime = record.loginTime ? record.loginTime.toString().substring(0, 5) : "-";
-                    const logoutTime = record.logoutTime ? record.logoutTime.toString().substring(0, 5) : "-";
-                    const workedHours = record.workedHours ? formatMinutes(record.workedHours) : "-";
-                    const otHours = record.otHours ? formatMinutes(record.otHours) : "0h";
+                    const loginTime = formatTimeSafe(record.loginTime);
+                    const logoutTime = formatTimeSafe(record.logoutTime);
+                    const workedHours = formatHoursSafe(record.workedMinutes);
+                    const regularHours = formatHoursSafe(record.regularMinutes);
+                    const otHours = formatHoursSafe(record.overtimeMinutes);
                     const status = record.status ?? "Unknown";
                     const currentState = record.currentState ?? "Unknown";
+                    const lateByText = record.lateByText ?? "-";
+                    const earlyByText = record.earlyByText ?? "-";
                     
-                    modalWorkerInfo.textContent = `${workerName} - ${serviceId}`;
+                    // Update worker summary
+                    document.getElementById('modalWorkerName').textContent = workerName;
+                    document.getElementById('modalWorkerServiceId').textContent = serviceId;
+                    document.getElementById('modalWorkerSection').textContent = sectionName;
                     
                     const statusBadgeClass = getStatusBadgeClass(status);
                     const stateBadgeClass = getStateBadgeClass(currentState);
                     const statusIcon = getStatusIcon(status);
                     
                     modalBody.innerHTML = `
-                        <div class="attendance-detail-grid">
-                            <div class="attendance-detail-item">
-                                <div class="attendance-detail-label">Worker Name</div>
-                                <div class="attendance-detail-value">${workerName}</div>
-                            </div>
-                            <div class="attendance-detail-item">
-                                <div class="attendance-detail-label">Service ID</div>
-                                <div class="attendance-detail-value">${serviceId}</div>
-                            </div>
-                            <div class="attendance-detail-item">
-                                <div class="attendance-detail-label">Date</div>
-                                <div class="attendance-detail-value">${formattedDate}</div>
-                            </div>
-                            <div class="attendance-detail-item">
-                                <div class="attendance-detail-label">Section</div>
-                                <div class="attendance-detail-value">${sectionName}</div>
-                            </div>
-                            <div class="attendance-detail-item">
-                                <div class="attendance-detail-label">Login Time</div>
-                                <div class="attendance-detail-value">${loginTime}</div>
-                            </div>
-                            <div class="attendance-detail-item">
-                                <div class="attendance-detail-label">Logout Time</div>
-                                <div class="attendance-detail-value">${logoutTime}</div>
-                            </div>
-                            <div class="attendance-detail-item">
-                                <div class="attendance-detail-label">Worked Hours</div>
-                                <div class="attendance-detail-value">${workedHours}</div>
-                            </div>
-                            <div class="attendance-detail-item">
-                                <div class="attendance-detail-label">OT Hours</div>
-                                <div class="attendance-detail-value ${otHours !== '0h' ? 'text-purple' : 'text-muted'}">
-                                    ${otHours !== '0h' ? otHours : 'No OT recorded'}
+                        <div class="attendance-details-grid">
+                            <div class="detail-row">
+                                <div class="detail-item">
+                                    <div class="detail-label">Login Time</div>
+                                    <div class="detail-value">${loginTime}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Logout Time</div>
+                                    <div class="detail-value">${logoutTime}</div>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <div style="text-align: center; margin-top: 20px;">
-                            <div class="attendance-status-badge ${statusBadgeClass}">
-                                ${statusIcon} ${status}
+                            <div class="detail-row">
+                                <div class="detail-item">
+                                    <div class="detail-label">Worked Hours</div>
+                                    <div class="detail-value">${workedHours}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Regular Hours</div>
+                                    <div class="detail-value">${regularHours}</div>
+                                </div>
                             </div>
-                            <div style="margin-top: 8px;">
-                                <span class="attendance-current-state ${stateBadgeClass}">${currentState}</span>
+                            <div class="detail-row">
+                                <div class="detail-item">
+                                    <div class="detail-label">OT Hours</div>
+                                    <div class="detail-value ${otHours !== '0h 0m' ? 'text-purple' : 'text-muted'}">
+                                        ${otHours !== '0h 0m' ? otHours : 'No OT recorded'}
+                                    </div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Status</div>
+                                    <div class="detail-value">
+                                        <span class="status-badge ${statusBadgeClass}">
+                                            ${statusIcon} ${status}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            ${lateByText !== '-' ? `
+                            <div class="detail-row">
+                                <div class="detail-item" style="grid-column: span 2;">
+                                    <div class="detail-label">Late By</div>
+                                    <div class="detail-value text-warning">
+                                        <i class="bi bi-clock me-1"></i>${lateByText}
+                                    </div>
+                                </div>
+                            </div>
+                            ` : ''}
+                            ${earlyByText !== '-' ? `
+                            <div class="detail-row">
+                                <div class="detail-item" style="grid-column: span 2;">
+                                    <div class="detail-label">Early By</div>
+                                    <div class="detail-value text-info">
+                                        <i class="bi bi-clock-history me-1"></i>${earlyByText}
+                                    </div>
+                                </div>
+                            </div>
+                            ` : ''}
+                            <div class="detail-row">
+                                <div class="detail-item" style="grid-column: span 2;">
+                                    <div class="current-state-container">
+                                        <div class="current-state-label">Current State</div>
+                                        <div class="detail-value">
+                                            <span class="state-badge ${stateBadgeClass}">${currentState}</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     `;
                 } else {
                     console.log('No attendance record found or error occurred');
-                    modalWorkerInfo.textContent = currentServiceId;
+                    
+                    // Update worker summary with service ID only
+                    document.getElementById('modalWorkerName').textContent = "-";
+                    document.getElementById('modalWorkerServiceId').textContent = currentServiceId;
+                    document.getElementById('modalWorkerSection').textContent = "-";
                     
                     const message = errorMessage || `No attendance record found for ${currentServiceId} on ${formattedDate}.`;
                     
                     modalBody.innerHTML = `
                         <div class="attendance-empty-state">
-                            <div class="attendance-empty-state-icon">
+                            <div class="empty-state-icon">
                                 <i class="bi bi-calendar-x"></i>
                             </div>
-                            <div class="attendance-empty-state-title">No Record Found</div>
-                            <div class="attendance-empty-state-description">${message}</div>
+                            <div class="empty-state-title">No Record Found</div>
+                            <div class="empty-state-description">${message}</div>
                         </div>
                     `;
                 }
@@ -1468,12 +1535,92 @@ else
                 }, 10);
             }
 
-            // Helper function to format minutes to hours:minutes
+            // Safe time formatter for Login/Logout times
+            function formatTimeSafe(timeValue) {
+                if (!timeValue || timeValue === null || timeValue === "") return "-";
+                
+                try {
+                    // Handle TimeSpan objects (with ticks property)
+                    if (timeValue && typeof timeValue === 'object' && timeValue.ticks !== undefined) {
+                        const totalSeconds = timeValue.ticks / 10000000; // Convert ticks to seconds
+                        const hours = Math.floor(totalSeconds / 3600);
+                        const minutes = Math.floor((totalSeconds % 3600) / 60);
+                        const period = hours >= 12 ? 'PM' : 'AM';
+                        const displayHours = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
+                        return `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
+                    }
+                    
+                    // Handle string time formats
+                    if (typeof timeValue === 'string') {
+                        // Handle "08:10:00" format
+                        if (timeValue.match(/^\d{2}:\d{2}:\d{2}$/)) {
+                            const [hours, minutes] = timeValue.split(':').map(Number);
+                            const period = hours >= 12 ? 'PM' : 'AM';
+                            const displayHours = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
+                            return `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
+                        }
+                        
+                        // Handle "08:10" format
+                        if (timeValue.match(/^\d{2}:\d{2}$/)) {
+                            const [hours, minutes] = timeValue.split(':').map(Number);
+                            const period = hours >= 12 ? 'PM' : 'AM';
+                            const displayHours = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
+                            return `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
+                        }
+                        
+                        // Handle ISO datetime strings
+                        if (timeValue.includes('T') || timeValue.includes('-')) {
+                            const date = new Date(timeValue);
+                            if (!isNaN(date.getTime())) {
+                                const hours = date.getHours();
+                                const minutes = date.getMinutes();
+                                const period = hours >= 12 ? 'PM' : 'AM';
+                                const displayHours = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
+                                return `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
+                            }
+                        }
+                    }
+                    
+                    // Handle numeric values (treat as minutes from midnight)
+                    if (typeof timeValue === 'number') {
+                        const hours = Math.floor(timeValue / 60);
+                        const minutes = Math.floor(timeValue % 60);
+                        const period = hours >= 12 ? 'PM' : 'AM';
+                        const displayHours = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
+                        return `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
+                    }
+                    
+                    return "-";
+                } catch (error) {
+                    console.warn('Time formatting error:', error, timeValue);
+                    return "-";
+                }
+            }
+
+            // Safe hours formatter for worked/regular/OT hours
+            function formatHoursSafe(minutes) {
+                if (!minutes || minutes === null || minutes === undefined || minutes === 0) return "0h 0m";
+                
+                try {
+                    const mins = parseInt(minutes);
+                    if (isNaN(mins)) return "0h 0m";
+                    
+                    const hours = Math.floor(mins / 60);
+                    const remainingMinutes = mins % 60;
+                    return `${hours}h ${remainingMinutes}m`;
+                } catch (error) {
+                    console.warn('Hours formatting error:', error, minutes);
+                    return "0h 0m";
+                }
+            }
+
+            // Legacy functions for backward compatibility
+            function formatTimeSpan(timeSpan) {
+                return formatTimeSafe(timeSpan);
+            }
+
             function formatMinutes(minutes) {
-                if (!minutes || minutes === 0) return "-";
-                const hours = Math.floor(minutes / 60);
-                const mins = minutes % 60;
-                return `${hours}h ${mins}m`;
+                return formatHoursSafe(minutes);
             }
 
             function closeAttendanceModal() {
@@ -1495,6 +1642,7 @@ else
             function getStatusBadgeClass(status) {
                 switch(status) {
                     case 'Present': return 'success';
+                    case 'On Time': return 'success';
                     case 'Late': return 'warning';
                     case 'Leave': return 'danger';
                     case 'Absent': return 'secondary';
@@ -1532,24 +1680,38 @@ else
     <div class="attendance-modal-overlay" onclick="closeAttendanceModal()"></div>
     <div class="attendance-modal-content">
         <div class="attendance-modal-header">
-            <h3 class="attendance-modal-title">
-                <i class="bi bi-calendar-check me-2"></i>
-                <span id="modalTitle">Attendance Details</span>
-            </h3>
-            <button class="attendance-modal-close" onclick="closeAttendanceModal()">
-                <i class="bi bi-x-lg"></i>
-            </button>
-        </div>
-        <div class="attendance-modal-subheader">
-            <span id="modalWorkerInfo"></span>
-        </div>
-        <div class="attendance-modal-body">
-            <div id="modalBody">
-                <!-- Content will be populated dynamically -->
+            <div class="attendance-modal-header-content">
+                <div class="attendance-modal-title-section">
+                    <h3 class="attendance-modal-title">Attendance Details</h3>
+                    <div class="attendance-modal-date" id="modalDate">Apr 7, 2026</div>
+                </div>
+                <button class="attendance-modal-close" onclick="closeAttendanceModal()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
             </div>
         </div>
+        
+        <div class="attendance-modal-worker-summary" id="modalWorkerSummary">
+            <div class="worker-summary-item">
+                <div class="worker-summary-label">Worker</div>
+                <div class="worker-summary-value" id="modalWorkerName">-</div>
+            </div>
+            <div class="worker-summary-item">
+                <div class="worker-summary-label">Service ID</div>
+                <div class="worker-summary-value" id="modalWorkerServiceId">-</div>
+            </div>
+            <div class="worker-summary-item">
+                <div class="worker-summary-label">Section</div>
+                <div class="worker-summary-value" id="modalWorkerSection">-</div>
+            </div>
+        </div>
+        
+        <div class="attendance-modal-body" id="modalBody">
+            <!-- Content will be dynamically inserted here -->
+        </div>
+        
         <div class="attendance-modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeAttendanceModal()">Close</button>
+            <button type="button" class="btn btn-primary" onclick="closeAttendanceModal()">Close</button>
         </div>
     </div>
 </div>
@@ -1756,21 +1918,21 @@ else
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0, 0, 0, 0.5);
-        backdrop-filter: blur(4px);
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(8px);
     }
 
     .attendance-modal-content {
         position: relative;
         background: white;
-        border-radius: 12px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        max-width: 500px;
-        width: 90%;
-        max-height: 80vh;
-        overflow-y: auto;
-        transform: scale(0.8) translateY(20px);
-        transition: all 0.3s ease;
+        border-radius: 16px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        max-width: 600px;
+        width: 95%;
+        max-height: 90vh;
+        overflow: hidden;
+        transform: scale(0.9) translateY(20px);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .attendance-modal.show .attendance-modal-content {
@@ -1778,59 +1940,555 @@ else
     }
 
     .attendance-modal-header {
+        padding: 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .attendance-modal-header-content {
         display: flex;
         justify-content: space-between;
-        align-items: center;
-        padding: 24px 24px 16px 24px;
-        border-bottom: 1px solid #e5e7eb;
+        align-items: flex-start;
+        padding: 24px 24px 20px 24px;
+    }
+
+    .attendance-modal-title-section {
+        flex: 1;
     }
 
     .attendance-modal-title {
-        margin: 0;
+        margin: 0 0 4px 0;
         font-size: 1.5rem;
-        font-weight: 600;
-        color: #1f2937;
-        display: flex;
-        align-items: center;
+        font-weight: 700;
+        color: #1e293b;
+        line-height: 1.2;
+    }
+
+    .attendance-modal-date {
+        font-size: 0.875rem;
+        color: #64748b;
+        font-weight: 500;
     }
 
     .attendance-modal-close {
-        background: none;
-        border: none;
-        font-size: 1.5rem;
-        color: #6b7280;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        font-size: 1rem;
+        color: #64748b;
         cursor: pointer;
-        padding: 4px;
-        border-radius: 6px;
+        padding: 8px;
+        border-radius: 8px;
         transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
     }
 
     .attendance-modal-close:hover {
-        background: #f3f4f6;
-        color: #374151;
+        background: #f1f5f9;
+        color: #475569;
+        border-color: #cbd5e1;
+        transform: scale(1.05);
     }
 
-    .attendance-modal-subheader {
-        padding: 0 24px 16px 24px;
-        border-bottom: 1px solid #e5e7eb;
+    .attendance-modal-worker-summary {
+        padding: 20px 24px;
+        background: #f8fafc;
+        border-bottom: 1px solid #f1f5f9;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
     }
 
-    .attendance-modal-subheader span {
-        color: #6b7280;
+    .worker-summary-item {
+        text-align: center;
+    }
+
+    .worker-summary-label {
+        font-size: 0.75rem;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+    }
+
+    .worker-summary-value {
         font-size: 0.875rem;
-        font-weight: 500;
+        color: #1e293b;
+        font-weight: 600;
     }
 
     .attendance-modal-body {
         padding: 24px;
+        max-height: 60vh;
+        overflow-y: auto;
     }
 
     .attendance-modal-footer {
-        padding: 16px 24px;
-        border-top: 1px solid #e5e7eb;
+        padding: 20px 24px;
+        border-top: 1px solid #f1f5f9;
+        background: #fafbfc;
         display: flex;
         justify-content: flex-end;
         gap: 12px;
+    }
+
+    .attendance-details-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .detail-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .detail-item {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .detail-label {
+        font-size: 0.875rem;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .detail-value {
+        font-size: 1rem;
+        color: #1e293b;
+        font-weight: 600;
+        line-height: 1.4;
+    }
+
+    /* Status and State Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border: none;
+    }
+
+    .status-badge.success {
+        background: #D1FAE5;
+        color: #065F46;
+    }
+
+    .status-badge.warning {
+        background: #FEF3C7;
+        color: #92400E;
+    }
+
+    .status-badge.danger {
+        background: #FEE2E2;
+        color: #991B1B;
+    }
+
+    .status-badge.secondary {
+        background: #FECACA;
+        color: #7F1D1D;
+    }
+
+    .status-badge.info {
+        background: #DBEAFE;
+        color: #1E3A8A;
+    }
+
+    .state-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border: none;
+    }
+
+    .state-badge.bg-success {
+        background: #D1FAE5;
+        color: #065F46;
+    }
+
+    .state-badge.bg-purple {
+        background: #7C3AED;
+        color: #FFFFFF;
+    }
+
+    .state-badge.bg-danger {
+        background: #FEE2E2;
+        color: #991B1B;
+    }
+
+    .state-badge.bg-secondary {
+        background: #FECACA;
+        color: #7F1D1D;
+    }
+
+    .state-badge.bg-info {
+        background: #DBEAFE;
+        color: #1E3A8A;
+    }
+
+    /* Current State Label Styling */
+    .current-state-label {
+        font-size: 12px;
+        color: #6B7280;
+        margin-bottom: 4px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .current-state-container {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    /* OT Counter Styling */
+    .ot-counter-content {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 8px 0;
+    }
+
+    .ot-counter-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 0;
+    }
+
+    .ot-counter-label {
+        font-size: 0.875rem;
+        color: #6B7280;
+        font-weight: 500;
+    }
+
+    .ot-counter-value {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #1e293b;
+    }
+
+    .ot-counter-value.text-purple {
+        color: #7c3aed !important;
+    }
+
+    /* Worker Details Grid Layout */
+    .worker-details-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        align-items: start;
+    }
+
+    .worker-side-column {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .worker-info-card,
+    .section-status-card,
+    .ot-counter-card {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        overflow: hidden;
+    }
+
+    .worker-info-card .card-header,
+    .section-status-card .card-header,
+    .ot-counter-card .card-header {
+        background: #ffffff;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 16px 20px;
+    }
+
+    .worker-info-card .card-title,
+    .section-status-card .card-title,
+    .ot-counter-card .card-title {
+        margin: 0;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #374151;
+        display: flex;
+        align-items: center;
+    }
+
+    .worker-info-card .card-body,
+    .section-status-card .card-body,
+    .ot-counter-card .card-body {
+        padding: 20px;
+    }
+
+    .profile-item {
+        margin-bottom: 16px;
+    }
+
+    .profile-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .profile-label {
+        display: block;
+        font-size: 0.75rem;
+        color: #6b7280;
+        font-weight: 500;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .profile-value {
+        font-size: 0.9rem;
+        color: #1f2937;
+        font-weight: 600;
+        line-height: 1.4;
+    }
+
+    /* OT Stats Grid */
+    .ot-stats-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .ot-stat-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+    }
+
+    .ot-stat-label {
+        font-size: 0.8rem;
+        color: #6b7280;
+        font-weight: 500;
+    }
+
+    .ot-stat-value {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #1f2937;
+    }
+
+    .ot-stat-value.text-purple {
+        color: #7c3aed !important;
+    }
+
+    .ot-stat-value.text-dark {
+        color: #1f2937 !important;
+    }
+
+    /* Responsive adjustments for Worker Details */
+    @@media (max-width: 768px) {
+        .worker-details-grid {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        .worker-side-column {
+            gap: 16px;
+        }
+
+        .worker-info-card .card-header,
+        .section-status-card .card-header,
+        .ot-counter-card .card-header {
+            padding: 12px 16px;
+        }
+
+        .worker-info-card .card-body,
+        .section-status-card .card-body,
+        .ot-counter-card .card-body {
+            padding: 16px;
+        }
+
+        .profile-item {
+            margin-bottom: 12px;
+        }
+
+        .ot-stat-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+            padding: 8px 12px;
+        }
+
+        .ot-stat-label {
+            font-size: 0.75rem;
+        }
+
+        .ot-stat-value {
+            font-size: 0.85rem;
+        }
+    }
+
+    /* Legacy OT Counter styles - kept for backward compatibility */
+    .ot-counter-content {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 8px 0;
+    }
+
+    .ot-counter-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 4px 0;
+    }
+
+    .ot-counter-label {
+        font-size: 0.875rem;
+        color: #6B7280;
+        font-weight: 500;
+    }
+
+    .ot-counter-value {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #1e293b;
+    }
+
+    .ot-counter-value.text-purple {
+        color: #7c3aed !important;
+    }
+
+    /* Empty State */
+    .attendance-empty-state {
+        text-align: center;
+        padding: 48px 24px;
+    }
+
+    .empty-state-icon {
+        font-size: 3rem;
+        color: #cbd5e1;
+        margin-bottom: 16px;
+    }
+
+    .empty-state-title {
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 8px;
+    }
+
+    .empty-state-description {
+        color: #64748b;
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+
+    /* Color utilities */
+    .text-purple {
+        color: #7c3aed !important;
+    }
+
+    .text-info {
+        color: #0ea5e9 !important;
+    }
+
+    .text-warning {
+        color: #f59e0b !important;
+    }
+
+    .text-muted {
+        color: #64748b !important;
+    }
+
+    /* Button styles */
+    .btn-primary {
+        background: #3b82f6;
+        color: white;
+        border: 1px solid #3b82f6;
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+
+    .btn-primary:hover {
+        background: #2563eb;
+        border-color: #2563eb;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .btn-secondary {
+        background: #f8fafc;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+
+    .btn-secondary:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        transform: translateY(-1px);
+    }
+
+    /* Responsive adjustments */
+    @@media (max-width: 640px) {
+        .attendance-modal-content {
+            width: 98%;
+            margin: 20px;
+        }
+
+        .attendance-modal-worker-summary {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        .detail-row {
+            grid-template-columns: 1fr;
+            gap: 16px;
+        }
+
+        .attendance-modal-header-content {
+            padding: 20px;
+        }
+
+        .attendance-modal-worker-summary {
+            padding: 16px 20px;
+        }
+
+        .attendance-modal-body {
+            padding: 20px;
+        }
+
+        .attendance-modal-footer {
+            padding: 16px 20px;
+        }
     }
 
     /* Modal Content Styles */

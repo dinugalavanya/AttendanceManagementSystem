@@ -3,18 +3,22 @@
 <article class="filter-toolbar-card">
     <form method="get" asp-action="@Model.FormAction" asp-controller="@Model.FormController" class="filter-toolbar">
         <div class="filter-toolbar-left">
-            <label class="form-label filter-label" for="attendanceDate">@Model.DateLabel</label>
-            <input id="attendanceDate" type="date" name="@Model.DateFieldName" class="form-control" value="@Model.SelectedDate.ToString("yyyy-MM-dd")" />
+            <div class="date-input-group">
+                <div class="date-input-wrapper">
+                    <label class="form-label filter-label" for="attendanceDate">@Model.DateLabel</label>
+                    <input id="attendanceDate" type="date" name="@Model.DateFieldName" class="form-control" value="@Model.SelectedDate.ToString("yyyy-MM-dd")" />
+                </div>
+                <button type="submit" class="btn btn-brand apply-button">
+                    <i class="bi bi-funnel"></i>
+                    @Model.ApplyLabel
+                </button>
+            </div>
             @if (!string.IsNullOrWhiteSpace(Model.ScopeLabel))
             {
                 <span class="badge-soft badge-soft-neutral">@Model.ScopeLabel</span>
             }
         </div>
         <div class="filter-toolbar-actions">
-            <button type="submit" class="btn btn-brand">
-                <i class="bi bi-funnel"></i>
-                @Model.ApplyLabel
-            </button>
             <a class="btn btn-soft" asp-action="@Model.FormAction" asp-controller="@Model.FormController">
                 <i class="bi bi-calendar-event"></i>
                 @Model.TodayLabel

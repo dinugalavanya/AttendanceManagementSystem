@@ -63,6 +63,7 @@ namespace AttendanceManagementSystem.ViewModels
         public string? SearchServiceId { get; set; }
         public string? WorkerSearchMessage { get; set; }
         public WorkerHistorySearchViewModel? WorkerHistorySearchResult { get; set; }
+        public SelectedDateAttendanceViewModel? SelectedDateAttendance { get; set; }
         
         // Properties for Add Employee form
         public string FirstName { get; set; } = string.Empty;
@@ -107,4 +108,5 @@ namespace AttendanceManagementSystem.ViewModels
         public int LeaveCount { get; set; }
         public decimal TotalOtHours { get; set; }
     }
-}
+
+    }

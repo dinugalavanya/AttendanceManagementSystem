@@ -57,6 +57,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<DatabaseMigrationService>();
+builder.Services.AddScoped<AttendanceCalculationService>();
 
 var app = builder.Build();
 

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using AttendanceManagementSystem.Models;
 using AttendanceManagementSystem.Data;
 using AttendanceManagementSystem.ViewModels;
+using AttendanceManagementSystem.Services;
 using System.Security.Claims;
 
 namespace AttendanceManagementSystem.Controllers
@@ -12,10 +13,17 @@ namespace AttendanceManagementSystem.Controllers
     public class DashboardController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly AttendanceCalculationService _calculationService;
 
-        public DashboardController(ApplicationDbContext context)
+        public DashboardController(ApplicationDbContext context, AttendanceCalculationService calculationService)
         {
             _context = context;
+            _calculationService = calculationService;
+            
+            // Test calculation examples to verify logic is correct
+            Console.WriteLine("[ATTENDANCE CALCULATION VALIDATION]");
+            _calculationService.ValidateCalculationExamples();
+            Console.WriteLine("[ATTENDANCE CALCULATION VALIDATION COMPLETE]");
         }
 
         public async Task<IActionResult> Index(string? serviceId, DateTime? selectedDate)
@@ -82,128 +90,115 @@ namespace AttendanceManagementSystem.Controllers
                     .Include(a => a.User)
                     .ToListAsync();
 
-                // Calculate today's stats
-                var presentToday = todayAttendances.Count(a => a.Status == AttendanceStatus.Present);
-                var lateToday = todayAttendances.Count(a => a.Status == AttendanceStatus.Late);
-                var leaveToday = todayAttendances.Count(a => a.Status == AttendanceStatus.Leave);
-                var workingOtToday = todayAttendances.Count(a => a.OutTime.HasValue && a.OutTime.Value > new TimeSpan(16, 30, 0));
+                // Use AttendanceCalculationService to recalculate all attendance records with standardized rules
+                var todayCalculated = todayAttendances.Select(a => _calculationService.CalculateAttendance(
+                    a.AttendanceDate, a.InTime, a.OutTime, a.Status)).ToList();
 
-                // Calculate OT hours for today (in memory since todayAttendances is already loaded)
-                var workStart = new TimeSpan(8, 30, 0);
-                var workEnd = new TimeSpan(16, 30, 0);
-                var todayOtHours = todayAttendances
-                    .Where(a => a.OutTime.HasValue && a.OutTime.Value > workEnd)
-                    .Sum(a => (decimal)(a.OutTime.Value - workEnd).TotalHours);
+                var presentToday = todayCalculated.Count(c => c.Status == "On Time");
+                var lateToday = todayCalculated.Count(c => c.Status == "Late");
+                var leaveToday = todayCalculated.Count(c => c.Status == "Leave");
+                var workingOtToday = todayCalculated.Count(c => c.CurrentState == "Working OT");
 
-                // Calculate total OT hours this month (load data first, then calculate in memory)
-                var monthlyOtRows = await attendanceScope
+                // Calculate OT hours for today using standardized rules (only after 8 hours)
+                var todayOtMinutes = todayCalculated.Sum(c => c.OvertimeMinutes);
+                var todayOtHours = todayOtMinutes / 60m;
+
+                // Calculate total OT hours this month using standardized rules
+                var monthlyAttendances = await attendanceScope
                     .Where(a => a.AttendanceDate >= monthStart && a.AttendanceDate < monthEndExclusive)
-                    .Where(a => a.OutTime.HasValue && a.OutTime.Value > workEnd)
-                    .Select(a => new
-                    {
-                        a.OutTime
-                    })
                     .ToListAsync();
 
-                var monthlyOtHours = monthlyOtRows
-                    .Sum(a => (decimal)(a.OutTime!.Value - workEnd).TotalHours);
+                var monthlyCalculated = monthlyAttendances.Select(a => _calculationService.CalculateAttendance(
+                    a.AttendanceDate, a.InTime, a.OutTime, a.Status)).ToList();
 
-                // Prepare worker attendance rows for table (in memory since todayAttendances is already loaded)
-                var todayWorkers = todayAttendances
-                    .Where(a => a.User != null)
-                    .Select(a => new WorkerAttendanceRow
+                var monthlyOtMinutes = monthlyCalculated.Sum(c => c.OvertimeMinutes);
+                var monthlyOtHours = monthlyOtMinutes / 60m;
+
+                // Prepare worker attendance rows for table using standardized calculations
+                var todayWorkers = todayCalculated
+                    .Select((c, index) => new WorkerAttendanceRow
                     {
-                        WorkerName = a.User.FirstName + " " + a.User.LastName,
-                        LoginTimeDisplay = a.InTime.HasValue ? a.InTime.Value.ToString(@"hh\:mm") : "--",
-                        LogoutTimeDisplay = a.OutTime.HasValue ? a.OutTime.Value.ToString(@"hh\:mm") : "--",
-                        Status = a.Status,
-                        LateByDisplay = a.InTime.HasValue && a.InTime.Value > workStart
-                            ? $"{(a.InTime.Value - workStart).TotalMinutes:F0} min"
-                            : "On Time",
-                        OtHoursDisplay = a.OutTime.HasValue && a.OutTime.Value > workEnd
-                            ? $"{(decimal)(a.OutTime.Value - workEnd).TotalHours:F1}h"
-                            : "0h",
-                        CurrentState = GetWorkerCurrentState(a.InTime, a.OutTime, a.Status)
+                        WorkerName = todayAttendances[index].User?.FirstName + " " + todayAttendances[index].User?.LastName ?? "Unknown",
+                        LoginTimeDisplay = c.InTimeText,
+                        LogoutTimeDisplay = c.OutTimeText,
+                        Status = c.Status,
+                        LateByDisplay = c.LateByText != "-" ? c.LateByText : "On Time",
+                        OtHoursDisplay = c.OvertimeHoursText != "-" ? c.OvertimeHoursText : "0h",
+                        CurrentState = c.CurrentState
                     })
                     .OrderBy(a => a.WorkerName)
                     .ToList();
 
-                // Prepare work hours pie chart
-                var workHoursPieChart = todayAttendances
-                    .Where(a => a.User != null && a.InTime.HasValue && a.OutTime.HasValue)
-                    .GroupBy(a => a.User.FirstName + " " + a.User.LastName)
+                // Prepare work hours pie chart using standardized calculations
+                var workHoursPieChart = todayCalculated
+                    .Where(c => c.TotalWorkedMinutes > 0)
+                    .Select((c, index) => new 
+                    {
+                        WorkerName = todayAttendances[index].User?.FirstName + " " + todayAttendances[index].User?.LastName ?? "Unknown",
+                        TotalWorkedMinutes = c.TotalWorkedMinutes
+                    })
+                    .GroupBy(x => x.WorkerName)
                     .Select(g => new PieChartItem
                     {
                         Label = g.Key,
-                        Hours = (decimal)(g.Sum(a => (a.OutTime!.Value - a.InTime!.Value).TotalHours))
+                        Hours = (decimal)g.Sum(x => x.TotalWorkedMinutes) / 60m
                     })
                     .ToList();
 
-                // Prepare OT workers list (in memory since todayAttendances is already loaded)
-                var otWorkers = todayAttendances
-                    .Where(a => a.User != null && a.OutTime.HasValue && a.OutTime.Value > workEnd)
-                    .Select(a => new OtWorkerItem
+                // Prepare OT workers list using standardized calculations (only after 8 hours)
+                var otWorkers = todayCalculated
+                    .Where(c => c.OvertimeMinutes > 0)
+                    .Select((c, index) => new OtWorkerItem
                     {
-                        WorkerName = a.User.FirstName + " " + a.User.LastName,
-                        OtHours = (decimal)(a.OutTime.Value - workEnd).TotalHours,
-                        LogoutTimeDisplay = a.OutTime.Value.ToString(@"hh\:mm")
+                        WorkerName = todayAttendances[index].User?.FirstName + " " + todayAttendances[index].User?.LastName ?? "Unknown",
+                        OtHours = (decimal)c.OvertimeMinutes / 60m,
+                        LogoutTimeDisplay = c.OutTimeText
                     })
                     .OrderByDescending(a => a.OtHours)
                     .ToList();
 
-                // Prepare calendar summary (load data first, then calculate OT in memory)
-                var calendarSummaryRaw = await attendanceScope
+                // Prepare calendar summary using standardized calculations
+                var monthlyAttendancesForCalendar = await attendanceScope
                     .Where(a => a.AttendanceDate >= monthStart && a.AttendanceDate < monthEndExclusive)
-                    .GroupBy(a => a.AttendanceDate.Date)
-                    .Select(g => new
-                    {
-                        Date = g.Key,
-                        PresentCount = g.Count(a => a.Status == AttendanceStatus.Present),
-                        LateCount = g.Count(a => a.Status == AttendanceStatus.Late),
-                        LeaveCount = g.Count(a => a.Status == AttendanceStatus.Leave),
-                        OutTimes = g.Where(a => a.OutTime.HasValue && a.OutTime.Value > workEnd).Select(a => a.OutTime!.Value).ToList()
-                    })
-                    .OrderBy(g => g.Date)
                     .ToListAsync();
 
-                var calendarSummary = calendarSummaryRaw
+                var monthlyCalculatedForCalendar = monthlyAttendancesForCalendar.Select(a => _calculationService.CalculateAttendance(
+                    a.AttendanceDate, a.InTime, a.OutTime, a.Status)).ToList();
+
+                var calendarSummary = monthlyCalculatedForCalendar
+                    .GroupBy(c => c.AttendanceDate.Date)
                     .Select(g => new DailyAttendanceSummary
                     {
-                        Date = g.Date,
-                        PresentCount = g.PresentCount,
-                        LateCount = g.LateCount,
-                        LeaveCount = g.LeaveCount,
-                        TotalOtHours = g.OutTimes.Sum(ot => (decimal)(ot - workEnd).TotalHours)
+                        Date = g.Key,
+                        PresentCount = g.Count(c => c.Status == "On Time"),
+                        LateCount = g.Count(c => c.Status == "Late"),
+                        LeaveCount = g.Count(c => c.Status == "Leave"),
+                        TotalOtHours = (decimal)g.Sum(c => c.OvertimeMinutes) / 60m
                     })
+                    .OrderBy(g => g.Date)
                     .ToList();
 
-                // Prepare last 2 weeks calendar data (last 14 days only)
+                // Prepare last 2 weeks calendar data using standardized calculations (last 14 days only)
                 var twoWeeksAgo = today.AddDays(-13);
-                var lastTwoWeeksRaw = await attendanceScope
+                var lastTwoWeeksAttendances = await attendanceScope
                     .Where(a => a.AttendanceDate >= twoWeeksAgo && a.AttendanceDate < tomorrow)
-                    .GroupBy(a => a.AttendanceDate.Date)
-                    .Select(g => new
+                    .ToListAsync();
+
+                var lastTwoWeeksCalculated = lastTwoWeeksAttendances.Select(a => _calculationService.CalculateAttendance(
+                    a.AttendanceDate, a.InTime, a.OutTime, a.Status)).ToList();
+
+                var lastTwoWeeksCalendarData = lastTwoWeeksCalculated
+                    .GroupBy(c => c.AttendanceDate.Date)
+                    .Select(g => new DailyAttendanceSummary
                     {
                         Date = g.Key,
-                        PresentCount = g.Count(a => a.Status == AttendanceStatus.Present),
-                        LateCount = g.Count(a => a.Status == AttendanceStatus.Late),
-                        LeaveCount = g.Count(a => a.Status == AttendanceStatus.Leave),
-                        OutTimes = g.Where(a => a.OutTime.HasValue && a.OutTime.Value > workEnd).Select(a => a.OutTime!.Value).ToList()
+                        PresentCount = g.Count(c => c.Status == "On Time"),
+                        LateCount = g.Count(c => c.Status == "Late"),
+                        LeaveCount = g.Count(c => c.Status == "Leave"),
+                        TotalOtHours = (decimal)g.Sum(c => c.OvertimeMinutes) / 60m
                     })
                     .OrderByDescending(g => g.Date)
                     .Take(14)
-                    .ToListAsync();
-
-                var lastTwoWeeksCalendarData = lastTwoWeeksRaw
-                    .Select(g => new DailyAttendanceSummary
-                    {
-                        Date = g.Date,
-                        PresentCount = g.PresentCount,
-                        LateCount = g.LateCount,
-                        LeaveCount = g.LeaveCount,
-                        TotalOtHours = g.OutTimes.Sum(ot => (decimal)(ot - workEnd).TotalHours)
-                    })
-                    .OrderByDescending(g => g.Date)
                     .ToList();
 
                 // Load active sections for the Add Employee modal
@@ -773,31 +768,16 @@ namespace AttendanceManagementSystem.Controllers
 
             Console.WriteLine($"[WORKER DATE SEARCH] Found attendance record: InTime={attendance.InTime}, OutTime={attendance.OutTime}, Status={attendance.Status}");
 
-            // Step 3: Calculate current state
-            var currentState = "Completed";
-            if (attendance.Status == "Leave")
-            {
-                currentState = "On Leave";
-            }
-            else if (attendance.OutTime.HasValue)
-            {
-                if (attendance.OvertimeMinutes > 0)
-                {
-                    currentState = "Working OT";
-                }
-                else
-                {
-                    currentState = "Completed";
-                }
-            }
-            else if (attendance.InTime.HasValue)
-            {
-                currentState = "Working";
-            }
+            // Step 3: Use AttendanceCalculationService to recalculate attendance with standardized rules
+            var calculationResult = _calculationService.CalculateAttendance(
+                attendance.AttendanceDate, 
+                attendance.InTime, 
+                attendance.OutTime, 
+                attendance.Status);
 
-            Console.WriteLine($"[WORKER DATE SEARCH] Current state calculated: {currentState}");
+            Console.WriteLine($"[WORKER DATE SEARCH] Recalculated: Status={calculationResult.Status}, TotalWorkedMinutes={calculationResult.TotalWorkedMinutes}, OvertimeMinutes={calculationResult.OvertimeMinutes}, LateByMinutes={calculationResult.LateByMinutes}, EarlyByMinutes={calculationResult.EarlyByMinutes}");
 
-            // Step 4: Return success response with record object
+            // Step 4: Return success response with correctly calculated record object
             return Json(new { 
                 success = true,
                 record = new
@@ -805,14 +785,19 @@ namespace AttendanceManagementSystem.Controllers
                     workerName = $"{worker.FirstName} {worker.LastName}",
                     serviceId = worker.ServiceId,
                     section = worker.Section?.Name ?? "Unassigned",
-                    date = attendance.AttendanceDate,
-                    loginTime = attendance.InTime,
-                    logoutTime = attendance.OutTime,
-                    status = attendance.Status,
-                    workedHours = attendance.TotalWorkedMinutes,
-                    regularWorkedMinutes = attendance.RegularWorkedMinutes,
-                    otHours = attendance.OvertimeMinutes,
-                    currentState = currentState
+                    date = calculationResult.AttendanceDate,
+                    loginTime = calculationResult.InTime,
+                    logoutTime = calculationResult.OutTime,
+                    workedMinutes = calculationResult.TotalWorkedMinutes,
+                    workedHoursText = calculationResult.WorkedHoursText,
+                    regularMinutes = calculationResult.RegularWorkedMinutes,
+                    regularHoursText = calculationResult.RegularHoursText,
+                    overtimeMinutes = calculationResult.OvertimeMinutes,
+                    overtimeHoursText = calculationResult.OvertimeHoursText,
+                    status = calculationResult.Status,
+                    lateByText = calculationResult.LateByText,
+                    earlyByText = calculationResult.EarlyByText,
+                    currentState = calculationResult.CurrentState
                 }
             });
         }

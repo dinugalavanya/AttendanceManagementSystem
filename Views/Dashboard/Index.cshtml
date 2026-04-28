@@ -97,6 +97,85 @@
 <section class="dashboard-shell">
     <partial name="_PageHeader" model="header" />
 
+    @if (!string.IsNullOrWhiteSpace(Model.WorkerSearchMessage))
+    {
+        <div class="alert alert-info mt-3">
+            @Model.WorkerSearchMessage
+        </div>
+    }
+
+    @if (Model.WorkerHistorySearchResult != null)
+    {
+        var worker = Model.WorkerHistorySearchResult;
+
+        <div class="card mt-3 shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Worker Attendance History</h5>
+                <small>Service ID: @worker.ServiceId</small>
+            </div>
+
+            <div class="card-body">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-2">
+                        <strong>Worker ID</strong>
+                        <div>@worker.WorkerId</div>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Name</strong>
+                        <div>@worker.FullName</div>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Email</strong>
+                        <div>@worker.Email</div>
+                    </div>
+                    <div class="col-md-2">
+                        <strong>Section</strong>
+                        <div>@worker.SectionName</div>
+                    </div>
+                    <div class="col-md-1">
+                        <strong>Worked</strong>
+                        <div>@worker.TotalWorkedHours h</div>
+                    </div>
+                    <div class="col-md-1">
+                        <strong>OT</strong>
+                        <div>@worker.TotalOTHours h</div>
+                    </div>
+                </div>
+
+                @if (worker.History.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>In Time</th>
+                                    <th>Out Time</th>
+                                    <th>Worked Hours</th>
+                                    <th>OT Hours</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in worker.History)
+                                {
+                                    <tr>
+                                        <td>@row.Date.ToString("dd MMM yyyy")</td>
+                                        <td>@row.InTime</td>
+                                        <td>@row.OutTime</td>
+                                        <td>@row.WorkedHours</td>
+                                        <td>@row.OTHours</td>
+                                        <td>@row.Status</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
     <section class="summary-grid">
         @foreach (var card in cards)
         {
