@@ -1,4 +1,4 @@
-@model AttendanceManagementSystem.Controllers.AttendanceViewModel
+@model AttendanceManagementSystem.ViewModels.AttendanceViewModel
 @using AttendanceManagementSystem.Models
 @{
     ViewData["Title"] = "My Attendance";
@@ -104,6 +104,293 @@
         text-transform: uppercase;
         letter-spacing: 1px;
     }
+    
+    /* OT Display Styles */
+    .ot-highlight-section {
+        background: rgba(124, 58, 237, 0.1);
+        border: 1px solid rgba(124, 58, 237, 0.2);
+        border-radius: 10px;
+        padding: 16px;
+        margin: 8px 0;
+    }
+    
+    .ot-hours-display {
+        font-size: 1.2rem;
+        font-weight: 700;
+    padding: 4px 8px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.1);
+    min-width: 80px;
+        text-align: center;
+    }
+    
+    .ot-hours-display.text-purple {
+        background: #7c3aed;
+        color: white;
+        box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+    }
+    
+    .ot-progress-indicator {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        padding: 8px 12px;
+        background: rgba(251, 191, 36, 0.1);
+        border-radius: 20px;
+        border: 1px solid rgba(251, 191, 36, 0.2);
+    }
+    
+    .ot-summary-display {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px;
+        background: rgba(251, 191, 36, 0.1);
+        border-radius: 8px;
+        margin-bottom: 8px;
+    }
+    
+    .ot-summary-value {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #f59e0b;
+        min-width: 60px;
+        text-align: center;
+    }
+    
+    /* Professional Attendance Card Styles */
+    .attendance-professional-card {
+        border: none;
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        overflow: hidden;
+        background: white;
+    }
+    
+    .attendance-professional-card .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        padding: 1.5rem;
+    }
+    
+    .status-box {
+        border-radius: 12px;
+        padding: 1.5rem;
+        background: #f8f9fa;
+        border: 2px solid #e9ecef;
+        transition: all 0.3s ease;
+    }
+    
+    .status-box.status-green {
+        background: #d4edda;
+        border-color: #28a745;
+    }
+    
+    .status-box.status-blue {
+        background: #d1ecf1;
+        border-color: #17a2b8;
+    }
+    
+    .status-box.status-gray {
+        background: #f8f9fa;
+        border-color: #6c757d;
+    }
+    
+    .status-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: white;
+        margin-right: 1rem;
+        font-size: 1.2rem;
+        color: #495057;
+    }
+    
+    .status-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.25rem;
+    }
+    
+    .status-value {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #212529;
+    }
+    
+    .stat-box {
+        border: 1px solid #e9ecef;
+        border-radius: 12px;
+        padding: 1.25rem;
+        background: white;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .stat-box:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    
+    .stat-box.stat-highlight {
+        border-color: #7c3aed;
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.05), rgba(124, 58, 237, 0.1));
+    }
+    
+    .stat-icon-wrapper {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8f9fa;
+        margin-bottom: 0.75rem;
+    }
+    
+    .stat-icon-wrapper.bg-purple {
+        background: #7c3aed;
+        color: white;
+    }
+    
+    .stat-icon {
+        font-size: 1.1rem;
+        color: #495057;
+    }
+    
+    .stat-icon-wrapper.bg-purple .stat-icon {
+        color: white;
+    }
+    
+    .stat-content .stat-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-content .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #212529;
+        margin-bottom: 0.25rem;
+    }
+    
+    .stat-content .stat-value.text-purple {
+        color: #7c3aed;
+    }
+    
+    .stat-content .stat-helper {
+        font-size: 0.75rem;
+        color: #6c757d;
+    }
+    
+    .progress-section {
+        background: #f8f9fa;
+        border-radius: 12px;
+        padding: 1rem;
+    }
+    
+    .progress {
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    
+    .progress-bar {
+        transition: width 0.6s ease;
+    }
+    
+    .action-section {
+        border-top: 1px solid #e9ecef;
+        padding-top: 1.5rem;
+        margin-top: 1.5rem;
+    }
+    
+    .btn-lg {
+        padding: 0.75rem 1.5rem;
+        font-weight: 600;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .btn-lg:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    /* Overtime Summary Styles */
+    .ot-summary-item {
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f1f3f4;
+        transition: all 0.3s ease;
+    }
+    
+    .ot-summary-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    
+    .ot-summary-item:hover {
+        background: rgba(124, 58, 237, 0.02);
+        border-radius: 8px;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    
+    .ot-icon-wrapper {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+    }
+    
+    .ot-icon-wrapper.bg-purple {
+        background: #7c3aed;
+    }
+    
+    .ot-icon-wrapper.bg-primary {
+        background: #0d6efd;
+    }
+    
+    .ot-icon-wrapper.bg-info {
+        background: #0dcaf0;
+    }
+    
+    .ot-label {
+        font-size: 0.875rem;
+        color: #6c757d;
+        font-weight: 500;
+        margin-bottom: 0.25rem;
+    }
+    
+    .ot-value {
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+    
+    .ot-value.text-purple {
+        color: #7c3aed;
+    }
+    
+    .ot-value.text-primary {
+        color: #0d6efd;
+    }
+    
+    .ot-value.text-info {
+        color: #0dcaf0;
+    }
 </style>
 
 <div class="container-fluid px-4">
@@ -126,83 +413,143 @@
     <!-- Main Attendance Card -->
     <div class="row mb-4">
         <div class="col-lg-8">
-            <div class="card attendance-card">
-                <div class="card-body text-center py-5">
-                    @if (Model.TodayAttendance == null)
-                    {
-                        <div class="status-icon text-success">
-                            <i class="bi bi-play-circle-fill"></i>
+            <div class="card attendance-professional-card">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="h4 mb-1">Today's Attendance</h2>
+                            <p class="mb-0 small opacity-75">@DateTime.Now.ToString("dddd, MMMM dd, yyyy")</p>
                         </div>
-                        <h2 class="mb-3">Ready to Start Your Day</h2>
-                        <p class="mb-4">Check in to begin tracking your work hours</p>
-                        
-                        <form asp-action="CheckIn" method="post" class="d-inline">
-                            <button type="submit" class="btn check-btn check-in-btn" onclick="this.disabled=true; this.innerHTML='Checking In...';">
-                                <i class="bi bi-play-circle me-2"></i> Check In
-                            </button>
-                        </form>
-                    }
-                    else if (!Model.TodayAttendance.IsLocked)
-                    {
-                        <div class="status-icon text-warning">
-                            <i class="bi bi-clock-fill"></i>
+                        <div class="text-end">
+                            <div class="h2 mb-0 fw-bold">@DateTime.Now.ToString(@"hh\:mm")</div>
+                            <div class="small">@DateTime.Now.ToString(@"tt")</div>
                         </div>
-                        <h2 class="mb-3">You're Currently Checked In</h2>
-                        <div class="mb-3">
-                            <span class="badge bg-white text-dark fs-6 px-3 py-2">
-                                @Model.TodayAttendance.Status
-                            </span>
-                        </div>
-                        <p class="mb-4">
-                            <strong>Check In Time:</strong> @Model.TodayAttendance.InTime?.ToString(@"hh\:mm")
-                        </p>
-                        
-                        <form asp-action="CheckOut" method="post" class="d-inline">
-                            <button type="submit" class="btn check-btn check-out-btn" onclick="this.disabled=true; this.innerHTML='Checking Out...';">
-                                <i class="bi bi-stop-circle me-2"></i> Check Out
-                            </button>
-                        </form>
-                    }
-                    else
-                    {
-                        <div class="status-icon text-success">
-                            <i class="bi bi-check-circle-fill"></i>
-                        </div>
-                        <h2 class="mb-3">Great Work Today!</h2>
-                        <div class="mb-3">
-                            <span class="badge bg-white text-dark fs-6 px-3 py-2">
-                                @Model.TodayAttendance.Status
-                            </span>
-                        </div>
-                        
-                        <div class="stats-grid">
-                            <div class="stat-item">
-                                <div class="stat-value">@Model.TodayAttendance.InTime?.ToString(@"hh\:mm")</div>
-                                <div class="stat-label">Check In</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value">@Model.TodayAttendance.OutTime?.ToString(@"hh\:mm")</div>
-                                <div class="stat-label">Check Out</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value">@Model.TodayAttendance.TotalWorkedDisplay</div>
-                                <div class="stat-label">Total Hours</div>
-                            </div>
-                            @if (Model.TodayAttendance.OvertimeMinutes > 0)
-                            {
-                                <div class="stat-item">
-                                    <div class="stat-value">@Model.TodayAttendance.OvertimeDisplay</div>
-                                    <div class="stat-label">Overtime</div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Status Row -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="status-box @(Model.CurrentStatus == "Not Checked In" ? "status-gray" : Model.CurrentStatus == "Checked In" ? "status-green" : "status-blue")">
+                                <div class="d-flex align-items-center">
+                                    <div class="status-icon">
+                                        <i class="bi @(Model.CurrentStatus == "Not Checked In" ? "bi-circle" : Model.CurrentStatus == "Checked In" ? "bi-check-circle-fill" : "bi-check2-circle")"></i>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <div class="status-label">Current Status</div>
+                                        <div class="status-value">@Model.CurrentStatus</div>
+                                    </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stats Grid -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6 col-lg-4">
+                            <div class="stat-box">
+                                <div class="stat-icon-wrapper">
+                                    <i class="bi bi-clock-in stat-icon"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-label">Check-in Time</div>
+                                    <div class="stat-value">@Model.CheckInTimeDisplay</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="stat-box">
+                                <div class="stat-icon-wrapper">
+                                    <i class="bi bi-hourglass-split stat-icon"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-label">Worked Time</div>
+                                    <div class="stat-value">@Model.WorkedTimeDisplay</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="stat-box @(Model.HasOTToday ? "stat-highlight" : "")">
+                                <div class="stat-icon-wrapper @(Model.HasOTToday ? "bg-purple" : "")">
+                                    <i class="bi bi-clock-history stat-icon"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-label">Today's Overtime</div>
+                                    <div class="stat-value @(Model.HasOTToday ? "text-purple" : "")">@Model.TodayOTDisplay</div>
+                                    <div class="stat-helper">@Model.OvertimeHelperText</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="stat-box">
+                                <div class="stat-icon-wrapper">
+                                    <i class="bi bi-clock stat-icon"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-label">Schedule End</div>
+                                    <div class="stat-value">@Model.ScheduleEndTime</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    @if (Model.TotalWorkMinutes > 0)
+                    {
+                        <div class="progress-section mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small text-muted">Daily Progress</span>
+                                <span class="small text-muted">@Math.Round(Model.TotalWorkMinutes / 60.0, 1) hours total</span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-success" style="width: @(Math.Min(Model.RegularWorkMinutes * 100 / 480, 100))%" 
+                                     title="Regular Hours: @Model.RegularWorkMinutes minutes"></div>
+                                @if (Model.HasOTToday)
+                                {
+                                    <div class="progress-bar bg-warning" style="width: @((Model.TotalWorkMinutes - Model.RegularWorkMinutes) * 100 / 480)%" 
+                                         title="Overtime: @(Model.TotalWorkMinutes - Model.RegularWorkMinutes) minutes"></div>
+                                }
+                            </div>
+                            <div class="d-flex justify-content-between mt-2">
+                                <small class="text-muted">Regular (8h)</small>
+                                @if (Model.HasOTToday)
+                                {
+                                    <small class="text-purple">Overtime</small>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <!-- Action Buttons -->
+                    <div class="action-section">
+                        <div class="d-flex gap-3">
+                            @if (Model.CanCheckIn)
+                            {
+                                <form asp-action="CheckIn" method="post" class="flex-grow-1">
+                                    <button type="submit" class="btn btn-success btn-lg w-100">
+                                        <i class="bi bi-box-arrow-in-right me-2"></i>
+                                        Check In Now
+                                    </button>
+                                </form>
+                            }
+                            @if (Model.CanCheckOut)
+                            {
+                                <form asp-action="CheckOut" method="post" class="flex-grow-1">
+                                    <button type="submit" class="btn btn-primary btn-lg w-100">
+                                        <i class="bi bi-box-arrow-right me-2"></i>
+                                        Check Out Now
+                                    </button>
+                                </form>
                             }
                         </div>
-                    }
+                    </div>
                 </div>
             </div>
         </div>
         
-        <!-- Info Cards -->
+        <!-- Right Sidebar Cards -->
         <div class="col-lg-4">
+            <!-- Work Schedule Card -->
             <div class="card info-card mb-3">
                 <div class="card-body">
                     <h5 class="card-title mb-4">
@@ -233,6 +580,62 @@
                 </div>
             </div>
             
+            <!-- Unified Overtime Summary Card -->
+            <div class="card info-card mb-3">
+                <div class="card-body">
+                    <h5 class="card-title mb-4">
+                        <i class="bi bi-clock-history text-purple me-2"></i>
+                        Overtime Summary
+                    </h5>
+                    
+                    <!-- Today's OT -->
+                    <div class="ot-summary-item mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <div class="ot-icon-wrapper bg-purple me-3">
+                                    <i class="bi bi-calendar-day text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="ot-label">Today</div>
+                                    <div class="ot-value text-purple fw-bold">@Model.TodayOTDisplay</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Weekly OT -->
+                    <div class="ot-summary-item mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <div class="ot-icon-wrapper bg-primary me-3">
+                                    <i class="bi bi-calendar-week text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="ot-label">This Week</div>
+                                    <div class="ot-value text-primary fw-bold">@Model.WeeklyOTDisplay</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Monthly OT -->
+                    <div class="ot-summary-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <div class="ot-icon-wrapper bg-info me-3">
+                                    <i class="bi bi-calendar-month text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="ot-label">This Month</div>
+                                    <div class="ot-value text-info fw-bold">@Model.MonthlyOTDisplay</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Status Guide Card -->
             <div class="card info-card">
                 <div class="card-body">
                     <h5 class="card-title mb-4">
