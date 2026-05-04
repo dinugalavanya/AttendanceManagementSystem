@@ -37,7 +37,81 @@ namespace AttendanceManagementSystem.Controllers
             return $"{totalHours}h {minutes}m";
         }
 
-        // Helper method to format minutes as "Xh Ym"
+        // Helper class for attendance calculation results
+        private class AttendanceCalculationResult
+        {
+            public TimeSpan? TotalWorked { get; set; }
+            public TimeSpan? ExpectedOffTime { get; set; }
+            public TimeSpan Overtime { get; set; }
+            public string StatusText { get; set; } = string.Empty;
+            public bool IsIncomplete { get; set; }
+        }
+
+        // Centralized helper method to calculate attendance times
+        private AttendanceCalculationResult CalculateAttendanceTimes(DateTime attendanceDate, TimeSpan? checkInTime, TimeSpan? checkOutTime)
+        {
+            var result = new AttendanceCalculationResult();
+
+            if (checkInTime == null)
+            {
+                result.StatusText = "No Check-in";
+                result.TotalWorked = null;
+                result.ExpectedOffTime = null;
+                result.Overtime = TimeSpan.Zero;
+                result.IsIncomplete = true;
+                return result;
+            }
+
+            var expectedOffTime = checkInTime.Value.Add(new TimeSpan(8, 0, 0));
+            result.ExpectedOffTime = expectedOffTime;
+
+            TimeSpan? endTime = null;
+
+            if (checkOutTime != null)
+            {
+                endTime = checkOutTime.Value;
+            }
+            else if (attendanceDate.Date == DateTime.Today)
+            {
+                endTime = DateTime.Now.TimeOfDay;
+            }
+            else
+            {
+                result.StatusText = "Incomplete Record";
+                result.TotalWorked = null;
+                result.Overtime = TimeSpan.Zero;
+                result.IsIncomplete = true;
+                return result;
+            }
+
+            var totalWorked = endTime.Value - checkInTime.Value;
+            if (totalWorked < TimeSpan.Zero)
+                totalWorked = TimeSpan.Zero;
+
+            var overtime = endTime.Value > expectedOffTime
+                ? endTime.Value - expectedOffTime
+                : TimeSpan.Zero;
+
+            result.TotalWorked = totalWorked;
+            result.Overtime = overtime;
+            result.StatusText = checkOutTime != null ? "Checked Out" : "Checked In";
+
+            return result;
+        }
+
+        // Safe formatter for duration display
+        private string FormatDuration(TimeSpan? duration)
+        {
+            if (duration == null)
+                return "--";
+
+            if (duration.Value < TimeSpan.Zero)
+                return "0h 0m";
+
+            return $"{(int)duration.Value.TotalHours}h {duration.Value.Minutes}m";
+        }
+
+        // Helper method to format minutes as "Xh Ym" (legacy compatibility)
         private string FormatDuration(int minutes)
         {
             if (minutes <= 0) return "0h 0m";
@@ -46,7 +120,7 @@ namespace AttendanceManagementSystem.Controllers
             return $"{hours}h {mins}m";
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(DateTime? selectedDate)
         {
             var currentUser = _authService.GetCurrentUser();
             if (currentUser == null)
@@ -54,117 +128,139 @@ namespace AttendanceManagementSystem.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            var todayAttendance = await _attendanceService.GetTodayAttendanceAsync(currentUser.Id);
+            var targetDate = selectedDate ?? DateTime.Today;
+            var isToday = targetDate.Date == DateTime.Today;
             var currentTime = DateTime.Now;
+
+            // Get attendance for the selected date
+            var selectedAttendance = await _context.Attendances
+                .Where(a => a.UserId == currentUser.Id && a.AttendanceDate.Date == targetDate.Date)
+                .FirstOrDefaultAsync();
             
-            // Calculate OT data using AttendanceCalculationService
-            var todayOTMinutes = 0;
-            var weeklyOTMinutes = 0;
-            var monthlyOTMinutes = 0;
-            var workedMinutes = 0;
+            // Calculate attendance times using centralized helper
+            var selectedCalculation = CalculateAttendanceTimes(targetDate, selectedAttendance?.InTime, selectedAttendance?.OutTime);
             
-            if (todayAttendance != null)
+            // DEBUG: Log calculation details
+            Console.WriteLine($"[ATTENDANCE DEBUG] Selected Date: {targetDate:yyyy-MM-dd}");
+            Console.WriteLine($"[ATTENDANCE DEBUG] Record ID: {selectedAttendance?.Id ?? 0}");
+            Console.WriteLine($"[ATTENDANCE DEBUG] User ID: {currentUser.Id}");
+            Console.WriteLine($"[ATTENDANCE DEBUG] CheckInTime: {selectedAttendance?.InTime ?? null}");
+            Console.WriteLine($"[ATTENDANCE DEBUG] CheckOutTime: {selectedAttendance?.OutTime ?? null}");
+            Console.WriteLine($"[ATTENDANCE DEBUG] ExpectedOffTime: {selectedCalculation.ExpectedOffTime}");
+            Console.WriteLine($"[ATTENDANCE DEBUG] TotalWorked: {selectedCalculation.TotalWorked}");
+            Console.WriteLine($"[ATTENDANCE DEBUG] Overtime: {selectedCalculation.Overtime}");
+            Console.WriteLine($"[ATTENDANCE DEBUG] IsIncomplete: {selectedCalculation.IsIncomplete}");
+            Console.WriteLine($"[ATTENDANCE DEBUG] Status: {selectedCalculation.StatusText}");
+            
+            // DEBUG: Also log stored values for comparison
+            if (selectedAttendance != null)
             {
-                // Calculate today's OT using centralized service
-                var today = DateTime.Today;
-                var calculation = _calculationService.CalculateAttendance(
-                    today, 
-                    todayAttendance.InTime, 
-                    todayAttendance.OutTime, 
-                    todayAttendance.Status);
-                    
-                todayOTMinutes = calculation.OvertimeMinutes;
-                workedMinutes = calculation.TotalWorkedMinutes;
+                Console.WriteLine($"[ATTENDANCE DEBUG] STORED TotalWorkedMinutes: {selectedAttendance.TotalWorkedMinutes}");
+                Console.WriteLine($"[ATTENDANCE DEBUG] STORED OvertimeMinutes: {selectedAttendance.OvertimeMinutes}");
+                Console.WriteLine($"[ATTENDANCE DEBUG] STORED RegularWorkedMinutes: {selectedAttendance.RegularWorkedMinutes}");
+                Console.WriteLine($"[ATTENDANCE DEBUG] STORED AttendanceDate: {selectedAttendance.AttendanceDate:yyyy-MM-dd}");
+                Console.WriteLine($"[ATTENDANCE DEBUG] STORED IsLocked: {selectedAttendance.IsLocked}");
             }
             
-            // Calculate weekly OT (last 7 days)
+            // DEBUG: Show CheckOutTime display
+            string checkOutTimeDisplay = "-";
+            if (selectedAttendance?.OutTime.HasValue == true)
+            {
+                checkOutTimeDisplay = DateTime.Today.Add(selectedAttendance.OutTime.Value).ToString("hh:mm tt");
+                Console.WriteLine($"[ATTENDANCE DEBUG] CheckOutTime Display: {checkOutTimeDisplay}");
+            }
+            
+            // Calculate weekly OT using centralized logic
             var weekStart = DateTime.Today.AddDays(-6);
             var weeklyAttendances = await _context.Attendances
                 .Where(a => a.UserId == currentUser.Id && a.AttendanceDate >= weekStart && a.AttendanceDate < DateTime.Today.AddDays(1))
                 .ToListAsync();
                 
+            var weeklyOTMinutes = 0;
             foreach (var attendance in weeklyAttendances)
             {
-                var weekCalc = _calculationService.CalculateAttendance(
-                    attendance.AttendanceDate,
-                    attendance.InTime,
-                    attendance.OutTime,
-                    attendance.Status);
-                weeklyOTMinutes += weekCalc.OvertimeMinutes;
+                if (attendance.InTime.HasValue && attendance.OutTime.HasValue)
+                {
+                    var weekCalc = CalculateAttendanceTimes(attendance.AttendanceDate, attendance.InTime, attendance.OutTime);
+                    weeklyOTMinutes += (int)weekCalc.Overtime.TotalMinutes;
+                }
+                // Skip incomplete records for weekly summaries
             }
             
-            // Calculate monthly OT (current month)
+            // Calculate monthly OT using centralized logic
             var monthStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
             var monthlyAttendances = await _context.Attendances
                 .Where(a => a.UserId == currentUser.Id && a.AttendanceDate >= monthStart && a.AttendanceDate < DateTime.Today.AddDays(1))
                 .ToListAsync();
                 
+            var monthlyOTMinutes = 0;
             foreach (var attendance in monthlyAttendances)
             {
-                var monthCalc = _calculationService.CalculateAttendance(
-                    attendance.AttendanceDate,
-                    attendance.InTime,
-                    attendance.OutTime,
-                    attendance.Status);
-                monthlyOTMinutes += monthCalc.OvertimeMinutes;
-            }
-            
-            // Calculate live worked time if user is checked in but not checked out
-            var liveWorkedMinutes = workedMinutes;
-            if (todayAttendance?.InTime.HasValue == true && !todayAttendance.OutTime.HasValue)
-            {
-                liveWorkedMinutes = (int)(currentTime - todayAttendance.AttendanceDate.Add(todayAttendance.InTime.Value)).TotalMinutes;
-            }
-            
-            // Calculate live OT if user is still working and past schedule end time
-            var liveOTMinutes = todayOTMinutes;
-            if (todayAttendance?.InTime.HasValue == true && !todayAttendance.OutTime.HasValue)
-            {
-                var scheduleEndTime = new TimeSpan(16, 30, 0); // 4:30 PM
-                var currentTimeOfDay = currentTime.TimeOfDay;
-                if (currentTimeOfDay > scheduleEndTime)
+                if (attendance.InTime.HasValue && attendance.OutTime.HasValue)
                 {
-                    liveOTMinutes = (int)(currentTimeOfDay - scheduleEndTime).TotalMinutes;
+                    var monthCalc = CalculateAttendanceTimes(attendance.AttendanceDate, attendance.InTime, attendance.OutTime);
+                    monthlyOTMinutes += (int)monthCalc.Overtime.TotalMinutes;
                 }
-                else
-                {
-                    liveOTMinutes = 0;
-                }
+                // Skip incomplete records for monthly summaries
             }
-            
-            // Create TimeSpan objects for duration formatting
-            var liveWorkedTime = TimeSpan.FromMinutes(liveWorkedMinutes);
-            var todayOTTime = TimeSpan.FromMinutes(liveOTMinutes);
-            var weeklyOTTime = TimeSpan.FromMinutes(weeklyOTMinutes);
-            var monthlyOTTime = TimeSpan.FromMinutes(monthlyOTMinutes);
             
             // Format check-in time safely
             string checkInTimeDisplay = "-";
-            if (todayAttendance?.InTime.HasValue == true)
+            if (selectedAttendance?.InTime.HasValue == true)
             {
-                checkInTimeDisplay = DateTime.Today.Add(todayAttendance.InTime.Value).ToString("hh:mm tt");
+                checkInTimeDisplay = DateTime.Today.Add(selectedAttendance.InTime.Value).ToString("hh:mm tt");
             }
+            
+            // Format expected off time
+            string expectedOffTimeDisplay = "--";
+            if (selectedCalculation.ExpectedOffTime.HasValue)
+            {
+                expectedOffTimeDisplay = DateTime.Today.Add(selectedCalculation.ExpectedOffTime.Value).ToString("hh:mm tt");
+            }
+            
+            // Format worked time and OT using centralized results
+            string workedTimeDisplay = FormatDuration(selectedCalculation.TotalWorked);
+            string otDisplay = FormatDuration(selectedCalculation.Overtime);
+            
+            // Create TimeSpan objects for weekly/monthly formatting
+            var weeklyOTTime = TimeSpan.FromMinutes(weeklyOTMinutes);
+            var monthlyOTTime = TimeSpan.FromMinutes(monthlyOTMinutes);
+            
+            // Determine check-in/check-out availability
+            var canCheckIn = selectedAttendance == null && isToday;
+            var canCheckOut = selectedAttendance != null && !selectedAttendance.IsLocked && isToday && !selectedCalculation.IsIncomplete;
             
             var model = new AttendanceViewModel
             {
-                TodayAttendance = todayAttendance,
-                CanCheckIn = todayAttendance == null,
-                CanCheckOut = todayAttendance != null && !todayAttendance.IsLocked,
+                TodayAttendance = selectedAttendance,
+                SelectedDate = targetDate,
+                CanCheckIn = canCheckIn,
+                CanCheckOut = canCheckOut,
                 CurrentTime = currentTime,
-                TodayOTHours = todayOTMinutes / 60.0,
-                TodayOTDisplay = FormatDuration(todayOTTime),
+                TodayOTHours = selectedCalculation.Overtime.TotalMinutes / 60.0,
+                TodayOTDisplay = otDisplay,
                 WeeklyOTDisplay = FormatDuration(weeklyOTTime),
                 MonthlyOTDisplay = FormatDuration(monthlyOTTime),
-                HasOTToday = liveOTMinutes > 0,
-                WorkedTimeDisplay = FormatDuration(liveWorkedTime),
+                HasOTToday = selectedCalculation.Overtime.TotalMinutes > 0 && !selectedCalculation.IsIncomplete,
+                WorkedTimeDisplay = workedTimeDisplay,
                 CheckInTimeDisplay = checkInTimeDisplay,
-                ScheduleEndTime = "04:30 PM",
-                CurrentStatus = todayAttendance == null ? "Not Checked In" : 
-                               (todayAttendance.OutTime.HasValue ? "Checked Out" : "Checked In"),
-                OvertimeHelperText = liveOTMinutes > 0 ? "Overtime started after 04:30 PM" : "No overtime yet",
-                RegularWorkMinutes = Math.Min(liveWorkedMinutes, 480), // 8 hours = 480 minutes
-                TotalWorkMinutes = liveWorkedMinutes
+                CheckOutTimeDisplay = checkOutTimeDisplay, // DEBUG: Show checkout time
+                ExpectedOffTimeDisplay = expectedOffTimeDisplay,
+                CurrentStatus = selectedCalculation.StatusText,
+                OvertimeHelperText = selectedCalculation.IsIncomplete ? "Missing check-out time" : 
+                                   (selectedCalculation.Overtime.TotalMinutes > 0 ? "Time worked after completing 8 hours" : "Time worked after completing 8 hours"),
+                RegularWorkMinutes = selectedCalculation.IsIncomplete || !selectedCalculation.TotalWorked.HasValue ? 0 : 
+                                   Math.Min((int)selectedCalculation.TotalWorked.Value.TotalMinutes, 480), // 8 hours = 480 minutes
+                TotalWorkMinutes = selectedCalculation.IsIncomplete || !selectedCalculation.TotalWorked.HasValue ? 0 : 
+                                   (int)selectedCalculation.TotalWorked.Value.TotalMinutes
             };
+            
+            // DEBUG: Log final model values
+            Console.WriteLine($"[ATTENDANCE DEBUG] FINAL MODEL VALUES:");
+            Console.WriteLine($"[ATTENDANCE DEBUG] WorkedTimeDisplay: {model.WorkedTimeDisplay}");
+            Console.WriteLine($"[ATTENDANCE DEBUG] TodayOTDisplay: {model.TodayOTDisplay}");
+            Console.WriteLine($"[ATTENDANCE DEBUG] TotalWorkMinutes: {model.TotalWorkMinutes}");
+            Console.WriteLine($"[ATTENDANCE DEBUG] RegularWorkMinutes: {model.RegularWorkMinutes}");
 
             return View(model);
         }

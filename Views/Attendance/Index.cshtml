@@ -402,9 +402,24 @@
                     <h1 class="h2 mb-1">Welcome back!</h1>
                     <p class="text-muted mb-0">Today is @DateTime.Now.ToString("dddd, MMMM dd, yyyy")</p>
                 </div>
-                <div class="text-end">
-                    <div class="time-display" id="currentTime">@Model.CurrentTime.ToString("hh:mm tt")</div>
-                    <small class="text-muted">Current Time</small>
+                <div class="d-flex align-items-center gap-4">
+                    <!-- Date Picker -->
+                    <form method="get" asp-action="Index" class="date-filter-form mb-0">
+                        <div class="d-flex flex-column align-items-end">
+                            <label for="selectedDate" class="form-label mb-1 small">View Attendance Date</label>
+                            <input type="date"
+                                   id="selectedDate"
+                                   name="selectedDate"
+                                   value="@Model.SelectedDate.ToString("yyyy-MM-dd")"
+                                   onchange="this.form.submit()"
+                                   class="form-control form-control-sm" 
+                                   style="width: auto;" />
+                        </div>
+                    </form>
+                    <div class="text-end">
+                        <div class="time-display" id="currentTime">@Model.CurrentTime.ToString("hh:mm tt")</div>
+                        <small class="text-muted">Current Time</small>
+                    </div>
                 </div>
             </div>
         </div>
@@ -417,132 +432,181 @@
                 <div class="card-header bg-primary text-white">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h2 class="h4 mb-1">Today's Attendance</h2>
-                            <p class="mb-0 small opacity-75">@DateTime.Now.ToString("dddd, MMMM dd, yyyy")</p>
+                            <h2 class="h4 mb-1">@(Model.SelectedDate.Date == DateTime.Today ? "Today's Attendance" : "Attendance for " + Model.SelectedDate.ToString("MMM dd, yyyy"))</h2>
+                            <p class="mb-0 small opacity-75">@Model.SelectedDate.ToString("dddd, MMMM dd, yyyy")</p>
                         </div>
-                        <div class="text-end">
-                            <div class="h2 mb-0 fw-bold">@DateTime.Now.ToString(@"hh\:mm")</div>
-                            <div class="small">@DateTime.Now.ToString(@"tt")</div>
-                        </div>
+                        @if (Model.SelectedDate.Date == DateTime.Today)
+                        {
+                            <div class="text-end">
+                                <div class="h2 mb-0 fw-bold">@DateTime.Now.ToString(@"hh\:mm")</div>
+                                <div class="small">@DateTime.Now.ToString(@"tt")</div>
+                            </div>
+                        }
                     </div>
                 </div>
                 <div class="card-body">
-                    <!-- Status Row -->
-                    <div class="row mb-4">
-                        <div class="col-12">
-                            <div class="status-box @(Model.CurrentStatus == "Not Checked In" ? "status-gray" : Model.CurrentStatus == "Checked In" ? "status-green" : "status-blue")">
-                                <div class="d-flex align-items-center">
-                                    <div class="status-icon">
-                                        <i class="bi @(Model.CurrentStatus == "Not Checked In" ? "bi-circle" : Model.CurrentStatus == "Checked In" ? "bi-check-circle-fill" : "bi-check2-circle")"></i>
-                                    </div>
-                                    <div class="flex-grow-1">
-                                        <div class="status-label">Current Status</div>
-                                        <div class="status-value">@Model.CurrentStatus</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Stats Grid -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6 col-lg-4">
-                            <div class="stat-box">
-                                <div class="stat-icon-wrapper">
-                                    <i class="bi bi-clock-in stat-icon"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <div class="stat-label">Check-in Time</div>
-                                    <div class="stat-value">@Model.CheckInTimeDisplay</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6 col-lg-4">
-                            <div class="stat-box">
-                                <div class="stat-icon-wrapper">
-                                    <i class="bi bi-hourglass-split stat-icon"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <div class="stat-label">Worked Time</div>
-                                    <div class="stat-value">@Model.WorkedTimeDisplay</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6 col-lg-4">
-                            <div class="stat-box @(Model.HasOTToday ? "stat-highlight" : "")">
-                                <div class="stat-icon-wrapper @(Model.HasOTToday ? "bg-purple" : "")">
-                                    <i class="bi bi-clock-history stat-icon"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <div class="stat-label">Today's Overtime</div>
-                                    <div class="stat-value @(Model.HasOTToday ? "text-purple" : "")">@Model.TodayOTDisplay</div>
-                                    <div class="stat-helper">@Model.OvertimeHelperText</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6 col-lg-4">
-                            <div class="stat-box">
-                                <div class="stat-icon-wrapper">
-                                    <i class="bi bi-clock stat-icon"></i>
-                                </div>
-                                <div class="stat-content">
-                                    <div class="stat-label">Schedule End</div>
-                                    <div class="stat-value">@Model.ScheduleEndTime</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Progress Bar -->
-                    @if (Model.TotalWorkMinutes > 0)
+                    @if (Model.TodayAttendance == null)
                     {
-                        <div class="progress-section mb-4">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="small text-muted">Daily Progress</span>
-                                <span class="small text-muted">@Math.Round(Model.TotalWorkMinutes / 60.0, 1) hours total</span>
+                        <div class="text-center py-5">
+                            <div class="status-icon text-muted mb-3">
+                                <i class="bi bi-calendar-x" style="font-size: 3rem;"></i>
                             </div>
-                            <div class="progress" style="height: 8px;">
-                                <div class="progress-bar bg-success" style="width: @(Math.Min(Model.RegularWorkMinutes * 100 / 480, 100))%" 
-                                     title="Regular Hours: @Model.RegularWorkMinutes minutes"></div>
-                                @if (Model.HasOTToday)
-                                {
-                                    <div class="progress-bar bg-warning" style="width: @((Model.TotalWorkMinutes - Model.RegularWorkMinutes) * 100 / 480)%" 
-                                         title="Overtime: @(Model.TotalWorkMinutes - Model.RegularWorkMinutes) minutes"></div>
-                                }
-                            </div>
-                            <div class="d-flex justify-content-between mt-2">
-                                <small class="text-muted">Regular (8h)</small>
-                                @if (Model.HasOTToday)
-                                {
-                                    <small class="text-purple">Overtime</small>
-                                }
-                            </div>
-                        </div>
-                    }
-
-                    <!-- Action Buttons -->
-                    <div class="action-section">
-                        <div class="d-flex gap-3">
-                            @if (Model.CanCheckIn)
+                            <h3 class="text-muted mb-2">No attendance record found</h3>
+                            <p class="text-muted mb-4">No attendance record found for this date.</p>
+                            
+                            @if (Model.SelectedDate.Date == DateTime.Today && Model.CanCheckIn)
                             {
-                                <form asp-action="CheckIn" method="post" class="flex-grow-1">
-                                    <button type="submit" class="btn btn-success btn-lg w-100">
+                                <form asp-action="CheckIn" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-success btn-lg">
                                         <i class="bi bi-box-arrow-in-right me-2"></i>
                                         Check In Now
                                     </button>
                                 </form>
                             }
-                            @if (Model.CanCheckOut)
-                            {
-                                <form asp-action="CheckOut" method="post" class="flex-grow-1">
-                                    <button type="submit" class="btn btn-primary btn-lg w-100">
-                                        <i class="bi bi-box-arrow-right me-2"></i>
-                                        Check Out Now
-                                    </button>
-                                </form>
-                            }
                         </div>
-                    </div>
+                    }
+                    else
+                    {
+                        <!-- Status Row -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <div class="status-box @(Model.CurrentStatus == "Not Checked In" ? "status-gray" : Model.CurrentStatus == "Checked In" ? "status-green" : "status-blue")">
+                                    <div class="d-flex align-items-center">
+                                        <div class="status-icon">
+                                            <i class="bi @(Model.CurrentStatus == "Not Checked In" ? "bi-circle" : Model.CurrentStatus == "Checked In" ? "bi-check-circle-fill" : "bi-check2-circle")"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="status-label">Current Status</div>
+                                            <div class="status-value">@Model.CurrentStatus</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    <!-- Stats Grid -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6 col-lg-4">
+                                <div class="stat-box">
+                                    <div class="stat-icon-wrapper">
+                                        <i class="bi bi-clock-in stat-icon"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">Started Work At</div>
+                                        <div class="stat-value">@Model.CheckInTimeDisplay</div>
+                                        <div class="stat-helper">Time the worker checked in and started work</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-lg-4">
+                                <div class="stat-box">
+                                    <div class="stat-icon-wrapper">
+                                        <i class="bi bi-clock-out stat-icon"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">Check Out Time (DEBUG)</div>
+                                        <div class="stat-value">@Model.CheckOutTimeDisplay</div>
+                                        <div class="stat-helper">Database checkout time</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-lg-4">
+                                <div class="stat-box">
+                                    <div class="stat-icon-wrapper">
+                                        <i class="bi bi-hourglass-split stat-icon"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">Total Worked Today</div>
+                                        <div class="stat-value">@Model.WorkedTimeDisplay</div>
+                                        <div class="stat-helper">Total hours worked on this day</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-lg-4">
+                                <div class="stat-box @(Model.HasOTToday ? "stat-highlight" : "")">
+                                    <div class="stat-icon-wrapper @(Model.HasOTToday ? "bg-purple" : "")">
+                                        <i class="bi bi-clock-history stat-icon"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">Extra Time Worked</div>
+                                        <div class="stat-value @(Model.HasOTToday ? "text-purple" : "")">@Model.TodayOTDisplay</div>
+                                        <div class="stat-helper">Time worked after completing 8 hours</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 col-lg-4">
+                                <div class="stat-box">
+                                    <div class="stat-icon-wrapper">
+                                        <i class="bi bi-clock stat-icon"></i>
+                                    </div>
+                                    <div class="stat-content">
+                                        <div class="stat-label">Expected Off Time</div>
+                                        <div class="stat-value">@Model.ExpectedOffTimeDisplay</div>
+                                        <div class="stat-helper">Can leave after completing 8 working hours</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar -->
+                        @if (Model.TotalWorkMinutes > 0)
+                        {
+                            <div class="progress-section mb-4">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="small text-muted">Daily Progress</span>
+                                    <span class="small text-muted">@Math.Round(Model.TotalWorkMinutes / 60.0, 1) hours total</span>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar bg-success" style="width: @(Math.Min(Model.RegularWorkMinutes * 100 / 480, 100))%" 
+                                         title="Regular Hours: @Model.RegularWorkMinutes minutes"></div>
+                                    @if (Model.HasOTToday)
+                                    {
+                                        <div class="progress-bar bg-warning" style="width: @((Model.TotalWorkMinutes - Model.RegularWorkMinutes) * 100 / 480)%" 
+                                             title="Extra Time: @(Model.TotalWorkMinutes - Model.RegularWorkMinutes) minutes"></div>
+                                    }
+                                </div>
+                                <div class="d-flex justify-content-between mt-2">
+                                    <small class="text-muted">Regular Work: 8h required</small>
+                                    @if (Model.HasOTToday)
+                                    {
+                                        <small class="text-purple">Extra OT after 8h</small>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        
+                        <!-- Calculation Explanation -->
+                        <div class="text-center mb-4">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Overtime starts only after the worker completes 8 working hours.
+                            </small>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="action-section">
+                            <div class="d-flex gap-3">
+                                @if (Model.CanCheckIn)
+                                {
+                                    <form asp-action="CheckIn" method="post" class="flex-grow-1">
+                                        <button type="submit" class="btn btn-success btn-lg w-100">
+                                            <i class="bi bi-box-arrow-in-right me-2"></i>
+                                            Check In Now
+                                        </button>
+                                    </form>
+                                }
+                                @if (Model.CanCheckOut)
+                                {
+                                    <form asp-action="CheckOut" method="post" class="flex-grow-1">
+                                        <button type="submit" class="btn btn-primary btn-lg w-100">
+                                            <i class="bi bi-box-arrow-right me-2"></i>
+                                            Check Out Now
+                                        </button>
+                                    </form>
+                                }
+                            </div>
+                        </div>
+                    }
                 </div>
             </div>
         </div>

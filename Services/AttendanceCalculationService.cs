@@ -48,7 +48,7 @@ namespace AttendanceManagementSystem.Services
                 return result;
             }
 
-            // Calculate status based on InTime
+            // Calculate status based on InTime compared to official start time
             if (inTime.Value <= OfficialStartTime)
             {
                 result.Status = "On Time";
@@ -75,11 +75,15 @@ namespace AttendanceManagementSystem.Services
             {
                 result.TotalWorkedMinutes = (int)(outTime.Value - inTime.Value).TotalMinutes;
                 
-                // Apply business rules for regular and overtime minutes
-                if (result.TotalWorkedMinutes > RequiredWorkMinutes)
+                // CORRECT BUSINESS RULE: Overtime starts after check-in time + 8 hours
+                var requiredWorkEndTime = inTime.Value.Add(new TimeSpan(8, 0, 0)); // 8 hours from actual check-in time
+                var regularWorkMinutes = (int)(requiredWorkEndTime - inTime.Value).TotalMinutes;
+                
+                // Calculate overtime based on actual check-in time + 8 hours
+                if (outTime.Value > requiredWorkEndTime)
                 {
-                    result.RegularWorkedMinutes = RequiredWorkMinutes;
-                    result.OvertimeMinutes = result.TotalWorkedMinutes - RequiredWorkMinutes;
+                    result.RegularWorkedMinutes = regularWorkMinutes;
+                    result.OvertimeMinutes = (int)(outTime.Value - requiredWorkEndTime).TotalMinutes;
                 }
                 else
                 {
@@ -122,29 +126,29 @@ namespace AttendanceManagementSystem.Services
         {
             var testDate = DateTime.Today;
 
-            // Example 1: 08:10 → 16:30 → OT = 20 min (should be On Time)
-            var result1 = CalculateAttendance(testDate, new TimeSpan(8, 10, 0), new TimeSpan(16, 30, 0));
-            Console.WriteLine($"Example 1 - 08:10→16:30: Status={result1.Status}, Total={result1.TotalWorkedMinutes}, OT={result1.OvertimeMinutes} (Expected: On Time, 500, 20)");
+            // Example 1: Check-in 08:30 AM, Check-out 04:30 PM → Total = 8h 0m, Expected Off = 04:30 PM, OT = 0h 0m
+            var result1 = CalculateAttendance(testDate, new TimeSpan(8, 30, 0), new TimeSpan(16, 30, 0));
+            Console.WriteLine($"Example 1 - 08:30→16:30: Status={result1.Status}, Total={result1.TotalWorkedMinutes}, OT={result1.OvertimeMinutes} (Expected: On Time, 480, 0)");
 
-            // Example 2: 08:10 → 16:10 → OT = 0 (should be On Time)
-            var result2 = CalculateAttendance(testDate, new TimeSpan(8, 10, 0), new TimeSpan(16, 10, 0));
-            Console.WriteLine($"Example 2 - 08:10→16:10: Status={result2.Status}, Total={result2.TotalWorkedMinutes}, OT={result2.OvertimeMinutes} (Expected: On Time, 480, 0)");
+            // Example 2: Check-in 08:35 AM, Check-out 04:35 PM → Total = 8h 0m, Expected Off = 04:35 PM, OT = 0h 0m
+            var result2 = CalculateAttendance(testDate, new TimeSpan(8, 35, 0), new TimeSpan(16, 35, 0));
+            Console.WriteLine($"Example 2 - 08:35→16:35: Status={result2.Status}, Total={result2.TotalWorkedMinutes}, OT={result2.OvertimeMinutes} (Expected: On Time, 480, 0)");
 
-            // Example 3: 09:05 → 17:45 → OT = 40 min (should be Late)
-            var result3 = CalculateAttendance(testDate, new TimeSpan(9, 5, 0), new TimeSpan(17, 45, 0));
-            Console.WriteLine($"Example 3 - 09:05→17:45: Status={result3.Status}, Total={result3.TotalWorkedMinutes}, OT={result3.OvertimeMinutes} (Expected: Late, 520, 40)");
+            // Example 3: Check-in 08:35 AM, Check-out 05:00 PM → Total = 8h 25m, Expected Off = 04:35 PM, OT = 0h 25m
+            var result3 = CalculateAttendance(testDate, new TimeSpan(8, 35, 0), new TimeSpan(17, 0, 0));
+            Console.WriteLine($"Example 3 - 08:35→17:00: Status={result3.Status}, Total={result3.TotalWorkedMinutes}, OT={result3.OvertimeMinutes} (Expected: On Time, 505, 25)");
 
-            // Example 4: 08:30 → 16:30 → OT = 0 (should be On Time)
-            var result4 = CalculateAttendance(testDate, new TimeSpan(8, 30, 0), new TimeSpan(16, 30, 0));
-            Console.WriteLine($"Example 4 - 08:30→16:30: Status={result4.Status}, Total={result4.TotalWorkedMinutes}, OT={result4.OvertimeMinutes} (Expected: On Time, 480, 0)");
+            // Example 4: Check-in 09:05 AM, Check-out 05:15 PM → Total = 8h 10m, Expected Off = 05:05 PM, OT = 0h 10m
+            var result4 = CalculateAttendance(testDate, new TimeSpan(9, 5, 0), new TimeSpan(17, 15, 0));
+            Console.WriteLine($"Example 4 - 09:05→17:15: Status={result4.Status}, Total={result4.TotalWorkedMinutes}, OT={result4.OvertimeMinutes} (Expected: Late, 490, 10)");
 
-            // Example 5: 08:31 → 16:31 → OT = 0 (should be Late)
-            var result5 = CalculateAttendance(testDate, new TimeSpan(8, 31, 0), new TimeSpan(16, 31, 0));
-            Console.WriteLine($"Example 5 - 08:31→16:31: Status={result5.Status}, Total={result5.TotalWorkedMinutes}, OT={result5.OvertimeMinutes} (Expected: Late, 480, 0)");
+            // Example 5: Check-in 08:00 AM, Check-out 04:30 PM → Total = 8h 30m, Expected Off = 04:00 PM, OT = 0h 30m
+            var result5 = CalculateAttendance(testDate, new TimeSpan(8, 0, 0), new TimeSpan(16, 30, 0));
+            Console.WriteLine($"Example 5 - 08:00→16:30: Status={result5.Status}, Total={result5.TotalWorkedMinutes}, OT={result5.OvertimeMinutes} (Expected: On Time, 510, 30)");
 
-            // Example 6: 08:31 → 17:31 → OT = 60 min (should be Late)
-            var result6 = CalculateAttendance(testDate, new TimeSpan(8, 31, 0), new TimeSpan(17, 31, 0));
-            Console.WriteLine($"Example 6 - 08:31→17:31: Status={result6.Status}, Total={result6.TotalWorkedMinutes}, OT={result6.OvertimeMinutes} (Expected: Late, 540, 60)");
+            // Example 6: Check-in 10:00 AM, Check-out 06:00 PM → Total = 8h 0m, Expected Off = 06:00 PM, OT = 0h 0m
+            var result6 = CalculateAttendance(testDate, new TimeSpan(10, 0, 0), new TimeSpan(18, 0, 0));
+            Console.WriteLine($"Example 6 - 10:00→18:00: Status={result6.Status}, Total={result6.TotalWorkedMinutes}, OT={result6.OvertimeMinutes} (Expected: Late, 480, 0)");
         }
 
         public string FormatMinutesToHours(int minutes)

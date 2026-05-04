@@ -47,7 +47,8 @@ namespace AttendanceManagementSystem.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            var today = DateTime.Today;
+            // Use selectedDate if provided, otherwise use today
+            var today = selectedDate ?? DateTime.Today;
             var tomorrow = today.AddDays(1);
             var monthStart = new DateTime(today.Year, today.Month, 1);
             var monthEndExclusive = monthStart.AddMonths(1);
@@ -668,6 +669,7 @@ namespace AttendanceManagementSystem.Controllers
 
             var viewModel = new DashboardViewModel
             {
+                SelectedDate = today,
                 TotalUsers = totalUsers,
                 TodayAttendance = todayAttendance,
                 PresentCount = presentCount,

@@ -2,6 +2,8 @@ namespace AttendanceManagementSystem.ViewModels
 {
     public class DashboardViewModel
     {
+        public DateTime SelectedDate { get; set; } = DateTime.Today;
+        
         public int TotalUsers { get; set; }
         public int TodayAttendance { get; set; }
         public int PresentCount { get; set; }

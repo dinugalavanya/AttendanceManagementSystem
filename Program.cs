@@ -58,6 +58,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<DatabaseMigrationService>();
 builder.Services.AddScoped<AttendanceCalculationService>();
+builder.Services.AddScoped<DemoDataService>();
 
 var app = builder.Build();
 
@@ -100,6 +101,10 @@ using (var scope = app.Services.CreateScope())
             var dbMigration = scope.ServiceProvider.GetRequiredService<DatabaseMigrationService>();
             await dbMigration.InitializeAsync();
             canConnect = await dbContext.Database.CanConnectAsync();
+
+            // Regenerate attendance data with correct checkout times
+            var demoDataService = scope.ServiceProvider.GetRequiredService<DemoDataService>();
+            await demoDataService.SeedDemoDataAsync();
 
             if (canConnect)
             {

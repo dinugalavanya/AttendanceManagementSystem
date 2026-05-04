@@ -5,6 +5,7 @@ namespace AttendanceManagementSystem.ViewModels
     public class AttendanceViewModel
     {
         public Attendance? TodayAttendance { get; set; }
+        public DateTime SelectedDate { get; set; }
         public bool CanCheckIn { get; set; }
         public bool CanCheckOut { get; set; }
         public DateTime CurrentTime { get; set; }
@@ -19,7 +20,8 @@ namespace AttendanceManagementSystem.ViewModels
         // New properties for professional UI
         public string WorkedTimeDisplay { get; set; } = "0h 0m";
         public string CheckInTimeDisplay { get; set; } = "-";
-        public string ScheduleEndTime { get; set; } = "04:30 PM";
+        public string CheckOutTimeDisplay { get; set; } = "-"; // DEBUG: Show checkout time
+        public string ExpectedOffTimeDisplay { get; set; } = "04:30 PM";
         public string CurrentStatus { get; set; } = "Not Checked In";
         public string OvertimeHelperText { get; set; } = "No overtime yet";
         public int RegularWorkMinutes { get; set; }
