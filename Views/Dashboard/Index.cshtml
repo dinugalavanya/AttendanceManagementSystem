@@ -8,7 +8,7 @@
     var roleTone = Model.IsSuperAdmin ? "super" : Model.IsAdmin ? "admin" : "worker";
     var attendanceRate = Model.AttendanceTargetPercent;
     var monthlyLeaveCount = Model.DistributionValues.Count > 3 ? Model.DistributionValues[3] : 0;
-    var currentMonthLabel = DateTime.Today.ToString("MMMM yyyy");
+    var currentMonthLabel = Model.SelectedDate.ToString("MMMM yyyy");
 
     var header = new PageHeaderViewModel
     {
@@ -23,11 +23,13 @@
     };
 
     var cards = new List<SummaryCardViewModel>();
+    var selectedDateLabel = Model.SelectedDate == DateTime.Today ? "Today" : Model.SelectedDate.ToString("MMM dd");
+    
     if (Model.IsWorker)
     {
         cards.AddRange(new List<SummaryCardViewModel>
         {
-            new() { Label = "My Records Today", Value = Model.TodayAttendance.ToString(), Icon = "bi-person-check", Tone = "neutral", HelperText = "Daily attendance entries" },
+            new() { Label = $"My Records {selectedDateLabel}", Value = Model.TodayAttendance.ToString(), Icon = "bi-person-check", Tone = "neutral", HelperText = $"Daily attendance entries for {selectedDateLabel}" },
             new() { Label = "Present This Month", Value = Model.MonthlyPresentCount.ToString(), Icon = "bi-check2-circle", Tone = "success", HelperText = "On-time or valid attendance" },
             new() { Label = "Late This Month", Value = Model.MonthlyLateCount.ToString(), Icon = "bi-alarm", Tone = "warning", HelperText = "Arrivals beyond grace period" },
             new() { Label = "Absent This Month", Value = Model.MonthlyAbsentCount.ToString(), Icon = "bi-x-circle", Tone = "danger", HelperText = "Days marked absent" },
@@ -40,10 +42,10 @@
         cards.AddRange(new List<SummaryCardViewModel>
         {
             new() { Label = "Total Employees", Value = Model.TotalUsers.ToString(), Icon = "bi-people", Tone = "neutral", HelperText = "Active employees in scope" },
-            new() { Label = "Present Today", Value = Model.PresentCount.ToString(), Icon = "bi-check2-circle", Tone = "success", HelperText = "Marked present today" },
-            new() { Label = "Late Today", Value = Model.LateCount.ToString(), Icon = "bi-alarm", Tone = "warning", HelperText = "Arrived after expected time" },
-            new() { Label = "Absent Today", Value = Model.AbsentCount.ToString(), Icon = "bi-x-circle", Tone = "danger", HelperText = "No attendance records today" },
-            new() { Label = "On Leave", Value = Model.OnLeaveCount.ToString(), Icon = "bi-person-dash", Tone = "sky", HelperText = "Approved leave for today" },
+            new() { Label = $"Present {selectedDateLabel}", Value = Model.PresentCount.ToString(), Icon = "bi-check2-circle", Tone = "success", HelperText = $"Marked present on {selectedDateLabel}" },
+            new() { Label = $"Late {selectedDateLabel}", Value = Model.LateCount.ToString(), Icon = "bi-alarm", Tone = "warning", HelperText = $"Arrived after expected time on {selectedDateLabel}" },
+            new() { Label = $"Absent {selectedDateLabel}", Value = Model.AbsentCount.ToString(), Icon = "bi-x-circle", Tone = "danger", HelperText = $"No attendance records on {selectedDateLabel}" },
+            new() { Label = $"On Leave {selectedDateLabel}", Value = Model.OnLeaveCount.ToString(), Icon = "bi-person-dash", Tone = "sky", HelperText = $"Approved leave for {selectedDateLabel}" },
             new() { Label = "OT Hours This Month", Value = Math.Round(Model.OvertimeMinutesMonth / 60m, 1).ToString("0.0"), Icon = "bi-hourglass-split", Tone = "purple", HelperText = "Total overtime this month" }
         });
     }
@@ -96,6 +98,102 @@
 
 <section class="dashboard-shell">
     <partial name="_PageHeader" model="header" />
+
+    <!-- Date Filter Form -->
+    <form method="get" asp-action="Index" class="dashboard-date-filter mb-4">
+        <div class="row align-items-center">
+            <div class="col-auto">
+                <label for="selectedDate" class="form-label mb-0 fw-semibold">View Dashboard Date:</label>
+            </div>
+            <div class="col-auto">
+                <input type="date"
+                       id="selectedDate"
+                       name="selectedDate"
+                       class="form-control"
+                       value="@Model.SelectedDate.ToString("yyyy-MM-dd")"
+                       onchange="this.form.submit()" />
+            </div>
+        </div>
+    </form>
+
+    @if (!string.IsNullOrWhiteSpace(Model.WorkerSearchMessage))
+    {
+        <div class="alert alert-info mt-3">
+            @Model.WorkerSearchMessage
+        </div>
+    }
+
+    @if (Model.WorkerHistorySearchResult != null)
+    {
+        var worker = Model.WorkerHistorySearchResult;
+
+        <div class="card mt-3 shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Worker Attendance History</h5>
+                <small>Service ID: @worker.ServiceId</small>
+            </div>
+
+            <div class="card-body">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-2">
+                        <strong>Worker ID</strong>
+                        <div>@worker.WorkerId</div>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Name</strong>
+                        <div>@worker.FullName</div>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Email</strong>
+                        <div>@worker.Email</div>
+                    </div>
+                    <div class="col-md-2">
+                        <strong>Section</strong>
+                        <div>@worker.SectionName</div>
+                    </div>
+                    <div class="col-md-1">
+                        <strong>Worked</strong>
+                        <div>@worker.TotalWorkedHours h</div>
+                    </div>
+                    <div class="col-md-1">
+                        <strong>OT</strong>
+                        <div>@worker.TotalOTHours h</div>
+                    </div>
+                </div>
+
+                @if (worker.History.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>In Time</th>
+                                    <th>Out Time</th>
+                                    <th>Worked Hours</th>
+                                    <th>OT Hours</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in worker.History)
+                                {
+                                    <tr>
+                                        <td>@row.Date.ToString("dd MMM yyyy")</td>
+                                        <td>@row.InTime</td>
+                                        <td>@row.OutTime</td>
+                                        <td>@row.WorkedHours</td>
+                                        <td>@row.OTHours</td>
+                                        <td>@row.Status</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    }
 
     <section class="summary-grid">
         @foreach (var card in cards)

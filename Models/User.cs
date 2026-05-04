@@ -30,6 +30,9 @@ namespace AttendanceManagementSystem.Models
         [StringLength(200)]
         public string? Address { get; set; }
 
+        [StringLength(50)]
+        public string? ServiceId { get; set; }
+
         public DateTime? UpdatedAt { get; set; }
 
         // Attendance fields for User Management page

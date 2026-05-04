@@ -16,13 +16,20 @@ namespace AttendanceManagementSystem.Services
 
         public async Task SeedDemoDataAsync()
         {
-            // Check if demo data already exists
-            if (await _context.Users.CountAsync() > 5)
+            // Always clear and regenerate attendance data to fix wrong calculations
+            Console.WriteLine("[DEMO DATA] Clearing existing attendance data...");
+            var existingAttendances = await _context.Attendances.ToListAsync();
+            _context.Attendances.RemoveRange(existingAttendances);
+            await _context.SaveChangesAsync();
+
+            // Check if users exist, if not create them
+            if (await _context.Users.CountAsync() <= 5)
             {
-                return; // Demo data already exists
+                Console.WriteLine("[DEMO DATA] Creating demo users...");
+                await SeedDemoUsersAsync();
             }
 
-            await SeedDemoUsersAsync();
+            Console.WriteLine("[DEMO DATA] Generating corrected attendance data...");
             await SeedDemoAttendancesAsync();
         }
 
@@ -213,8 +220,8 @@ namespace AttendanceManagementSystem.Services
                 var checkInMinute = _random.Next(15, 46);
                 attendance.InTime = new TimeSpan(checkInHour, checkInMinute, _random.Next(0, 60));
 
-                // Check out between 4:30 PM and 6:00 PM
-                var checkOutHour = _random.Next(16, 19);
+                // Check out between 4:30 PM and 6:00 PM (REALISTIC times only)
+                var checkOutHour = _random.Next(16, 19); // 4 PM to 6 PM only
                 var checkOutMinute = _random.Next(0, 60);
                 attendance.OutTime = new TimeSpan(checkOutHour, checkOutMinute, _random.Next(0, 60));
 
@@ -232,8 +239,8 @@ namespace AttendanceManagementSystem.Services
                 }
                 attendance.InTime = new TimeSpan(checkInHour, checkInMinute, _random.Next(0, 60));
 
-                // Check out between 4:30 PM and 6:00 PM
-                var checkOutHour = _random.Next(16, 19);
+                // Check out between 4:30 PM and 6:00 PM (REALISTIC times only)
+                var checkOutHour = _random.Next(16, 19); // 4 PM to 6 PM only
                 var checkOutMinute = _random.Next(0, 60);
                 attendance.OutTime = new TimeSpan(checkOutHour, checkOutMinute, _random.Next(0, 60));
 
@@ -251,33 +258,35 @@ namespace AttendanceManagementSystem.Services
 
         private void CalculateWorkHours(Attendance attendance)
         {
-            var workStart = WorkingHours.WorkStart;
-            var workEnd = WorkingHours.WorkEnd;
-
-            var actualStart = attendance.InTime.Value < workStart ? workStart : attendance.InTime.Value;
-            var actualEnd = attendance.OutTime.Value > workEnd ? workEnd : attendance.OutTime.Value;
-
-            if (actualEnd > actualStart)
+            // CORRECT BUSINESS RULE: Calculate based on check-in time + 8 hours
+            if (!attendance.InTime.HasValue || !attendance.OutTime.HasValue)
             {
-                attendance.RegularWorkedMinutes = (int)(actualEnd - actualStart).TotalMinutes;
-            }
-            else
-            {
+                attendance.TotalWorkedMinutes = 0;
                 attendance.RegularWorkedMinutes = 0;
+                attendance.OvertimeMinutes = 0;
+                return;
             }
 
-            // Calculate overtime (time after 4:30 PM)
-            if (attendance.OutTime.HasValue && attendance.OutTime.Value > workEnd)
+            var checkInTime = attendance.InTime.Value;
+            var checkOutTime = attendance.OutTime.Value;
+            
+            // Expected off time is 8 hours from actual check-in time
+            var expectedOffTime = checkInTime.Add(new TimeSpan(8, 0, 0));
+            
+            // Total worked time is from check-in to check-out
+            attendance.TotalWorkedMinutes = (int)(checkOutTime - checkInTime).TotalMinutes;
+            
+            // Calculate overtime: time worked after expected off time
+            if (checkOutTime > expectedOffTime)
             {
-                attendance.OvertimeMinutes = (int)(attendance.OutTime.Value - workEnd).TotalMinutes;
+                attendance.RegularWorkedMinutes = (int)(expectedOffTime - checkInTime).TotalMinutes;
+                attendance.OvertimeMinutes = (int)(checkOutTime - expectedOffTime).TotalMinutes;
             }
             else
             {
+                attendance.RegularWorkedMinutes = attendance.TotalWorkedMinutes;
                 attendance.OvertimeMinutes = 0;
             }
-
-            // Calculate total worked minutes
-            attendance.TotalWorkedMinutes = attendance.RegularWorkedMinutes + attendance.OvertimeMinutes;
         }
     }
 }

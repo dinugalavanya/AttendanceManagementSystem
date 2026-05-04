@@ -1,4 +1,4 @@
-@model AttendanceManagementSystem.Controllers.AttendanceManageViewModel
+@model AttendanceManagementSystem.ViewModels.AttendanceManageViewModel
 @using AttendanceManagementSystem.Models
 @{
     ViewData["Title"] = "Manage Attendance";
@@ -128,10 +128,10 @@
                                 @if (Model.CanEdit)
                                 {
                                     <td class="text-end">
-                                        <a asp-action="Edit" asp-route-id="@row.Id" class="btn btn-soft btn-sm">
+                                        <button type="button" class="btn btn-soft btn-sm edit-attendance-btn" data-attendance-id="@row.Id">
                                             <i class="bi bi-pencil-square"></i>
                                             Edit
-                                        </a>
+                                        </button>
                                     </td>
                                 }
                             </tr>
@@ -142,3 +142,350 @@
         }
     </article>
 </section>
+
+<!-- Edit Attendance Modal -->
+<div class="modal fade" id="editAttendanceModal" tabindex="-1" aria-labelledby="editAttendanceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editAttendanceModalLabel">
+                    <i class="bi bi-pencil-square me-2"></i>Edit Attendance
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editAttendanceForm">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" id="attendanceId" name="Id" />
+                    <input type="hidden" id="userId" name="UserId" />
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label for="employeeName" class="form-label">Employee Name</label>
+                            <input type="text" class="form-control" id="employeeName" readonly />
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="inTime" class="form-label">In Time</label>
+                            <input type="time" class="form-control" id="inTime" name="InTime" required />
+                            <span class="text-danger" id="inTimeError"></span>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="outTime" class="form-label">Out Time</label>
+                            <input type="time" class="form-control" id="outTime" name="OutTime" required />
+                            <span class="text-danger" id="outTimeError"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-select" id="status" name="Status" required>
+                                <option value="Present">On Time</option>
+                                <option value="Late">Late</option>
+                                <option value="Absent">Absent</option>
+                                <option value="Leave">Leave</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">Worked Hours</label>
+                            <div class="form-control-plaintext" id="workedHours">-</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">OT Hours</label>
+                            <div class="form-control-plaintext" id="otHours">-</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveAttendanceBtn">
+                    <i class="bi bi-check-circle me-1"></i>Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            // Handle edit button click
+            $('.edit-attendance-btn').click(function() {
+                var attendanceId = $(this).data('attendance-id');
+                loadAttendanceForEdit(attendanceId);
+            });
+
+            // Load attendance data for editing
+            function loadAttendanceForEdit(attendanceId) {
+                $.ajax({
+                    url: '@Url.Action("GetAttendanceForEdit", "Attendance")',
+                    type: 'GET',
+                    data: { id: attendanceId },
+                    success: function(response) {
+                        if (response.success) {
+                            populateEditModal(response.data);
+                            $('#editAttendanceModal').modal('show');
+                        } else {
+                            showAlert('error', response.message || 'Failed to load attendance data');
+                        }
+                    },
+                    error: function() {
+                        showAlert('error', 'An error occurred while loading attendance data');
+                    }
+                });
+            }
+
+            // Populate modal with attendance data
+            function populateEditModal(data) {
+                console.log('[DEBUG] Populating modal with data:', data);
+                
+                $('#attendanceId').val(data.id);
+                $('#userId').val(data.userId);
+                $('#attendanceDate').val(data.attendanceDate);
+                $('#employeeName').val(data.employeeName);
+                
+                // Use the properly formatted time strings from the server
+                $('#inTime').val(data.inTimeString || '');
+                $('#outTime').val(data.outTimeString || '');
+                $('#status').val(data.status);
+                
+                console.log('[DEBUG] Set time inputs - InTime:', data.inTimeString, 'OutTime:', data.outTimeString);
+                
+                // Display calculated hours
+                $('#workedHours').text(data.workedHours + ' hours');
+                $('#otHours').text(data.otHours + ' hours');
+                
+                // Clear any previous errors
+                $('.text-danger').text('');
+                $('.modal-alert').remove();
+            }
+
+            // Format TimeSpan to HH:mm format for time input
+            function formatTimeForInput(timeValue) {
+                if (!timeValue) return '';
+                
+                // Handle if it's already a string in HH:mm format
+                if (typeof timeValue === 'string') {
+                    if (timeValue.includes(':')) {
+                        return timeValue.substring(0, 5);
+                    }
+                    return '';
+                }
+                
+                // Handle if it's a TimeSpan object with hours and minutes
+                if (timeValue.hours !== undefined && timeValue.minutes !== undefined) {
+                    return String(timeValue.hours).padStart(2, '0') + ':' + String(timeValue.minutes).padStart(2, '0');
+                }
+                
+                return '';
+            }
+
+            // Handle save button click
+            $('#saveAttendanceBtn').click(function() {
+                if (validateForm()) {
+                    saveAttendance();
+                }
+            });
+
+            // Validate form
+            function validateForm() {
+                var isValid = true;
+                $('.text-danger').text('');
+                
+                var inTime = $('#inTime').val();
+                var outTime = $('#outTime').val();
+                
+                if (!inTime) {
+                    $('#inTimeError').text('In Time is required');
+                    isValid = false;
+                }
+                
+                if (!outTime) {
+                    $('#outTimeError').text('Out Time is required');
+                    isValid = false;
+                }
+                
+                if (inTime && outTime && inTime >= outTime) {
+                    $('#outTimeError').text('Out Time must be after In Time');
+                    isValid = false;
+                }
+                
+                return isValid;
+            }
+
+            // Save attendance
+            function saveAttendance() {
+                // Clear previous validation errors
+                $('.text-danger').text('');
+                $('.modal-alert').remove();
+
+                var inTimeValue = $('#inTime').val();
+                var outTimeValue = $('#outTime').val();
+
+                var formData = {
+                    id: parseInt($('#attendanceId').val()),
+                    // Send time strings in hh:mm format for TimeSpan
+                    inTime: inTimeValue,
+                    outTime: outTimeValue,
+                    status: $('#status').val()
+                };
+
+                console.log('[DEBUG] Sending AJAX request with data:', formData);
+
+                $.ajax({
+                    url: '@Url.Action("UpdateAttendance", "Attendance")',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify(formData),
+                    headers: {
+                        'RequestVerificationToken': $('#editAttendanceForm input[name="__RequestVerificationToken"]').val()
+                    },
+                    success: function(response) {
+                        console.log('[DEBUG] AJAX response:', response);
+                        
+                        if (response.success) {
+                            console.log('[DEBUG] Update successful, closing modal and reloading page');
+                            $('#editAttendanceModal').modal('hide');
+                            showAlert('success', response.message || 'Attendance updated successfully');
+                            // Reload page to show updated data
+                            setTimeout(function() {
+                                location.reload();
+                            }, 1000);
+                        } else {
+                            console.log('[DEBUG] Update failed:', response.message);
+                            if (response.errors && response.errors.length > 0) {
+                                console.log('[DEBUG] Validation errors:', response.errors);
+                                showModalError(response.message + ': ' + response.errors.join(', '));
+                            } else {
+                                showModalError(response.message || 'Failed to update attendance');
+                            }
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.log('[DEBUG] AJAX error:', { status: status, error: error, response: xhr.responseJSON });
+                        
+                        var message = 'An error occurred while updating attendance';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            message = xhr.responseJSON.message;
+                        }
+                        showModalError(message);
+                    }
+                });
+            }
+
+            // Show error message in modal
+            function showModalError(message) {
+                // Remove any existing modal alerts
+                $('.modal-alert').remove();
+                
+                var alertHtml = '<div class="alert alert-danger alert-dismissible fade show modal-alert" role="alert">' +
+                               message +
+                               '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
+                               '</div>';
+                
+                // Insert at the beginning of modal body
+                $('.modal-body').prepend(alertHtml);
+                
+                // Scroll to top of modal to show the error
+                $('.modal-body').scrollTop(0);
+            }
+
+            // Parse time string to TimeSpan
+            function parseTimeFromString(timeString) {
+                if (!timeString) return '00:00:00';
+                
+                var parts = timeString.split(':');
+                var hours = parseInt(parts[0]) || 0;
+                var minutes = parseInt(parts[1]) || 0;
+                var seconds = parseInt(parts[2]) || 0;
+                
+                return String(hours).padStart(2, '0') + ':' + 
+                       String(minutes).padStart(2, '0') + ':' + 
+                       String(seconds).padStart(2, '0');
+            }
+
+            // Update table row with new data
+            function updateTableRow(data) {
+                var row = $('button[data-attendance-id="' + data.id + '"]').closest('tr');
+                
+                // Update the cells
+                row.find('td:eq(2)').text(data.inTime || '-');
+                row.find('td:eq(3)').text(data.outTime || '-');
+                row.find('td:eq(4)').text(data.workedHours + ' hours');
+                row.find('td:eq(5)').text(data.otHours > 0 ? data.otHours + ' hours' : '-');
+                
+                // Update status badge
+                var statusBadge = row.find('td:eq(6) .status-badge');
+                statusBadge.removeClass('success warning danger neutral');
+                
+                var tone = getStatusTone(data.status);
+                statusBadge.addClass(tone);
+                statusBadge.text(data.status);
+            }
+
+            // Get status tone for badge
+            function getStatusTone(status) {
+                switch(status) {
+                    case 'Present': return 'success';
+                    case 'Late': return 'warning';
+                    case 'Absent': return 'danger';
+                    case 'Leave': return 'neutral';
+                    default: return 'neutral';
+                }
+            }
+
+            // Show alert message
+            function showAlert(type, message) {
+                // Remove existing alerts
+                $('.alert').remove();
+                
+                var alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+                var alertHtml = '<div class="alert ' + alertClass + ' alert-dismissible fade show" role="alert">' +
+                               message +
+                               '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
+                               '</div>';
+                
+                $('.manage-shell').prepend(alertHtml);
+                
+                // Auto-dismiss after 5 seconds
+                setTimeout(function() {
+                    $('.alert').fadeOut();
+                }, 5000);
+            }
+
+            // Calculate worked hours when times change
+            $('#inTime, #outTime').change(function() {
+                calculateWorkedHours();
+            });
+
+            function calculateWorkedHours() {
+                var inTime = $('#inTime').val();
+                var outTime = $('#outTime').val();
+                
+                if (inTime && outTime && inTime < outTime) {
+                    var inDate = new Date('2000-01-01T' + inTime);
+                    var outDate = new Date('2000-01-01T' + outTime);
+                    var diffMs = outDate - inDate;
+                    var diffHours = diffMs / (1000 * 60 * 60);
+                    var workedHours = Math.round(diffHours * 100) / 100;
+                    
+                    var regularHours = 8;
+                    var otHours = workedHours > regularHours ? Math.round((workedHours - regularHours) * 100) / 100 : 0;
+                    
+                    $('#workedHours').text(workedHours + ' hours');
+                    $('#otHours').text(otHours + ' hours');
+                } else {
+                    $('#workedHours').text('-');
+                    $('#otHours').text('-');
+                }
+            }
+        });
+    </script>
+}
