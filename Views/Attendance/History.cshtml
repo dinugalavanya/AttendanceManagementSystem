@@ -138,70 +138,21 @@
                             </table>
                         </div>
 
-                        <!-- Summary Statistics -->
+                        <!-- Summary Statistics - Total Overtime Only -->
                         <div class="row mt-4">
-                            <div class="col-md-3">
-                                <div class="card bg-light">
-                                    <div class="card-body text-center">
-                                        <h6 class="text-muted mb-1">Total Days</h6>
-                                        <h4 class="mb-0 text-primary">@Model.Attendances.Count</h4>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="card bg-light">
-                                    <div class="card-body text-center">
-                                        <h6 class="text-muted mb-1">On Time</h6>
-                                        <h4 class="mb-0 text-success">@Model.Attendances.Count(a => a.Status == "Present")</h4>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="card bg-light">
-                                    <div class="card-body text-center">
-                                        <h6 class="text-muted mb-1">Late</h6>
-                                        <h4 class="mb-0 text-warning">@Model.Attendances.Count(a => a.Status == "Late")</h4>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="card bg-light">
-                                    <div class="card-body text-center">
-                                        <h6 class="text-muted mb-1">Leave</h6>
-                                        <h4 class="mb-0 text-info">@Model.Attendances.Count(a => a.Status == "Leave")</h4>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row mt-3">
-                            <div class="col-md-6">
-                                <div class="card bg-light">
-                                    <div class="card-body text-center">
-                                        <h6 class="text-muted mb-1">Total Worked Hours</h6>
-                                        <h4 class="mb-0 text-primary">
-                                            @{
-                                                var totalWorkedMinutes = Model.Attendances.Sum(a => a.TotalWorkedMinutes);
-                                                var totalWorkedHours = totalWorkedMinutes / 60;
-                                                var totalWorkedMinutesRem = totalWorkedMinutes % 60;
-                                            }
-                                            @($"{totalWorkedHours:D2}:{totalWorkedMinutesRem:D2}")
-                                        </h4>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="card bg-light">
-                                    <div class="card-body text-center">
-                                        <h6 class="text-muted mb-1">Total OT Hours</h6>
-                                        <h4 class="mb-0 text-warning">
+                            <div class="col-12">
+                                <div class="card bg-light" style="border: 2px solid #7c3aed;">
+                                    <div class="card-body text-center py-4">
+                                        <h5 class="text-muted mb-2">Total Overtime</h5>
+                                        <h2 class="mb-0 text-purple fw-bold" style="color: #7c3aed; font-size: 3rem;">
                                             @{
                                                 var totalOTMinutes = Model.Attendances.Sum(a => a.OvertimeMinutes);
                                                 var totalOTHours = totalOTMinutes / 60;
                                                 var totalOTMinutesRem = totalOTMinutes % 60;
                                             }
                                             @($"{totalOTHours:D2}:{totalOTMinutesRem:D2}")
-                                        </h4>
+                                        </h2>
+                                        <small class="text-muted">Total overtime for selected period</small>
                                     </div>
                                 </div>
                             </div>

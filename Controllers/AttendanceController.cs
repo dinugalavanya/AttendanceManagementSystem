@@ -211,25 +211,18 @@ namespace AttendanceManagementSystem.Controllers
                 checkInTimeDisplay = DateTime.Today.Add(selectedAttendance.InTime.Value).ToString("hh:mm tt");
             }
             
-            // Format expected off time
-            string expectedOffTimeDisplay = "--";
-            if (selectedCalculation.ExpectedOffTime.HasValue)
-            {
-                expectedOffTimeDisplay = DateTime.Today.Add(selectedCalculation.ExpectedOffTime.Value).ToString("hh:mm tt");
-            }
-            
             // Format worked time and OT using centralized results
             string workedTimeDisplay = FormatDuration(selectedCalculation.TotalWorked);
             string otDisplay = FormatDuration(selectedCalculation.Overtime);
-            
+
             // Create TimeSpan objects for weekly/monthly formatting
             var weeklyOTTime = TimeSpan.FromMinutes(weeklyOTMinutes);
             var monthlyOTTime = TimeSpan.FromMinutes(monthlyOTMinutes);
-            
+
             // Determine check-in/check-out availability
             var canCheckIn = selectedAttendance == null && isToday;
             var canCheckOut = selectedAttendance != null && !selectedAttendance.IsLocked && isToday && !selectedCalculation.IsIncomplete;
-            
+
             var model = new AttendanceViewModel
             {
                 TodayAttendance = selectedAttendance,
@@ -244,14 +237,13 @@ namespace AttendanceManagementSystem.Controllers
                 HasOTToday = selectedCalculation.Overtime.TotalMinutes > 0 && !selectedCalculation.IsIncomplete,
                 WorkedTimeDisplay = workedTimeDisplay,
                 CheckInTimeDisplay = checkInTimeDisplay,
-                CheckOutTimeDisplay = checkOutTimeDisplay, // DEBUG: Show checkout time
-                ExpectedOffTimeDisplay = expectedOffTimeDisplay,
+                CheckOutTimeDisplay = checkOutTimeDisplay,
                 CurrentStatus = selectedCalculation.StatusText,
-                OvertimeHelperText = selectedCalculation.IsIncomplete ? "Missing check-out time" : 
+                OvertimeHelperText = selectedCalculation.IsIncomplete ? "Missing check-out time" :
                                    (selectedCalculation.Overtime.TotalMinutes > 0 ? "Time worked after completing 8 hours" : "Time worked after completing 8 hours"),
-                RegularWorkMinutes = selectedCalculation.IsIncomplete || !selectedCalculation.TotalWorked.HasValue ? 0 : 
+                RegularWorkMinutes = selectedCalculation.IsIncomplete || !selectedCalculation.TotalWorked.HasValue ? 0 :
                                    Math.Min((int)selectedCalculation.TotalWorked.Value.TotalMinutes, 480), // 8 hours = 480 minutes
-                TotalWorkMinutes = selectedCalculation.IsIncomplete || !selectedCalculation.TotalWorked.HasValue ? 0 : 
+                TotalWorkMinutes = selectedCalculation.IsIncomplete || !selectedCalculation.TotalWorked.HasValue ? 0 :
                                    (int)selectedCalculation.TotalWorked.Value.TotalMinutes
             };
             
@@ -318,6 +310,117 @@ namespace AttendanceManagementSystem.Controllers
             {
                 TempData["Error"] = "An error occurred during check-out. Please try again.";
                 return RedirectToAction("Index");
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SaveAttendance(DateTime selectedDate, TimeSpan? inTime, TimeSpan? outTime, string? notes)
+        {
+            var currentUser = _authService.GetCurrentUser();
+            if (currentUser == null)
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            try
+            {
+                // Validation: InTime is required
+                if (inTime == null)
+                {
+                    TempData["Error"] = "In Time is required.";
+                    return RedirectToAction("Index", new { selectedDate = selectedDate });
+                }
+
+                // Validation: OutTime cannot be earlier than InTime
+                if (outTime.HasValue && outTime.Value <= inTime.Value)
+                {
+                    TempData["Error"] = "Out time cannot be earlier than In time.";
+                    return RedirectToAction("Index", new { selectedDate = selectedDate });
+                }
+
+                // Find existing attendance record for the user and date
+                var existingAttendance = await _context.Attendances
+                    .Where(a => a.UserId == currentUser.Id && a.AttendanceDate.Date == selectedDate.Date)
+                    .FirstOrDefaultAsync();
+
+                if (existingAttendance != null)
+                {
+                    // Update existing record
+                    existingAttendance.InTime = inTime;
+                    existingAttendance.OutTime = outTime;
+                    existingAttendance.Notes = notes;
+                    existingAttendance.UpdatedAt = DateTime.UtcNow;
+                }
+                else
+                {
+                    // Create new record
+                    existingAttendance = new Attendance
+                    {
+                        UserId = currentUser.Id,
+                        AttendanceDate = selectedDate.Date,
+                        InTime = inTime,
+                        OutTime = outTime,
+                        Notes = notes,
+                        IsLocked = false,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    _context.Attendances.Add(existingAttendance);
+                }
+
+                // Calculate values based on business rule: Required work duration = 8 hours
+                if (inTime.HasValue)
+                {
+                    var inDateTime = selectedDate.Date + inTime.Value;
+                    var expectedOffTime = inDateTime.AddHours(8);
+                    
+                    if (outTime.HasValue)
+                    {
+                        var outDateTime = selectedDate.Date + outTime.Value;
+                        var totalWorkedMinutes = (int)(outDateTime - inDateTime).TotalMinutes;
+                        
+                        existingAttendance.TotalWorkedMinutes = totalWorkedMinutes;
+                        existingAttendance.RegularWorkedMinutes = Math.Min(totalWorkedMinutes, 480); // 8 hours = 480 minutes
+                        existingAttendance.OvertimeMinutes = Math.Max(0, totalWorkedMinutes - 480);
+                    }
+                    else
+                    {
+                        // If no OutTime, set values to 0
+                        existingAttendance.TotalWorkedMinutes = 0;
+                        existingAttendance.RegularWorkedMinutes = 0;
+                        existingAttendance.OvertimeMinutes = 0;
+                    }
+
+                    // Determine status based on InTime
+                    var workStartTime = new TimeSpan(8, 45, 0); // 8:45 AM
+                    if (inTime.Value <= workStartTime)
+                    {
+                        existingAttendance.Status = AttendanceStatus.Present;
+                    }
+                    else
+                    {
+                        existingAttendance.Status = AttendanceStatus.Late;
+                    }
+                }
+                else
+                {
+                    // No InTime means absent
+                    existingAttendance.Status = AttendanceStatus.Absent;
+                    existingAttendance.TotalWorkedMinutes = 0;
+                    existingAttendance.RegularWorkedMinutes = 0;
+                    existingAttendance.OvertimeMinutes = 0;
+                }
+
+                await _context.SaveChangesAsync();
+                TempData["Success"] = "Attendance saved successfully.";
+                return RedirectToAction("Index", new { selectedDate = selectedDate });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] SaveAttendance failed: {ex.Message}");
+                TempData["Error"] = "An error occurred while saving attendance. Please try again.";
+                return RedirectToAction("Index", new { selectedDate = selectedDate });
             }
         }
 

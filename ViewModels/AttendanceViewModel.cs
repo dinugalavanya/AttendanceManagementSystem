@@ -20,8 +20,7 @@ namespace AttendanceManagementSystem.ViewModels
         // New properties for professional UI
         public string WorkedTimeDisplay { get; set; } = "0h 0m";
         public string CheckInTimeDisplay { get; set; } = "-";
-        public string CheckOutTimeDisplay { get; set; } = "-"; // DEBUG: Show checkout time
-        public string ExpectedOffTimeDisplay { get; set; } = "04:30 PM";
+        public string CheckOutTimeDisplay { get; set; } = "-";
         public string CurrentStatus { get; set; } = "Not Checked In";
         public string OvertimeHelperText { get; set; } = "No overtime yet";
         public int RegularWorkMinutes { get; set; }
