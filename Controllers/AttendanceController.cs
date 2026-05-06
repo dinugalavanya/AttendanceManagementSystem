@@ -170,39 +170,23 @@ namespace AttendanceManagementSystem.Controllers
                 Console.WriteLine($"[ATTENDANCE DEBUG] CheckOutTime Display: {checkOutTimeDisplay}");
             }
             
-            // Calculate weekly OT using centralized logic
-            var weekStart = DateTime.Today.AddDays(-6);
+            // Calculate weekly OT using stored OvertimeMinutes as single source of truth
+            var today = DateTime.Today;
+            var dayOfWeek = (int)today.DayOfWeek;
+            var startOfWeek = dayOfWeek == 0 ? today.AddDays(-6) : today.AddDays(-(dayOfWeek - 1));
             var weeklyAttendances = await _context.Attendances
-                .Where(a => a.UserId == currentUser.Id && a.AttendanceDate >= weekStart && a.AttendanceDate < DateTime.Today.AddDays(1))
+                .Where(a => a.UserId == currentUser.Id && a.AttendanceDate.Date >= startOfWeek && a.AttendanceDate.Date <= today)
                 .ToListAsync();
-                
-            var weeklyOTMinutes = 0;
-            foreach (var attendance in weeklyAttendances)
-            {
-                if (attendance.InTime.HasValue && attendance.OutTime.HasValue)
-                {
-                    var weekCalc = CalculateAttendanceTimes(attendance.AttendanceDate, attendance.InTime, attendance.OutTime);
-                    weeklyOTMinutes += (int)weekCalc.Overtime.TotalMinutes;
-                }
-                // Skip incomplete records for weekly summaries
-            }
-            
-            // Calculate monthly OT using centralized logic
-            var monthStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+            var weeklyOTMinutes = weeklyAttendances.Sum(a => a.OvertimeMinutes);
+
+            // Calculate monthly OT using stored OvertimeMinutes as single source of truth
+            var firstDayOfMonth = new DateTime(today.Year, today.Month, 1);
             var monthlyAttendances = await _context.Attendances
-                .Where(a => a.UserId == currentUser.Id && a.AttendanceDate >= monthStart && a.AttendanceDate < DateTime.Today.AddDays(1))
+                .Where(a => a.UserId == currentUser.Id && a.AttendanceDate.Date >= firstDayOfMonth && a.AttendanceDate.Date <= today)
                 .ToListAsync();
-                
-            var monthlyOTMinutes = 0;
-            foreach (var attendance in monthlyAttendances)
-            {
-                if (attendance.InTime.HasValue && attendance.OutTime.HasValue)
-                {
-                    var monthCalc = CalculateAttendanceTimes(attendance.AttendanceDate, attendance.InTime, attendance.OutTime);
-                    monthlyOTMinutes += (int)monthCalc.Overtime.TotalMinutes;
-                }
-                // Skip incomplete records for monthly summaries
-            }
+
+            var monthlyOTMinutes = monthlyAttendances.Sum(a => a.OvertimeMinutes);
             
             // Format check-in time safely
             string checkInTimeDisplay = "-";
@@ -213,7 +197,9 @@ namespace AttendanceManagementSystem.Controllers
             
             // Format worked time and OT using centralized results
             string workedTimeDisplay = FormatDuration(selectedCalculation.TotalWorked);
-            string otDisplay = FormatDuration(selectedCalculation.Overtime);
+            // Use stored OvertimeMinutes for Today OT for consistency with week/month
+            var todayOTMinutes = selectedAttendance != null ? selectedAttendance.OvertimeMinutes : 0;
+            string otDisplay = FormatDuration(TimeSpan.FromMinutes(todayOTMinutes));
 
             // Create TimeSpan objects for weekly/monthly formatting
             var weeklyOTTime = TimeSpan.FromMinutes(weeklyOTMinutes);
@@ -230,17 +216,17 @@ namespace AttendanceManagementSystem.Controllers
                 CanCheckIn = canCheckIn,
                 CanCheckOut = canCheckOut,
                 CurrentTime = currentTime,
-                TodayOTHours = selectedCalculation.Overtime.TotalMinutes / 60.0,
+                TodayOTHours = todayOTMinutes / 60.0,
                 TodayOTDisplay = otDisplay,
                 WeeklyOTDisplay = FormatDuration(weeklyOTTime),
                 MonthlyOTDisplay = FormatDuration(monthlyOTTime),
-                HasOTToday = selectedCalculation.Overtime.TotalMinutes > 0 && !selectedCalculation.IsIncomplete,
+                HasOTToday = todayOTMinutes > 0,
                 WorkedTimeDisplay = workedTimeDisplay,
                 CheckInTimeDisplay = checkInTimeDisplay,
                 CheckOutTimeDisplay = checkOutTimeDisplay,
                 CurrentStatus = selectedCalculation.StatusText,
                 OvertimeHelperText = selectedCalculation.IsIncomplete ? "Missing check-out time" :
-                                   (selectedCalculation.Overtime.TotalMinutes > 0 ? "Time worked after completing 8 hours" : "Time worked after completing 8 hours"),
+                                   (todayOTMinutes > 0 ? "Time worked after completing 8 hours" : "Time worked after completing 8 hours"),
                 RegularWorkMinutes = selectedCalculation.IsIncomplete || !selectedCalculation.TotalWorked.HasValue ? 0 :
                                    Math.Min((int)selectedCalculation.TotalWorked.Value.TotalMinutes, 480), // 8 hours = 480 minutes
                 TotalWorkMinutes = selectedCalculation.IsIncomplete || !selectedCalculation.TotalWorked.HasValue ? 0 :
@@ -424,7 +410,7 @@ namespace AttendanceManagementSystem.Controllers
             }
         }
 
-        public async Task<IActionResult> History(DateTime? startDate, DateTime? endDate)
+        public async Task<IActionResult> History(DateTime? selectedDate, DateTime? periodStartDate, DateTime? periodEndDate)
         {
             var currentUser = _authService.GetCurrentUser();
             if (currentUser == null)
@@ -432,17 +418,29 @@ namespace AttendanceManagementSystem.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            var start = startDate ?? DateTime.Today.AddDays(-30);
-            var end = endDate ?? DateTime.Today;
-
-            var attendances = await _attendanceService.GetUserAttendancesAsync(currentUser.Id, start, end);
-
             var model = new AttendanceHistoryViewModel
             {
-                Attendances = attendances,
-                StartDate = start,
-                EndDate = end
+                // Default period range for backward compatibility
+                StartDate = DateTime.Today.AddDays(-30),
+                EndDate = DateTime.Today
             };
+
+            // Handle single date selection
+            if (selectedDate.HasValue)
+            {
+                model.SelectedDate = selectedDate.Value;
+                model.SelectedDateRecord = await _context.Attendances
+                    .Where(a => a.UserId == currentUser.Id && a.AttendanceDate.Date == selectedDate.Value.Date)
+                    .FirstOrDefaultAsync();
+            }
+
+            // Handle period filtering
+            if (periodStartDate.HasValue && periodEndDate.HasValue)
+            {
+                model.PeriodStartDate = periodStartDate.Value;
+                model.PeriodEndDate = periodEndDate.Value;
+                model.PeriodRecords = await _attendanceService.GetUserAttendancesAsync(currentUser.Id, periodStartDate.Value, periodEndDate.Value);
+            }
 
             return View(model);
         }

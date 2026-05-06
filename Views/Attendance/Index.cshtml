@@ -5,18 +5,188 @@
 }
 
 <style>
-    .attendance-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* Premium Attendance Details Cards */
+    .premium-card {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+        position: relative;
+    }
+
+    .premium-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
+        border-color: rgba(124, 58, 237, 0.2);
+    }
+
+    .premium-card-highlight {
+        background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
         border: none;
-        border-radius: 20px;
+    }
+
+    .premium-card-highlight:hover {
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 25px 50px rgba(124, 58, 237, 0.25);
+    }
+
+    .premium-card-header {
+        padding: 20px 24px 12px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    }
+
+    .premium-card-header h5 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin: 0;
+    }
+
+    .premium-card-body {
+        padding: 20px 24px;
+    }
+
+    .premium-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 16px;
+        transition: all 0.3s ease;
+    }
+
+    .premium-card:hover .premium-icon-wrapper {
+        transform: scale(1.1);
+    }
+
+    .premium-icon-wrapper.primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .premium-icon-wrapper.success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .premium-icon-wrapper.warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    }
+
+    .premium-icon-wrapper.purple {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+    }
+
+    .premium-icon-wrapper.neutral {
+        background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+        box-shadow: 0 4px 12px rgba(100, 116, 139, 0.3);
+    }
+
+    .premium-icon-wrapper i {
+        font-size: 24px;
         color: white;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        transition: transform 0.3s ease;
     }
-    
-    .attendance-card:hover {
-        transform: translateY(-5px);
+
+    .premium-card-highlight .premium-icon-wrapper {
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
     }
+
+    .premium-card-highlight .premium-icon-wrapper i {
+        color: white;
+    }
+
+    .premium-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: #64748b;
+        margin-bottom: 8px;
+        letter-spacing: 0.3px;
+    }
+
+    .premium-card-highlight .premium-label {
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .premium-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: #1e293b;
+        line-height: 1.2;
+        letter-spacing: -0.5px;
+    }
+
+    .premium-card-highlight .premium-value {
+        color: white;
+        font-size: 32px;
+    }
+
+    .premium-trend {
+        font-size: 12px;
+        font-weight: 600;
+        margin-top: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .premium-trend.positive {
+        color: #10b981;
+    }
+
+    .premium-trend.neutral {
+        color: #64748b;
+    }
+
+    .premium-card-highlight .premium-trend {
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .premium-section-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .premium-section-title i {
+        color: #7c3aed;
+        font-size: 22px;
+    }
+
+    /* Animation */
+    @@keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .premium-card {
+        animation: fadeInUp 0.6s ease-out forwards;
+    }
+
+    .premium-card:nth-child(1) { animation-delay: 0.1s; }
+    .premium-card:nth-child(2) { animation-delay: 0.2s; }
+    .premium-card:nth-child(3) { animation-delay: 0.3s; }
+    .premium-card:nth-child(4) { animation-delay: 0.4s; }
+    .premium-card:nth-child(5) { animation-delay: 0.5s; }
     
     .check-btn {
         border-radius: 50px;
@@ -490,60 +660,70 @@
                     {
                         <!-- Result Cards -->
                         <div class="mt-4">
-                            <h5 class="mb-3"><i class="bi bi-info-circle me-2"></i>Attendance Details</h5>
+                            <div class="premium-section-title">
+                                <i class="bi bi-grid-fill"></i>
+                                <span>Attendance Details</span>
+                            </div>
                             <div class="row g-3">
                                 <div class="col-md-6 col-lg-4">
-                                    <div class="stat-box">
-                                        <div class="stat-icon-wrapper">
-                                            <i class="bi bi-clock-in stat-icon"></i>
-                                        </div>
-                                        <div class="stat-content">
-                                            <div class="stat-label">Started Work At</div>
-                                            <div class="stat-value">@Model.CheckInTimeDisplay</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="stat-box">
-                                        <div class="stat-icon-wrapper">
-                                            <i class="bi bi-clock-out stat-icon"></i>
-                                        </div>
-                                        <div class="stat-content">
-                                            <div class="stat-label">Checked Out At</div>
-                                            <div class="stat-value">@Model.CheckOutTimeDisplay</div>
+                                    <div class="premium-card">
+                                        <div class="premium-card-body">
+                                            <div class="premium-icon-wrapper primary">
+                                                <i class="bi bi-play-circle-fill"></i>
+                                            </div>
+                                            <div class="premium-label">Started Work At</div>
+                                            <div class="premium-value">@Model.CheckInTimeDisplay</div>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-md-6 col-lg-4">
-                                    <div class="stat-box">
-                                        <div class="stat-icon-wrapper">
-                                            <i class="bi bi-hourglass-split stat-icon"></i>
-                                        </div>
-                                        <div class="stat-content">
-                                            <div class="stat-label">Total Worked Today</div>
-                                            <div class="stat-value">@Model.WorkedTimeDisplay</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="stat-box @(Model.HasOTToday ? "stat-highlight" : "")">
-                                        <div class="stat-icon-wrapper @(Model.HasOTToday ? "bg-purple" : "")">
-                                            <i class="bi bi-clock-history stat-icon"></i>
-                                        </div>
-                                        <div class="stat-content">
-                                            <div class="stat-label">Extra Time Worked</div>
-                                            <div class="stat-value @(Model.HasOTToday ? "text-purple" : "")">@Model.TodayOTDisplay</div>
+                                    <div class="premium-card">
+                                        <div class="premium-card-body">
+                                            <div class="premium-icon-wrapper success">
+                                                <i class="bi bi-door-open-fill"></i>
+                                            </div>
+                                            <div class="premium-label">Checked Out At</div>
+                                            <div class="premium-value">@Model.CheckOutTimeDisplay</div>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-md-6 col-lg-4">
-                                    <div class="stat-box">
-                                        <div class="stat-icon-wrapper">
-                                            <i class="bi bi-info-circle stat-icon"></i>
+                                    <div class="premium-card">
+                                        <div class="premium-card-body">
+                                            <div class="premium-icon-wrapper warning">
+                                                <i class="bi bi-stopwatch-fill"></i>
+                                            </div>
+                                            <div class="premium-label">Total Worked Today</div>
+                                            <div class="premium-value">@Model.WorkedTimeDisplay</div>
                                         </div>
-                                        <div class="stat-content">
-                                            <div class="stat-label">Status</div>
-                                            <div class="stat-value">@Model.TodayAttendance.Status</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="premium-card @(Model.HasOTToday ? "premium-card-highlight" : "")">
+                                        <div class="premium-card-body">
+                                            <div class="premium-icon-wrapper @(Model.HasOTToday ? "" : "purple")">
+                                                <i class="bi bi-trophy-fill"></i>
+                                            </div>
+                                            <div class="premium-label">Extra Time Worked</div>
+                                            <div class="premium-value">@Model.TodayOTDisplay</div>
+                                            @if (Model.HasOTToday)
+                                            {
+                                                <div class="premium-trend">
+                                                    <i class="bi bi-arrow-up-circle-fill"></i>
+                                                    <span>Overtime Today</span>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="premium-card">
+                                        <div class="premium-card-body">
+                                            <div class="premium-icon-wrapper neutral">
+                                                <i class="bi bi-shield-check-fill"></i>
+                                            </div>
+                                            <div class="premium-label">Status</div>
+                                            <div class="premium-value">@Model.TodayAttendance.Status</div>
                                         </div>
                                     </div>
                                 </div>

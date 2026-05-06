@@ -32,6 +32,15 @@ namespace AttendanceManagementSystem.ViewModels
         public List<Attendance> Attendances { get; set; } = new();
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
+
+        // Single date selection
+        public DateTime? SelectedDate { get; set; }
+        public Attendance? SelectedDateRecord { get; set; }
+
+        // Period filtering
+        public DateTime? PeriodStartDate { get; set; }
+        public DateTime? PeriodEndDate { get; set; }
+        public List<Attendance> PeriodRecords { get; set; } = new();
     }
 
     public class AttendanceManageViewModel

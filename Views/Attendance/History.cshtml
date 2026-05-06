@@ -14,19 +14,151 @@
                     </h4>
                 </div>
                 <div class="card-body">
-                    <!-- Date Range Filter -->
+                    <!-- Single Date Picker -->
                     <div class="row mb-4">
                         <div class="col-md-12">
                             <form method="get" class="d-flex align-items-end gap-2">
                                 <div class="flex-grow-1">
-                                    <label for="startDate" class="form-label">Start Date</label>
-                                    <input type="date" id="startDate" name="startDate" class="form-control" 
-                                           value="@Model.StartDate.ToString("yyyy-MM-dd")">
+                                    <label for="selectedDate" class="form-label">Select Date</label>
+                                    <input type="date" id="selectedDate" name="selectedDate" class="form-control"
+                                           value="@(Model.SelectedDate?.ToString("yyyy-MM-dd") ?? "")">
+                                </div>
+                                <div>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-calendar-check me-1"></i>View
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Selected Day Summary Card -->
+                    @if (Model.SelectedDate.HasValue)
+                    {
+                        if (Model.SelectedDateRecord != null)
+                        {
+                            <div class="card bg-light mb-4" style="border: 2px solid #7c3aed;">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0">Attendance for @Model.SelectedDate.Value.ToString("dd MMM yyyy")</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <div class="stat-box">
+                                                <div class="stat-icon-wrapper">
+                                                    <i class="bi bi-clock-in stat-icon"></i>
+                                                </div>
+                                                <div class="stat-content">
+                                                    <div class="stat-label">In Time</div>
+                                                    <div class="stat-value">
+                                                        @(Model.SelectedDateRecord.InTime.HasValue ? Model.SelectedDateRecord.InTime.Value.ToString(@"hh\:mm") : "-")
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="stat-box">
+                                                <div class="stat-icon-wrapper">
+                                                    <i class="bi bi-clock-out stat-icon"></i>
+                                                </div>
+                                                <div class="stat-content">
+                                                    <div class="stat-label">Out Time</div>
+                                                    <div class="stat-value">
+                                                        @(Model.SelectedDateRecord.OutTime.HasValue ? Model.SelectedDateRecord.OutTime.Value.ToString(@"hh\:mm") : "-")
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="stat-box">
+                                                <div class="stat-icon-wrapper">
+                                                    <i class="bi bi-info-circle stat-icon"></i>
+                                                </div>
+                                                <div class="stat-content">
+                                                    <div class="stat-label">Status</div>
+                                                    <div class="stat-value">@Model.SelectedDateRecord.Status</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="stat-box">
+                                                <div class="stat-icon-wrapper">
+                                                    <i class="bi bi-hourglass-split stat-icon"></i>
+                                                </div>
+                                                <div class="stat-content">
+                                                    <div class="stat-label">Worked Hours</div>
+                                                    <div class="stat-value">
+                                                        @(Model.SelectedDateRecord.TotalWorkedMinutes > 0 ?
+                                                            $"{Model.SelectedDateRecord.TotalWorkedMinutes / 60:D2}:{Model.SelectedDateRecord.TotalWorkedMinutes % 60:D2}" : "-")
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="stat-box @(Model.SelectedDateRecord.OvertimeMinutes > 0 ? "stat-highlight" : "")">
+                                                <div class="stat-icon-wrapper @(Model.SelectedDateRecord.OvertimeMinutes > 0 ? "bg-purple" : "")">
+                                                    <i class="bi bi-clock-history stat-icon"></i>
+                                                </div>
+                                                <div class="stat-content">
+                                                    <div class="stat-label">OT Hours</div>
+                                                    <div class="stat-value @(Model.SelectedDateRecord.OvertimeMinutes > 0 ? "text-purple" : "")">
+                                                        @(Model.SelectedDateRecord.OvertimeMinutes > 0 ?
+                                                            $"{Model.SelectedDateRecord.OvertimeMinutes / 60:D2}:{Model.SelectedDateRecord.OvertimeMinutes % 60:D2}" : "0h 0m")
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="stat-box">
+                                                <div class="stat-icon-wrapper">
+                                                    <i class="bi bi-card-text stat-icon"></i>
+                                                </div>
+                                                <div class="stat-content">
+                                                    <div class="stat-label">Notes</div>
+                                                    <div class="stat-value">
+                                                        @(!string.IsNullOrEmpty(Model.SelectedDateRecord.Notes) ? Model.SelectedDateRecord.Notes : "-")
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-info mb-4">
+                                <i class="bi bi-info-circle me-2"></i>
+                                No attendance record found for @Model.SelectedDate.Value.ToString("dd MMM yyyy").
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="alert alert-info mb-4">
+                            <i class="bi bi-info-circle me-2"></i>
+                            Please select a date to view attendance details.
+                        </div>
+                    }
+
+                    <!-- Select Time Period Section -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="bi bi-calendar-range me-2"></i>Select Time Period
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <form method="get" class="d-flex align-items-end gap-2">
+                                <div class="flex-grow-1">
+                                    <label for="periodStartDate" class="form-label">Start Date</label>
+                                    <input type="date" id="periodStartDate" name="periodStartDate" class="form-control"
+                                           value="@(Model.PeriodStartDate?.ToString("yyyy-MM-dd") ?? "")">
                                 </div>
                                 <div class="flex-grow-1">
-                                    <label for="endDate" class="form-label">End Date</label>
-                                    <input type="date" id="endDate" name="endDate" class="form-control" 
-                                           value="@Model.EndDate.ToString("yyyy-MM-dd")">
+                                    <label for="periodEndDate" class="form-label">End Date</label>
+                                    <input type="date" id="periodEndDate" name="periodEndDate" class="form-control"
+                                           value="@(Model.PeriodEndDate?.ToString("yyyy-MM-dd") ?? "")">
                                 </div>
                                 <div>
                                     <button type="submit" class="btn btn-primary">
@@ -37,8 +169,8 @@
                         </div>
                     </div>
 
-                    <!-- Attendance Records Table -->
-                    @if (Model.Attendances != null && Model.Attendances.Any())
+                    <!-- Period Records Table -->
+                    @if (Model.PeriodRecords != null && Model.PeriodRecords.Any())
                     {
                         <div class="table-responsive">
                             <table class="table table-striped table-hover">
@@ -54,7 +186,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var attendance in Model.Attendances.OrderByDescending(a => a.AttendanceDate))
+                                    @foreach (var attendance in Model.PeriodRecords.OrderByDescending(a => a.AttendanceDate))
                                     {
                                         <tr>
                                             <td>@attendance.AttendanceDate.ToString("dd MMM yyyy")</td>
@@ -146,7 +278,7 @@
                                         <h5 class="text-muted mb-2">Total Overtime</h5>
                                         <h2 class="mb-0 text-purple fw-bold" style="color: #7c3aed; font-size: 3rem;">
                                             @{
-                                                var totalOTMinutes = Model.Attendances.Sum(a => a.OvertimeMinutes);
+                                                var totalOTMinutes = Model.PeriodRecords.Sum(a => a.OvertimeMinutes);
                                                 var totalOTHours = totalOTMinutes / 60;
                                                 var totalOTMinutesRem = totalOTMinutes % 60;
                                             }
@@ -158,12 +290,12 @@
                             </div>
                         </div>
                     }
-                    else
+                    else if (Model.PeriodStartDate.HasValue && Model.PeriodEndDate.HasValue)
                     {
                         <div class="text-center py-5">
                             <i class="bi bi-calendar-x text-muted" style="font-size: 3rem;"></i>
-                            <h5 class="text-muted mt-3">No attendance history found.</h5>
-                            <p class="text-muted">There are no attendance records for the selected date range.</p>
+                            <h5 class="text-muted mt-3">No attendance records found.</h5>
+                            <p class="text-muted">There are no attendance records for the selected time period.</p>
                         </div>
                     }
                 </div>
@@ -177,13 +309,24 @@
         // Set max date to today for date inputs
         document.addEventListener('DOMContentLoaded', function() {
             const today = new Date().toISOString().split('T')[0];
-            document.getElementById('startDate').max = today;
-            document.getElementById('endDate').max = today;
-            
-            // Ensure end date is not before start date
-            document.getElementById('startDate').addEventListener('change', function() {
-                document.getElementById('endDate').min = this.value;
+
+            // Set max date for all date inputs
+            const dateInputs = document.querySelectorAll('input[type="date"]');
+            dateInputs.forEach(input => {
+                input.max = today;
             });
+
+            // Ensure end date is not before start date
+            const periodStartDate = document.getElementById('periodStartDate');
+            const periodEndDate = document.getElementById('periodEndDate');
+
+            if (periodStartDate) {
+                periodStartDate.addEventListener('change', function() {
+                    if (periodEndDate) {
+                        periodEndDate.min = this.value;
+                    }
+                });
+            }
         });
     </script>
 }
