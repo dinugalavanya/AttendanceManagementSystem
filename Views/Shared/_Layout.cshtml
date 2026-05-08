@@ -26,6 +26,37 @@
 
         return string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase) ? "active" : string.Empty;
     }
+
+    var sidebarDisplayName = User.Identity?.Name;
+    if (string.IsNullOrWhiteSpace(sidebarDisplayName))
+    {
+        sidebarDisplayName = "Admin User";
+    }
+
+    string SidebarInitials(string? fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+        {
+            return "AU";
+        }
+
+        var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+        {
+            return "AU";
+        }
+
+        if (parts.Length == 1)
+        {
+            return parts[0].Length >= 2
+                ? parts[0][..2].ToUpperInvariant()
+                : parts[0].ToUpperInvariant();
+        }
+
+        return string.Concat(
+            char.ToUpperInvariant(parts[0][0]),
+            char.ToUpperInvariant(parts[1][0]));
+    }
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -48,24 +79,21 @@
         <div class="app-shell">
             <aside class="app-sidebar" id="appSidebar" aria-label="Main navigation">
                 <div class="app-brand">
-                    <div class="brand-icon">
-                        <i class="bi bi-clock-history"></i>
-                    </div>
                     <div>
-                        <h1>PulseHR</h1>
-                        <p>Attendance Console</p>
+                        <h1 class="sidebar-brand-title">PulseHR</h1>
+                        <p class="sidebar-brand-subtitle">OVERTIME CONSOLE</p>
                     </div>
                 </div>
 
                 <nav class="app-nav">
-                    <a class="app-nav-link @NavClass("Dashboard")" asp-controller="Dashboard" asp-action="Index">
+                    <a class="app-nav-link sidebar-nav-link @NavClass("Dashboard")" asp-controller="Dashboard" asp-action="Index">
                         <i class="bi bi-grid-1x2-fill"></i>
                         <span>Dashboard</span>
                     </a>
 
                     @if (User.IsInRole(RoleNames.Worker))
                     {
-                        <a class="app-nav-link @NavClass("Attendance", "Index")" asp-controller="Attendance" asp-action="Index">
+                        <a class="app-nav-link sidebar-nav-link @NavClass("Attendance", "Index")" asp-controller="Attendance" asp-action="Index">
                             <i class="bi bi-person-check-fill"></i>
                             <span>My Attendance</span>
                         </a>
@@ -73,42 +101,40 @@
 
                     @if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.SuperAdmin))
                     {
-                        <a class="app-nav-link @NavClass("Attendance", "Manage")" asp-controller="Attendance" asp-action="Manage">
+                        <a class="app-nav-link sidebar-nav-link @NavClass("Attendance", "Manage")" asp-controller="Attendance" asp-action="Manage">
                             <i class="bi bi-clipboard-data-fill"></i>
-                            <span>Manage Attendance</span>
+                            <span>Manage Overtime</span>
                         </a>
                     }
 
                     @if (User.IsInRole(RoleNames.SuperAdmin))
                     {
-                        <a class="app-nav-link @NavClass("User")" asp-controller="User" asp-action="Index">
+                        <a class="app-nav-link sidebar-nav-link @NavClass("User")" asp-controller="User" asp-action="Index">
                             <i class="bi bi-people-fill"></i>
                             <span>Users</span>
                         </a>
-                        <a class="app-nav-link @NavClass("Section")" asp-controller="Section" asp-action="Index">
+                        <a class="app-nav-link sidebar-nav-link @NavClass("Section")" asp-controller="Section" asp-action="Index">
                             <i class="bi bi-diagram-3-fill"></i>
                             <span>Sections</span>
                         </a>
                     }
                 </nav>
 
-                <div class="app-sidebar-footer">
-                    <div class="sidebar-user">
-                        <div class="sidebar-user-icon">
-                            <i class="bi bi-person-circle"></i>
+                <div class="app-sidebar-footer sidebar-profile-card">
+                    <div class="sidebar-user sidebar-profile-top">
+                        <div class="sidebar-user-icon sidebar-avatar">
+                            @SidebarInitials(sidebarDisplayName)
                         </div>
-                        <div>
-                            <strong>@User.Identity?.Name</strong>
-                            <p>@currentRole</p>
+                        <div class="sidebar-profile-meta">
+                            <strong class="sidebar-profile-name">@sidebarDisplayName</strong>
+                            <p class="sidebar-profile-role">@currentRole</p>
                         </div>
                     </div>
-                    <div class="sidebar-actions">
-                        <a class="btn btn-soft btn-sm" asp-controller="Account" asp-action="Profile">
-                            <i class="bi bi-person-lines-fill"></i>
+                    <div class="sidebar-actions sidebar-profile-actions">
+                        <a class="btn btn-sm sidebar-profile-btn" asp-controller="Account" asp-action="Profile">
                             Profile
                         </a>
-                        <a class="btn btn-soft-danger btn-sm" asp-controller="Account" asp-action="Logout">
-                            <i class="bi bi-box-arrow-right"></i>
+                        <a class="btn btn-sm sidebar-profile-btn" asp-controller="Account" asp-action="Logout">
                             Logout
                         </a>
                     </div>
