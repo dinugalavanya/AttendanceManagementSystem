@@ -37,88 +37,64 @@
                     {
                         if (Model.SelectedDateRecord != null)
                         {
-                            <div class="card bg-light mb-4" style="border: 2px solid #7c3aed;">
-                                <div class="card-header bg-primary text-white">
-                                    <h5 class="mb-0">Attendance for @Model.SelectedDate.Value.ToString("dd MMM yyyy")</h5>
+                            <div class="daily-record-card">
+                                <div class="daily-record-header">
+                                    <h5 class="daily-record-title">Attendance for @Model.SelectedDate.Value.ToString("dd MMM yyyy")</h5>
                                 </div>
-                                <div class="card-body">
-                                    <div class="row g-3">
-                                        <div class="col-md-4">
-                                            <div class="stat-box">
-                                                <div class="stat-icon-wrapper">
-                                                    <i class="bi bi-clock-in stat-icon"></i>
+                                <div class="daily-record-content">
+                                    <div class="info-boxes-row">
+                                        <div class="info-box">
+                                            <div class="info-box-header">
+                                                <div class="info-icon info-icon-blue">
+                                                    <i class="bi bi-clock-in"></i>
                                                 </div>
-                                                <div class="stat-content">
-                                                    <div class="stat-label">In Time</div>
-                                                    <div class="stat-value">
-                                                        @(Model.SelectedDateRecord.InTime.HasValue ? Model.SelectedDateRecord.InTime.Value.ToString(@"hh\:mm") : "-")
-                                                    </div>
-                                                </div>
+                                                <span class="info-box-label">In Time</span>
+                                            </div>
+                                            <div class="info-box-value">
+                                                @(Model.SelectedDateRecord.InTime.HasValue ? Model.SelectedDateRecord.InTime.Value.ToString(@"hh\:mm") : "-")
                                             </div>
                                         </div>
-                                        <div class="col-md-4">
-                                            <div class="stat-box">
-                                                <div class="stat-icon-wrapper">
-                                                    <i class="bi bi-clock-out stat-icon"></i>
+                                        <div class="info-box">
+                                            <div class="info-box-header">
+                                                <div class="info-icon info-icon-green">
+                                                    <i class="bi bi-clock-out"></i>
                                                 </div>
-                                                <div class="stat-content">
-                                                    <div class="stat-label">Out Time</div>
-                                                    <div class="stat-value">
-                                                        @(Model.SelectedDateRecord.OutTime.HasValue ? Model.SelectedDateRecord.OutTime.Value.ToString(@"hh\:mm") : "-")
-                                                    </div>
-                                                </div>
+                                                <span class="info-box-label">Out Time</span>
+                                            </div>
+                                            <div class="info-box-value">
+                                                @(Model.SelectedDateRecord.OutTime.HasValue ? Model.SelectedDateRecord.OutTime.Value.ToString(@"hh\:mm") : "-")
                                             </div>
                                         </div>
-                                        <div class="col-md-4">
-                                            <div class="stat-box">
-                                                <div class="stat-icon-wrapper">
-                                                    <i class="bi bi-info-circle stat-icon"></i>
+                                        <div class="info-box">
+                                            <div class="info-box-header">
+                                                <div class="info-icon info-icon-purple">
+                                                    <i class="bi bi-clock-history"></i>
                                                 </div>
-                                                <div class="stat-content">
-                                                    <div class="stat-label">Status</div>
-                                                    <div class="stat-value">@Model.SelectedDateRecord.Status</div>
-                                                </div>
+                                                <span class="info-box-label">OT Hours</span>
+                                            </div>
+                                            <div class="info-box-value info-value-ot">
+                                                @{
+                                                    int otMinutes = 0;
+                                                    if (Model.SelectedDateRecord.InTime.HasValue && Model.SelectedDateRecord.OutTime.HasValue)
+                                                    {
+                                                        var inDateTime = Model.SelectedDateRecord.AttendanceDate.Date + Model.SelectedDateRecord.InTime.Value;
+                                                        var outDateTime = Model.SelectedDateRecord.AttendanceDate.Date + Model.SelectedDateRecord.OutTime.Value;
+                                                        if (outDateTime < inDateTime) outDateTime = outDateTime.AddDays(1);
+                                                        otMinutes = (int)(outDateTime - inDateTime).TotalMinutes;
+                                                    }
+                                                }
+                                                @(otMinutes > 0 ? $"{otMinutes / 60:D2}:{otMinutes % 60:D2}" : "0h 0m")
                                             </div>
                                         </div>
-                                        <div class="col-md-4">
-                                            <div class="stat-box">
-                                                <div class="stat-icon-wrapper">
-                                                    <i class="bi bi-hourglass-split stat-icon"></i>
+                                        <div class="info-box">
+                                            <div class="info-box-header">
+                                                <div class="info-icon info-icon-orange">
+                                                    <i class="bi bi-card-text"></i>
                                                 </div>
-                                                <div class="stat-content">
-                                                    <div class="stat-label">Worked Hours</div>
-                                                    <div class="stat-value">
-                                                        @(Model.SelectedDateRecord.TotalWorkedMinutes > 0 ?
-                                                            $"{Model.SelectedDateRecord.TotalWorkedMinutes / 60:D2}:{Model.SelectedDateRecord.TotalWorkedMinutes % 60:D2}" : "-")
-                                                    </div>
-                                                </div>
+                                                <span class="info-box-label">Notes</span>
                                             </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="stat-box @(Model.SelectedDateRecord.OvertimeMinutes > 0 ? "stat-highlight" : "")">
-                                                <div class="stat-icon-wrapper @(Model.SelectedDateRecord.OvertimeMinutes > 0 ? "bg-purple" : "")">
-                                                    <i class="bi bi-clock-history stat-icon"></i>
-                                                </div>
-                                                <div class="stat-content">
-                                                    <div class="stat-label">OT Hours</div>
-                                                    <div class="stat-value @(Model.SelectedDateRecord.OvertimeMinutes > 0 ? "text-purple" : "")">
-                                                        @(Model.SelectedDateRecord.OvertimeMinutes > 0 ?
-                                                            $"{Model.SelectedDateRecord.OvertimeMinutes / 60:D2}:{Model.SelectedDateRecord.OvertimeMinutes % 60:D2}" : "0h 0m")
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="stat-box">
-                                                <div class="stat-icon-wrapper">
-                                                    <i class="bi bi-card-text stat-icon"></i>
-                                                </div>
-                                                <div class="stat-content">
-                                                    <div class="stat-label">Notes</div>
-                                                    <div class="stat-value">
-                                                        @(!string.IsNullOrEmpty(Model.SelectedDateRecord.Notes) ? Model.SelectedDateRecord.Notes : "-")
-                                                    </div>
-                                                </div>
+                                            <div class="info-box-value info-value-notes">
+                                                @(!string.IsNullOrEmpty(Model.SelectedDateRecord.Notes) ? Model.SelectedDateRecord.Notes : "-")
                                             </div>
                                         </div>
                                     </div>
