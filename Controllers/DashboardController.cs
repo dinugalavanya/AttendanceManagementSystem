@@ -6,6 +6,7 @@ using AttendanceManagementSystem.Data;
 using AttendanceManagementSystem.ViewModels;
 using AttendanceManagementSystem.Services;
 using System.Security.Claims;
+using static BCrypt.Net.BCrypt;
 
 namespace AttendanceManagementSystem.Controllers
 {
@@ -47,8 +48,8 @@ namespace AttendanceManagementSystem.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            // Use selectedDate if provided, otherwise use today
-            var today = selectedDate ?? DateTime.Today;
+            // Use selectedDate if provided, otherwise use today (admin fallback can override this later)
+            var today = selectedDate?.Date ?? DateTime.Today;
             var tomorrow = today.AddDays(1);
             var monthStart = new DateTime(today.Year, today.Month, 1);
             var monthEndExclusive = monthStart.AddMonths(1);
@@ -81,6 +82,22 @@ namespace AttendanceManagementSystem.Controllers
                 userScope = userScope.Where(u => u.SectionId == sectionId);
                 attendanceScope = attendanceScope.Where(a => a.User.SectionId == sectionId);
 
+                // If no date is selected, use the latest attendance date available in this admin's section.
+                if (!selectedDate.HasValue)
+                {
+                    var latestSectionAttendanceDate = await attendanceScope
+                        .Select(a => (DateTime?)a.AttendanceDate)
+                        .MaxAsync();
+
+                    if (latestSectionAttendanceDate.HasValue)
+                    {
+                        today = latestSectionAttendanceDate.Value.Date;
+                        tomorrow = today.AddDays(1);
+                        monthStart = new DateTime(today.Year, today.Month, 1);
+                        monthEndExclusive = monthStart.AddMonths(1);
+                    }
+                }
+
                 var sectionTotalUsers = await userScope
                     .AsNoTracking()
                     .CountAsync();
@@ -91,17 +108,21 @@ namespace AttendanceManagementSystem.Controllers
                     .Include(a => a.User)
                     .ToListAsync();
 
-                // Use AttendanceCalculationService to recalculate all attendance records with standardized rules
-                var todayCalculated = todayAttendances.Select(a => _calculationService.CalculateAttendance(
-                    a.AttendanceDate, a.InTime, a.OutTime, a.Status)).ToList();
+                // Use OT-only logic from OT In/Out times for dashboard KPIs.
+                var todayOtMinutesByRow = todayAttendances
+                    .Select(a => CalculateOtDurationMinutes(a.AttendanceDate, a.InTime, a.OutTime))
+                    .ToList();
 
-                var presentToday = todayCalculated.Count(c => c.Status == "On Time");
-                var lateToday = todayCalculated.Count(c => c.Status == "Late");
-                var leaveToday = todayCalculated.Count(c => c.Status == "Leave");
-                var workingOtToday = todayCalculated.Count(c => c.CurrentState == "Working OT");
+                var workingOtToday = todayAttendances.Count(a => a.InTime.HasValue && !a.OutTime.HasValue);
+                var completedOtToday = todayAttendances.Count(a => a.InTime.HasValue && a.OutTime.HasValue);
+                var otRecordsToday = todayAttendances.Count(a => a.InTime.HasValue);
 
-                // Calculate OT hours for today using standardized rules (only after 8 hours)
-                var todayOtMinutes = todayCalculated.Sum(c => c.OvertimeMinutes);
+                var presentToday = otRecordsToday;
+                var lateToday = completedOtToday;
+                var leaveToday = 0;
+
+                // Calculate OT hours for today using OT-only duration logic.
+                var todayOtMinutes = todayOtMinutesByRow.Sum();
                 var todayOtHours = todayOtMinutes / 60m;
 
                 // Calculate total OT hours this month using standardized rules
@@ -116,28 +137,30 @@ namespace AttendanceManagementSystem.Controllers
                 var monthlyOtHours = monthlyOtMinutes / 60m;
 
                 // Prepare worker attendance rows for table using standardized calculations
-                var todayWorkers = todayCalculated
-                    .Select((c, index) => new WorkerAttendanceRow
+                var todayWorkers = todayAttendances
+                    .Select((a, index) => new WorkerAttendanceRow
                     {
-                        WorkerName = todayAttendances[index].User?.FirstName + " " + todayAttendances[index].User?.LastName ?? "Unknown",
-                        LoginTimeDisplay = c.InTimeText,
-                        LogoutTimeDisplay = c.OutTimeText,
-                        Status = c.Status,
-                        LateByDisplay = c.LateByText != "-" ? c.LateByText : "On Time",
-                        OtHoursDisplay = c.OvertimeHoursText != "-" ? c.OvertimeHoursText : "0h",
-                        CurrentState = c.CurrentState
+                        WorkerName = a.User?.FirstName + " " + a.User?.LastName ?? "Unknown",
+                        LoginTimeDisplay = a.InTime?.ToString(@"hh\:mm") ?? "-",
+                        LogoutTimeDisplay = a.OutTime?.ToString(@"hh\:mm") ?? "-",
+                        Status = a.Status,
+                        LateByDisplay = "-",
+                        OtHoursDisplay = $"{(todayOtMinutesByRow[index] / 60m):F1}h",
+                        CurrentState = a.InTime.HasValue
+                            ? (a.OutTime.HasValue ? "Completed OT" : "Working OT")
+                            : "No OT"
                     })
                     .OrderBy(a => a.WorkerName)
                     .ToList();
 
                 // Prepare work hours pie chart using standardized calculations
-                var workHoursPieChart = todayCalculated
-                    .Where(c => c.TotalWorkedMinutes > 0)
-                    .Select((c, index) => new 
+                var workHoursPieChart = todayAttendances
+                    .Select((a, index) => new
                     {
-                        WorkerName = todayAttendances[index].User?.FirstName + " " + todayAttendances[index].User?.LastName ?? "Unknown",
-                        TotalWorkedMinutes = c.TotalWorkedMinutes
+                        WorkerName = a.User?.FirstName + " " + a.User?.LastName ?? "Unknown",
+                        TotalWorkedMinutes = todayOtMinutesByRow[index]
                     })
+                    .Where(x => x.TotalWorkedMinutes > 0)
                     .GroupBy(x => x.WorkerName)
                     .Select(g => new PieChartItem
                     {
@@ -147,13 +170,15 @@ namespace AttendanceManagementSystem.Controllers
                     .ToList();
 
                 // Prepare OT workers list using standardized calculations (only after 8 hours)
-                var otWorkers = todayCalculated
-                    .Where(c => c.OvertimeMinutes > 0)
-                    .Select((c, index) => new OtWorkerItem
+                var otWorkers = todayAttendances
+                    .Select((a, index) => new { Attendance = a, OtMinutes = todayOtMinutesByRow[index] })
+                    .Where(x => x.OtMinutes > 0)
+                    .Select(x => new OtWorkerItem
                     {
-                        WorkerName = todayAttendances[index].User?.FirstName + " " + todayAttendances[index].User?.LastName ?? "Unknown",
-                        OtHours = (decimal)c.OvertimeMinutes / 60m,
-                        LogoutTimeDisplay = c.OutTimeText
+                        WorkerName = x.Attendance.User?.FirstName + " " + x.Attendance.User?.LastName ?? "Unknown",
+                        OtHours = x.OtMinutes / 60m,
+                        LoginTimeDisplay = x.Attendance.InTime?.ToString(@"hh\:mm") ?? "-",
+                        LogoutTimeDisplay = x.Attendance.OutTime?.ToString(@"hh\:mm") ?? "-"
                     })
                     .OrderByDescending(a => a.OtHours)
                     .ToList();
@@ -216,6 +241,8 @@ namespace AttendanceManagementSystem.Controllers
                     LateToday = lateToday,
                     LeaveToday = leaveToday,
                     WorkingOtToday = workingOtToday,
+                    CompletedOtToday = completedOtToday,
+                    TotalOtHoursToday = (double)todayOtHours,
                     TotalOtHoursThisMonth = (double)monthlyOtHours,
                     TodayWorkers = todayWorkers,
                     WorkHoursPieChart = workHoursPieChart,
@@ -802,6 +829,184 @@ namespace AttendanceManagementSystem.Controllers
                     currentState = calculationResult.CurrentState
                 }
             });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateWorker([FromBody] CreateWorkerViewModel model)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return Json(new { success = false, errors = GetModelStateErrors() });
+                }
+
+                var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!int.TryParse(userIdClaim, out var currentUserId))
+                {
+                    return Json(new { success = false, message = "User not authenticated." });
+                }
+
+                var currentUser = await _context.Users
+                    .Include(u => u.Role)
+                    .FirstOrDefaultAsync(u => u.Id == currentUserId && u.IsActive);
+
+                if (currentUser == null)
+                {
+                    return Json(new { success = false, message = "User not found or inactive." });
+                }
+
+                // Check if user has permission to create workers
+                if (currentUser.Role == null ||
+                    (currentUser.Role.Name != RoleNames.Admin && currentUser.Role.Name != RoleNames.SuperAdmin))
+                {
+                    return Json(new { success = false, message = "You don't have permission to create workers." });
+                }
+
+                // Check for duplicate Service ID
+                var existingServiceId = await _context.Users
+                    .AsNoTracking()
+                    .AnyAsync(u => u.ServiceId != null && u.ServiceId.ToUpper() == model.ServiceId.ToUpper() && u.IsActive);
+
+                if (existingServiceId)
+                {
+                    return Json(new { success = false, errors = new { ServiceId = new[] { "A worker with this Service ID already exists." } } });
+                }
+
+                // Check for duplicate Email
+                var existingEmail = await _context.Users
+                    .AsNoTracking()
+                    .AnyAsync(u => u.Email.ToUpper() == model.Email.ToUpper() && u.IsActive);
+
+                if (existingEmail)
+                {
+                    return Json(new { success = false, errors = new { Email = new[] { "A worker with this email address already exists." } } });
+                }
+
+                // Verify section exists and is active
+                var section = await _context.Sections
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Id == model.SectionId && s.IsActive);
+
+                if (section == null)
+                {
+                    return Json(new { success = false, errors = new { SectionId = new[] { "Selected section is not valid." } } });
+                }
+
+                // Get Worker role
+                var workerRole = await _context.Roles
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(r => r.Name == RoleNames.Worker);
+
+                if (workerRole == null)
+                {
+                    return Json(new { success = false, message = "Worker role not found." });
+                }
+
+                // Generate secure temporary password
+                var temporaryPassword = GenerateSecureTemporaryPassword();
+                var passwordHash = HashPassword(temporaryPassword);
+
+                // Create new user
+                var newUser = new User
+                {
+                    FirstName = "New", // Default first name, can be updated later
+                    LastName = "Worker", // Default last name, can be updated later
+                    Email = model.Email,
+                    PasswordHash = passwordHash,
+                    Phone = model.Phone,
+                    ServiceId = model.ServiceId,
+                    SectionId = model.SectionId,
+                    RoleId = workerRole.Id,
+                    IsActive = true,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _context.Users.Add(newUser);
+                await _context.SaveChangesAsync();
+
+                // Log the worker creation (optional, for audit trail)
+                Console.WriteLine($"[WORKER CREATION] New worker created: ServiceId={model.ServiceId}, Email={model.Email}, Section={section.Name}, CreatedBy={currentUser.Email}");
+
+                return Json(new { 
+                    success = true, 
+                    message = "Worker created successfully.",
+                    workerId = newUser.Id,
+                    temporaryPassword = temporaryPassword // Only return if needed for initial setup
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WORKER CREATION ERROR] {ex.Message}");
+                return Json(new { success = false, message = "An error occurred while creating the worker. Please try again." });
+            }
+        }
+
+        private string GenerateSecureTemporaryPassword()
+        {
+            const string upperChars = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+            const string lowerChars = "abcdefghijkmnpqrstuvwxyz";
+            const string digitChars = "23456789";
+            const string specialChars = "!@#$%^&*";
+            
+            var random = new Random();
+            var password = new System.Text.StringBuilder();
+            
+            // Ensure at least one character from each category
+            password.Append(upperChars[random.Next(upperChars.Length)]);
+            password.Append(lowerChars[random.Next(lowerChars.Length)]);
+            password.Append(digitChars[random.Next(digitChars.Length)]);
+            password.Append(specialChars[random.Next(specialChars.Length)]);
+            
+            // Add remaining characters to reach 12 characters total
+            const string allChars = upperChars + lowerChars + digitChars + specialChars;
+            for (int i = 4; i < 12; i++)
+            {
+                password.Append(allChars[random.Next(allChars.Length)]);
+            }
+            
+            // Shuffle the password characters
+            var passwordArray = password.ToString().ToCharArray();
+            for (int i = passwordArray.Length - 1; i > 0; i--)
+            {
+                int j = random.Next(i + 1);
+                char temp = passwordArray[i];
+                passwordArray[i] = passwordArray[j];
+                passwordArray[j] = temp;
+            }
+            
+            return new string(passwordArray);
+        }
+
+        private Dictionary<string, string[]> GetModelStateErrors()
+        {
+            var errors = new Dictionary<string, string[]>();
+            foreach (var key in ModelState.Keys)
+            {
+                var state = ModelState[key];
+                if (state != null && state.Errors.Any())
+                {
+                    errors[key] = state.Errors.Select(e => e.ErrorMessage).ToArray();
+                }
+            }
+            return errors;
+        }
+
+        private static int CalculateOtDurationMinutes(DateTime date, TimeSpan? otInTime, TimeSpan? otOutTime)
+        {
+            if (!otInTime.HasValue || !otOutTime.HasValue)
+            {
+                return 0;
+            }
+
+            var start = date.Date + otInTime.Value;
+            var end = date.Date + otOutTime.Value;
+            if (end < start)
+            {
+                end = end.AddDays(1);
+            }
+
+            return Math.Max(0, (int)(end - start).TotalMinutes);
         }
 
         private string GetWorkerCurrentState(TimeSpan? inTime, TimeSpan? outTime, string status)

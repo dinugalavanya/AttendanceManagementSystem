@@ -12,6 +12,8 @@ namespace AttendanceManagementSystem.ViewModels
         public int LateToday { get; set; }
         public int LeaveToday { get; set; }
         public int WorkingOtToday { get; set; }
+        public int CompletedOtToday { get; set; }
+        public double TotalOtHoursToday { get; set; }
         public double TotalOtHoursThisMonth { get; set; }
         public List<WorkerAttendanceRow> TodayWorkers { get; set; } = new();
         public List<PieChartItem> WorkHoursPieChart { get; set; } = new();
@@ -97,6 +99,7 @@ namespace AttendanceManagementSystem.ViewModels
     {
         public string WorkerName { get; set; } = string.Empty;
         public decimal OtHours { get; set; }
+        public string LoginTimeDisplay { get; set; } = string.Empty;
         public string LogoutTimeDisplay { get; set; } = string.Empty;
     }
 

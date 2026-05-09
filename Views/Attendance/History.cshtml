@@ -1,6 +1,6 @@
 @model AttendanceManagementSystem.ViewModels.AttendanceHistoryViewModel
 @{
-    ViewData["Title"] = "My Attendance History";
+    ViewData["Title"] = "My OT History";
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
@@ -10,7 +10,7 @@
             <div class="card">
                 <div class="card-header">
                     <h4 class="mb-0">
-                        <i class="bi bi-clock-history me-2"></i>My Attendance History
+                        <i class="bi bi-clock-history me-2"></i>My OT History
                     </h4>
                 </div>
                 <div class="card-body">
@@ -39,62 +39,62 @@
                         {
                             <div class="daily-record-card">
                                 <div class="daily-record-header">
-                                    <h5 class="daily-record-title">Attendance for @Model.SelectedDate.Value.ToString("dd MMM yyyy")</h5>
+                                    <h5 class="daily-record-title">OT Record for @Model.SelectedDate.Value.ToString("dd MMM yyyy")</h5>
                                 </div>
                                 <div class="daily-record-content">
                                     <div class="info-boxes-row">
                                         <div class="info-box">
-                                            <div class="info-box-header">
-                                                <div class="info-icon info-icon-blue">
-                                                    <i class="bi bi-clock-in"></i>
-                                                </div>
-                                                <span class="info-box-label">In Time</span>
+                                            <div class="info-icon-tile info-icon-tile-blue">
+                                                <i class="bi bi-clock-fill"></i>
                                             </div>
-                                            <div class="info-box-value">
-                                                @(Model.SelectedDateRecord.InTime.HasValue ? Model.SelectedDateRecord.InTime.Value.ToString(@"hh\:mm") : "-")
+                                            <div class="info-content">
+                                                <div class="info-box-label">OT In Time</div>
+                                                <div class="info-box-value">
+                                                    @(Model.SelectedDateRecord.InTime.HasValue ? Model.SelectedDateRecord.InTime.Value.ToString(@"hh\:mm") : "-")
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="info-box">
-                                            <div class="info-box-header">
-                                                <div class="info-icon info-icon-green">
-                                                    <i class="bi bi-clock-out"></i>
-                                                </div>
-                                                <span class="info-box-label">Out Time</span>
+                                            <div class="info-icon-tile info-icon-tile-green">
+                                                <i class="bi bi-arrow-right-circle-fill"></i>
                                             </div>
-                                            <div class="info-box-value">
-                                                @(Model.SelectedDateRecord.OutTime.HasValue ? Model.SelectedDateRecord.OutTime.Value.ToString(@"hh\:mm") : "-")
+                                            <div class="info-content">
+                                                <div class="info-box-label">OT Out Time</div>
+                                                <div class="info-box-value">
+                                                    @(Model.SelectedDateRecord.OutTime.HasValue ? Model.SelectedDateRecord.OutTime.Value.ToString(@"hh\:mm") : "-")
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="info-box">
-                                            <div class="info-box-header">
-                                                <div class="info-icon info-icon-purple">
-                                                    <i class="bi bi-clock-history"></i>
-                                                </div>
-                                                <span class="info-box-label">OT Hours</span>
+                                            <div class="info-icon-tile info-icon-tile-purple">
+                                                <i class="bi bi-stopwatch-fill"></i>
                                             </div>
-                                            <div class="info-box-value info-value-ot">
-                                                @{
-                                                    int otMinutes = 0;
-                                                    if (Model.SelectedDateRecord.InTime.HasValue && Model.SelectedDateRecord.OutTime.HasValue)
-                                                    {
-                                                        var inDateTime = Model.SelectedDateRecord.AttendanceDate.Date + Model.SelectedDateRecord.InTime.Value;
-                                                        var outDateTime = Model.SelectedDateRecord.AttendanceDate.Date + Model.SelectedDateRecord.OutTime.Value;
-                                                        if (outDateTime < inDateTime) outDateTime = outDateTime.AddDays(1);
-                                                        otMinutes = (int)(outDateTime - inDateTime).TotalMinutes;
+                                            <div class="info-content">
+                                                <div class="info-box-label">OT Hours</div>
+                                                <div class="info-box-value info-value-ot">
+                                                    @{
+                                                        int otMinutes = 0;
+                                                        if (Model.SelectedDateRecord.InTime.HasValue && Model.SelectedDateRecord.OutTime.HasValue)
+                                                        {
+                                                            var inDateTime = Model.SelectedDateRecord.AttendanceDate.Date + Model.SelectedDateRecord.InTime.Value;
+                                                            var outDateTime = Model.SelectedDateRecord.AttendanceDate.Date + Model.SelectedDateRecord.OutTime.Value;
+                                                            if (outDateTime < inDateTime) outDateTime = outDateTime.AddDays(1);
+                                                            otMinutes = (int)(outDateTime - inDateTime).TotalMinutes;
+                                                        }
                                                     }
-                                                }
-                                                @(otMinutes > 0 ? $"{otMinutes / 60:D2}:{otMinutes % 60:D2}" : "0h 0m")
+                                                    @(otMinutes > 0 ? $"{otMinutes / 60:D2}:{otMinutes % 60:D2}" : "0h 0m")
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="info-box">
-                                            <div class="info-box-header">
-                                                <div class="info-icon info-icon-orange">
-                                                    <i class="bi bi-card-text"></i>
-                                                </div>
-                                                <span class="info-box-label">Notes</span>
+                                            <div class="info-icon-tile info-icon-tile-orange">
+                                                <i class="bi bi-file-earmark-text-fill"></i>
                                             </div>
-                                            <div class="info-box-value info-value-notes">
-                                                @(!string.IsNullOrEmpty(Model.SelectedDateRecord.Notes) ? Model.SelectedDateRecord.Notes : "-")
+                                            <div class="info-content">
+                                                <div class="info-box-label">Notes</div>
+                                                <div class="info-box-value info-value-notes">
+                                                    @(!string.IsNullOrEmpty(Model.SelectedDateRecord.Notes) ? Model.SelectedDateRecord.Notes : "-")
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -105,7 +105,7 @@
                         {
                             <div class="alert alert-info mb-4">
                                 <i class="bi bi-info-circle me-2"></i>
-                                No attendance record found for @Model.SelectedDate.Value.ToString("dd MMM yyyy").
+                                No OT record found for @Model.SelectedDate.Value.ToString("dd MMM yyyy").
                             </div>
                         }
                     }
@@ -113,7 +113,7 @@
                     {
                         <div class="alert alert-info mb-4">
                             <i class="bi bi-info-circle me-2"></i>
-                            Please select a date to view attendance details.
+                            Please select a date to view OT details.
                         </div>
                     }
 
@@ -153,10 +153,6 @@
                                 <thead class="table-dark">
                                     <tr>
                                         <th>Date</th>
-                                        <th>In Time</th>
-                                        <th>Out Time</th>
-                                        <th>Status</th>
-                                        <th>Worked Hours</th>
                                         <th>OT Hours</th>
                                         <th>Notes</th>
                                     </tr>
@@ -167,68 +163,17 @@
                                         <tr>
                                             <td>@attendance.AttendanceDate.ToString("dd MMM yyyy")</td>
                                             <td>
-                                                @if (attendance.InTime.HasValue)
-                                                {
-                                                    @attendance.InTime.Value.ToString(@"hh\:mm")
+                                                @{
+                                                    int rowOTMinutes = 0;
+                                                    if (attendance.InTime.HasValue && attendance.OutTime.HasValue)
+                                                    {
+                                                        var inDateTime = attendance.AttendanceDate.Date + attendance.InTime.Value;
+                                                        var outDateTime = attendance.AttendanceDate.Date + attendance.OutTime.Value;
+                                                        if (outDateTime < inDateTime) outDateTime = outDateTime.AddDays(1);
+                                                        rowOTMinutes = (int)(outDateTime - inDateTime).TotalMinutes;
+                                                    }
                                                 }
-                                                else
-                                                {
-                                                    <span class="text-muted">-</span>
-                                                }
-                                            </td>
-                                            <td>
-                                                @if (attendance.OutTime.HasValue)
-                                                {
-                                                    @attendance.OutTime.Value.ToString(@"hh\:mm")
-                                                }
-                                                else
-                                                {
-                                                    <span class="text-muted">-</span>
-                                                }
-                                            </td>
-                                            <td>
-                                                @switch (attendance.Status)
-                                                {
-                                                    case "Present":
-                                                        <span class="badge bg-success">On Time</span>
-                                                        break;
-                                                    case "Late":
-                                                        <span class="badge bg-warning">Late</span>
-                                                        break;
-                                                    case "Absent":
-                                                        <span class="badge bg-danger">Absent</span>
-                                                        break;
-                                                    case "Leave":
-                                                        <span class="badge bg-info">Leave</span>
-                                                        break;
-                                                    default:
-                                                        <span class="badge bg-secondary">@attendance.Status</span>
-                                                        break;
-                                                }
-                                            </td>
-                                            <td>
-                                                @if (attendance.TotalWorkedMinutes > 0)
-                                                {
-                                                    var hours = attendance.TotalWorkedMinutes / 60;
-                                                    var minutes = attendance.TotalWorkedMinutes % 60;
-                                                    @($"{hours:D2}:{minutes:D2}")
-                                                }
-                                                else
-                                                {
-                                                    <span class="text-muted">-</span>
-                                                }
-                                            </td>
-                                            <td>
-                                                @if (attendance.OvertimeMinutes > 0)
-                                                {
-                                                    var hours = attendance.OvertimeMinutes / 60;
-                                                    var minutes = attendance.OvertimeMinutes % 60;
-                                                    @($"{hours:D2}:{minutes:D2}")
-                                                }
-                                                else
-                                                {
-                                                    <span class="text-muted">-</span>
-                                                }
+                                                @(rowOTMinutes > 0 ? $"{rowOTMinutes / 60:D2}:{rowOTMinutes % 60:D2}" : "-")
                                             </td>
                                             <td>
                                                 @if (!string.IsNullOrEmpty(attendance.Notes))
@@ -254,7 +199,18 @@
                                         <h5 class="text-muted mb-2">Total Overtime</h5>
                                         <h2 class="mb-0 text-purple fw-bold" style="color: #7c3aed; font-size: 3rem;">
                                             @{
-                                                var totalOTMinutes = Model.PeriodRecords.Sum(a => a.OvertimeMinutes);
+                                                var totalOTMinutes = 0;
+                                                foreach (var att in Model.PeriodRecords)
+                                                {
+                                                    if (att.InTime.HasValue && att.OutTime.HasValue)
+                                                    {
+                                                        var inDateTime = att.AttendanceDate.Date + att.InTime.Value;
+                                                        var outDateTime = att.AttendanceDate.Date + att.OutTime.Value;
+                                                        if (outDateTime < inDateTime) outDateTime = outDateTime.AddDays(1);
+                                                        var rowOT = (int)(outDateTime - inDateTime).TotalMinutes;
+                                                        totalOTMinutes += rowOT;
+                                                    }
+                                                }
                                                 var totalOTHours = totalOTMinutes / 60;
                                                 var totalOTMinutesRem = totalOTMinutes % 60;
                                             }
@@ -270,8 +226,8 @@
                     {
                         <div class="text-center py-5">
                             <i class="bi bi-calendar-x text-muted" style="font-size: 3rem;"></i>
-                            <h5 class="text-muted mt-3">No attendance records found.</h5>
-                            <p class="text-muted">There are no attendance records for the selected time period.</p>
+                            <h5 class="text-muted mt-3">No OT records found.</h5>
+                            <p class="text-muted">There are no OT records for the selected time period.</p>
                         </div>
                     }
                 </div>

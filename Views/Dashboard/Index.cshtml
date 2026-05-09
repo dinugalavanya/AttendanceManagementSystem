@@ -13,7 +13,7 @@
     var header = new PageHeaderViewModel
     {
         Eyebrow = "People Operations",
-        Title = Model.IsWorker ? "My Attendance Dashboard" : "Attendance Command Center",
+        Title = Model.IsWorker ? "My OT Dashboard" : "OT Command Center",
         Subtitle = Model.ScopeTitle,
         Badges = new List<PageHeaderBadgeViewModel>
         {
@@ -38,15 +38,15 @@
         // Keep only essential cards for admins
         cards.AddRange(new List<SummaryCardViewModel>
         {
-            new() { Label = "Present This Month", Value = Model.MonthlyPresentCount.ToString(), Icon = "bi-check2-circle", Tone = "success", HelperText = "On-time or valid attendance" },
+            new() { Label = "OT Records This Month", Value = Model.MonthlyPresentCount.ToString(), Icon = "bi-check2-circle", Tone = "success", HelperText = "Recorded OT entries this month" },
             new() { Label = "OT Hours This Month", Value = Math.Round(Model.OvertimeMinutesMonth / 60m, 1).ToString("0.0"), Icon = "bi-hourglass-split", Tone = "purple", HelperText = "Total overtime this month" }
         });
     }
 
     var dailyStatusPanel = new ChartPanelViewModel
     {
-        Title = "Daily Attendance and OT Trend",
-        Subtitle = "Bars for status volumes plus line for overtime hours",
+        Title = "Daily OT Trend",
+        Subtitle = "Bars for OT record volumes plus line for OT hours",
         Meta = "Combined chart",
         CanvasId = "statusBarChart"
     };
@@ -55,23 +55,15 @@
     {
         Icon = "bi-diagram-3",
         Title = "No section activity found",
-        Description = "Section-level attendance is not available for the selected scope today."
+        Description = "Section-level OT data is not available for the selected scope today."
     };
     var noActivityData = new EmptyStateViewModel
     {
         Icon = "bi-clock-history",
         Title = "No recent activity yet",
-        Description = "Recent attendance activity will appear here once entries are captured."
+        Description = "Recent OT activity will appear here once entries are captured."
     };
 
-    string StatusTone(string status) => status switch
-    {
-        AttendanceStatus.Present => "success",
-        AttendanceStatus.Late => "warning",
-        AttendanceStatus.Absent => "danger",
-        AttendanceStatus.Leave => "neutral",
-        _ => "neutral"
-    };
 }
 
 <section class="dashboard-shell">
@@ -80,7 +72,7 @@
         <div class="dashboard-hero-content">
             <div class="dashboard-hero-text">
                 <h1>@(DateTime.Now.Hour < 12 ? "Good Morning" : DateTime.Now.Hour < 17 ? "Good Afternoon" : "Good Evening"), @(User.Identity?.Name?.Split(' ')[0] ?? "User") 👋</h1>
-                <p>Here's your attendance overview and performance summary.</p>
+                <p>Here's your OT overview and performance summary.</p>
             </div>
             <div class="dashboard-hero-illustration">
                 <i class="bi bi-graph-up"></i>
@@ -94,7 +86,7 @@
     <form method="get" asp-action="Index" class="dashboard-date-filter mb-4">
         <div class="row align-items-center">
             <div class="col-auto">
-                <label for="selectedDate" class="form-label mb-0 fw-semibold">View Dashboard Date:</label>
+                <label for="selectedDate" class="form-label mb-0 fw-semibold">View OT Dashboard Date:</label>
             </div>
             <div class="col-auto">
                 <input type="date"
@@ -120,7 +112,7 @@
 
         <div class="card mt-3 shadow-sm border-0">
             <div class="card-header bg-white">
-                <h5 class="mb-0">Worker Attendance History</h5>
+                <h5 class="mb-0">Worker OT History</h5>
                 <small>Service ID: @worker.ServiceId</small>
             </div>
 
@@ -159,11 +151,10 @@
                             <thead>
                                 <tr>
                                     <th>Date</th>
-                                    <th>In Time</th>
-                                    <th>Out Time</th>
-                                    <th>Worked Hours</th>
+                                        <th>OT In Time</th>
+                                    <th>OT Out Time</th>
+                                    <th>OT Duration</th>
                                     <th>OT Hours</th>
-                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -175,7 +166,6 @@
                                         <td>@row.OutTime</td>
                                         <td>@row.WorkedHours</td>
                                         <td>@row.OTHours</td>
-                                        <td>@row.Status</td>
                                     </tr>
                                 }
                             </tbody>
@@ -190,20 +180,21 @@
     {
         <section class="ot-hours-card mb-4">
             <div class="ot-card-content">
-                <div class="ot-card-image">
-                    <i class="bi bi-hourglass-split"></i>
+                <div class="ot-card-left">
+                    <div class="ot-icon-badge">
+                        <i class="bi bi-hourglass-split"></i>
+                    </div>
+                    <div class="ot-mini-stat">
+                        <div class="ot-mini-label">This Month OT</div>
+                        <div class="ot-mini-value">@Math.Round(Model.OvertimeMinutesMonth / 60m, 1).ToString("0.0") hrs</div>
+                    </div>
                 </div>
-                <div class="ot-card-divider"></div>
                 <div class="ot-card-right">
                     <div class="ot-card-header">
                         <h2 class="ot-card-title">OT Hours Trend</h2>
                         <p class="ot-card-subtitle">Daily trend of overtime hours</p>
                     </div>
                     <div class="ot-card-body">
-                        <div class="ot-summary-box">
-                            <div class="ot-summary-label">This Month OT</div>
-                            <div class="ot-summary-value">@Math.Round(Model.OvertimeMinutesMonth / 60m, 1).ToString("0.0") hrs</div>
-                        </div>
                         <div class="ot-chart-container">
                             <canvas id="otHoursChart"></canvas>
                         </div>
@@ -239,8 +230,8 @@
             <div class="analytics-main">
                 <div class="premium-chart-panel">
                     <div class="premium-chart-header">
-                        <h2 class="premium-chart-title">Monthly Attendance Trend</h2>
-                        <p class="premium-chart-subtitle">Daily movement of present, late, and absent records</p>
+                        <h2 class="premium-chart-title">Monthly OT Trend</h2>
+                        <p class="premium-chart-subtitle">Daily movement of OT records and OT hours</p>
                     </div>
                     <div class="premium-chart-body">
                         <div class="premium-chart-container">
@@ -259,7 +250,7 @@
                     <div class="premium-chart-body">
                         <div class="progress-hero">
                             <div>
-                                <p class="tiny-label">Attendance Rate</p>
+                                <p class="tiny-label">OT Coverage</p>
                                 <h3 class="metric-large">@attendanceRate.ToString("0.0")%</h3>
                             </div>
                             <div>
@@ -267,7 +258,7 @@
                                 <h3 class="metric-large">@Math.Round(Model.OvertimeMinutesMonth / 60m, 1).ToString("0.0")h</h3>
                             </div>
                         </div>
-                        <div class="premium-progress" role="progressbar" aria-label="Monthly attendance rate" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@attendanceRate">
+                        <div class="premium-progress" role="progressbar" aria-label="Monthly OT coverage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@attendanceRate">
                             <div class="premium-progress-bar" style="width:@attendanceRate%;"></div>
                         </div>
 
@@ -277,15 +268,15 @@
                                 <h4>@Model.WorkingDaysToDate</h4>
                             </div>
                             <div class="mini-stat">
-                                <p class="mini-stats-label">Attended Days</p>
+                                <p class="mini-stats-label">OT Days</p>
                                 <h4>@Model.AttendedDaysToDate</h4>
                             </div>
                             <div class="mini-stat">
-                                <p class="mini-stats-label">Present</p>
+                                <p class="mini-stats-label">OT Records</p>
                                 <h4>@Model.MonthlyPresentCount</h4>
                             </div>
                             <div class="mini-stat">
-                                <p class="mini-stats-label">Late</p>
+                                <p class="mini-stats-label">Review</p>
                                 <h4>@Model.MonthlyLateCount</h4>
                             </div>
                         </div>
@@ -308,8 +299,8 @@
             </div>
             <div class="premium-chart-panel">
                 <div class="premium-chart-header">
-                    <h2 class="premium-chart-title">Attendance Distribution</h2>
-                    <p class="premium-chart-subtitle">Status split for the current month</p>
+                    <h2 class="premium-chart-title">OT Distribution</h2>
+                    <p class="premium-chart-subtitle">OT record split for the current month</p>
                 </div>
                 <div class="premium-chart-body">
                     <div class="premium-chart-container">
@@ -326,8 +317,8 @@
             <article class="panel-card">
                 <header class="panel-header">
                     <div>
-                        <h2>Section Summary</h2>
-                        <p class="panel-subtitle">Today by section with present, late, and absent totals</p>
+                        <h2>Section OT Summary</h2>
+                        <p class="panel-subtitle">Today by section with OT record totals</p>
                     </div>
                 </header>
                 <div class="panel-body">
@@ -338,9 +329,9 @@
                                 <thead>
                                     <tr>
                                         <th>Section</th>
-                                        <th>Present</th>
-                                        <th>Late</th>
-                                        <th>Absent</th>
+                                        <th>OT Records</th>
+                                        <th>Review</th>
+                                        <th>No OT</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -368,8 +359,8 @@
         <article class="panel-card">
             <header class="panel-header">
                 <div>
-                    <h2>@(Model.IsWorker ? "My Recent Activity" : "Recent Attendance Activity")</h2>
-                    <p class="panel-subtitle">Most recent attendance updates from today's records</p>
+                    <h2>@(Model.IsWorker ? "My Recent OT Activity" : "Recent OT Activity")</h2>
+                    <p class="panel-subtitle">Most recent OT updates from today's records</p>
                 </div>
             </header>
             <div class="panel-body">
@@ -378,14 +369,14 @@
                     <div class="premium-activity-list">
                         @foreach (var item in Model.RecentAttendance)
                         {
-                            var statusBadge = new StatusBadgeViewModel { Status = item.Status, Tone = StatusTone(item.Status) };
+                            var statusBadge = new StatusBadgeViewModel { Status = "Recorded OT", Tone = "success" };
 
                             <div class="premium-activity-item">
                                 <div class="premium-activity-info">
                                     <h4>@item.EmployeeName</h4>
                                     <p>Section: @(item.SectionName ?? "N/A") | In: @(item.InTime?.ToString(@"hh\:mm") ?? "-") | Out: @(item.OutTime?.ToString(@"hh\:mm") ?? "-")</p>
                                 </div>
-                                <span class="premium-status-badge @statusBadge.Tone">@item.Status</span>
+                                <span class="premium-status-badge @statusBadge.Tone">@statusBadge.Status</span>
                             </div>
                         }
                     </div>
@@ -513,7 +504,7 @@
                     labels,
                     datasets: [
                         {
-                            label: "Present",
+                            label: "OT Records",
                             data: presentData,
                             borderColor: "#0b9967",
                             backgroundColor: "rgba(11, 153, 103, 0.14)",
@@ -523,7 +514,7 @@
                             tension: 0.34
                         },
                         {
-                            label: "Late",
+                            label: "Review",
                             data: lateData,
                             borderColor: "#d08910",
                             backgroundColor: "rgba(208, 137, 16, 0.08)",
@@ -533,7 +524,7 @@
                             tension: 0.32
                         },
                         {
-                            label: "Absent",
+                            label: "No OT",
                             data: absentData,
                             borderColor: "#cd3246",
                             backgroundColor: "rgba(205, 50, 70, 0.09)",
@@ -572,21 +563,21 @@
                     datasets: [
                         {
                             type: "bar",
-                            label: "Present",
+                            label: "OT Records",
                             data: presentData,
                             backgroundColor: "rgba(11, 153, 103, 0.82)",
                             borderRadius: 8
                         },
                         {
                             type: "bar",
-                            label: "Late",
+                            label: "Review",
                             data: lateData,
                             backgroundColor: "rgba(208, 137, 16, 0.78)",
                             borderRadius: 8
                         },
                         {
                             type: "bar",
-                            label: "Absent",
+                            label: "No OT",
                             data: absentData,
                             backgroundColor: "rgba(205, 50, 70, 0.78)",
                             borderRadius: 8

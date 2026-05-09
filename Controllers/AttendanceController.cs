@@ -356,13 +356,6 @@ namespace AttendanceManagementSystem.Controllers
                     return RedirectToAction("Index", new { selectedDate = selectedDate });
                 }
 
-                // Validation: OT End Time must be after OT Start Time
-                if (outTime.Value <= inTime.Value)
-                {
-                    TempData["Error"] = "OT End Time must be after OT Start Time.";
-                    return RedirectToAction("Index", new { selectedDate = selectedDate });
-                }
-
                 // Find existing attendance record for the user and date
                 var existingAttendance = await _context.Attendances
                     .Where(a => a.UserId == currentUser.Id && a.AttendanceDate.Date == selectedDate.Date)
@@ -429,7 +422,7 @@ namespace AttendanceManagementSystem.Controllers
             catch (Exception ex)
             {
                 Console.WriteLine($"[ERROR] SaveAttendance failed: {ex.Message}");
-                TempData["Error"] = "An error occurred while saving attendance. Please try again.";
+                TempData["Error"] = "An error occurred while saving OT data. Please try again.";
                 return RedirectToAction("Index", new { selectedDate = selectedDate });
             }
         }
@@ -582,7 +575,7 @@ namespace AttendanceManagementSystem.Controllers
                     currentUser.Id, 
                     model.EditReason);
 
-                TempData["Success"] = "Attendance updated successfully.";
+                TempData["Success"] = "OT record updated successfully.";
                 return RedirectToAction("Manage", new { date = model.AttendanceDate });
             }
             catch (InvalidOperationException ex)
@@ -679,7 +672,7 @@ namespace AttendanceManagementSystem.Controllers
                 {
                     Console.WriteLine($"[DEBUG] Inner Exception: {ex.InnerException.Message}");
                 }
-                return Json(new { success = false, message = $"An error occurred while loading attendance data: {ex.Message}" });
+                    return Json(new { success = false, message = $"An error occurred while loading OT data: {ex.Message}" });
             }
         }
 
@@ -724,19 +717,13 @@ namespace AttendanceManagementSystem.Controllers
                 if (string.IsNullOrWhiteSpace(dto.InTime))
                 {
                     Console.WriteLine("[DEBUG] InTime is null or empty");
-                    return Json(new { success = false, message = "In Time is required" });
+                    return Json(new { success = false, message = "OT In Time is required" });
                 }
 
                 if (string.IsNullOrWhiteSpace(dto.OutTime))
                 {
                     Console.WriteLine("[DEBUG] OutTime is null or empty");
-                    return Json(new { success = false, message = "Out Time is required" });
-                }
-
-                if (string.IsNullOrWhiteSpace(dto.Status))
-                {
-                    Console.WriteLine("[DEBUG] Status is null or empty");
-                    return Json(new { success = false, message = "Status is required" });
+                    return Json(new { success = false, message = "OT Out Time is required" });
                 }
 
                 var currentUser = _authService.GetCurrentUser();
@@ -755,21 +742,8 @@ namespace AttendanceManagementSystem.Controllers
 
                 Console.WriteLine($"[DEBUG] Current user: {currentUser.FullName}, Role: {currentUser.Role.Name}");
 
-                // Validate and normalize status
-                var normalizedStatus = dto.Status;
-                if (dto.Status == "On Time")
-                {
-                    normalizedStatus = AttendanceStatus.Present;
-                    Console.WriteLine($"[DEBUG] Converting 'On Time' to 'Present'");
-                }
-
-                // Validate status against allowed values
-                var validStatuses = new[] { AttendanceStatus.Present, AttendanceStatus.Late, AttendanceStatus.Absent, AttendanceStatus.Leave };
-                if (!validStatuses.Contains(normalizedStatus))
-                {
-                    Console.WriteLine($"[DEBUG] Invalid status: {normalizedStatus}");
-                    return Json(new { success = false, message = "Invalid status value" });
-                }
+                // OT-first stage: keep Status internal and default to Present.
+                var normalizedStatus = AttendanceStatus.Present;
 
                 // Parse time strings "hh:mm" to TimeSpan with fallback
                 TimeSpan inTimeSpan, outTimeSpan;
@@ -779,7 +753,7 @@ namespace AttendanceManagementSystem.Controllers
                     if (!TimeSpan.TryParse(dto.InTime, System.Globalization.CultureInfo.InvariantCulture, out inTimeSpan))
                     {
                         Console.WriteLine($"[DEBUG] Failed to parse InTime: {dto.InTime}");
-                        return Json(new { success = false, message = "Invalid In Time format. Use HH:mm format (e.g., 09:30)" });
+                        return Json(new { success = false, message = "Invalid OT In Time format. Use HH:mm format (e.g., 17:00)" });
                     }
                 }
 
@@ -788,18 +762,11 @@ namespace AttendanceManagementSystem.Controllers
                     if (!TimeSpan.TryParse(dto.OutTime, System.Globalization.CultureInfo.InvariantCulture, out outTimeSpan))
                     {
                         Console.WriteLine($"[DEBUG] Failed to parse OutTime: {dto.OutTime}");
-                        return Json(new { success = false, message = "Invalid Out Time format. Use HH:mm format (e.g., 17:30)" });
+                        return Json(new { success = false, message = "Invalid OT Out Time format. Use HH:mm format (e.g., 19:30)" });
                     }
                 }
 
                 Console.WriteLine($"[DEBUG] Parsed times: InTime={inTimeSpan}, OutTime={outTimeSpan}");
-
-                // Validate time logic
-                if (inTimeSpan >= outTimeSpan)
-                {
-                    Console.WriteLine($"[DEBUG] Time validation failed: {inTimeSpan} >= {outTimeSpan}");
-                    return Json(new { success = false, message = "Out Time must be after In Time" });
-                }
 
                 // Load attendance with User and Section navigation properties using Id only
                 var attendance = await _context.Attendances
@@ -839,16 +806,18 @@ namespace AttendanceManagementSystem.Controllers
                 attendance.Status = normalizedStatus;
                 attendance.UpdatedAt = DateTime.UtcNow;
 
-                // Calculate worked minutes
-                var totalWorkedMinutes = (int)(outTimeSpan - inTimeSpan).TotalMinutes;
+                // OT duration logic: if OT Out is earlier than OT In, treat OT Out as next day.
+                var inDateTime = attendance.AttendanceDate.Date + inTimeSpan;
+                var outDateTime = attendance.AttendanceDate.Date + outTimeSpan;
+                if (outDateTime < inDateTime)
+                {
+                    outDateTime = outDateTime.AddDays(1);
+                }
+
+                var totalWorkedMinutes = Math.Max(0, (int)(outDateTime - inDateTime).TotalMinutes);
                 attendance.TotalWorkedMinutes = totalWorkedMinutes;
-
-                // Calculate regular and overtime minutes (8 hours = 480 minutes)
-                var regularWorkMinutes = Math.Min(totalWorkedMinutes, 480);
-                var overtimeMinutes = Math.Max(0, totalWorkedMinutes - 480);
-
-                attendance.RegularWorkedMinutes = regularWorkMinutes;
-                attendance.OvertimeMinutes = overtimeMinutes;
+                attendance.RegularWorkedMinutes = 0;
+                attendance.OvertimeMinutes = totalWorkedMinutes;
 
                 // Save changes
                 await _context.SaveChangesAsync();
@@ -866,7 +835,7 @@ namespace AttendanceManagementSystem.Controllers
                     status = attendance.Status
                 };
 
-                return Json(new { success = true, message = "Attendance updated successfully", data = responseData });
+                return Json(new { success = true, message = "OT record updated successfully", data = responseData });
             }
             catch (InvalidOperationException ex)
             {

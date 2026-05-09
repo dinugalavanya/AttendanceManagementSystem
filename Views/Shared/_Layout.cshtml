@@ -63,7 +63,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Attendance Management System</title>
+    <title>@ViewData["Title"] - OT Management System</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -95,7 +95,7 @@
                     {
                         <a class="app-nav-link sidebar-nav-link @NavClass("Attendance", "Index")" asp-controller="Attendance" asp-action="Index">
                             <i class="bi bi-person-check-fill"></i>
-                            <span>My Attendance</span>
+                            <span>My OT</span>
                         </a>
                     }
 
@@ -148,7 +148,7 @@
                             <i class="bi bi-list"></i>
                         </button>
                         <div>
-                            <p class="topbar-label">Attendance Management System</p>
+                            <p class="topbar-label">OT Management System</p>
                             <h2>@ViewData["Title"]</h2>
                         </div>
                     </div>
@@ -195,7 +195,7 @@
                     <div class="brand-icon"><i class="bi bi-clock-history"></i></div>
                     <div>
                         <h2>PulseHR</h2>
-                        <p>Attendance Console</p>
+                        <p>OT Console</p>
                     </div>
                 </div>
                 @RenderBody()

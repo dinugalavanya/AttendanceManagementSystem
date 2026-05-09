@@ -1,7 +1,7 @@
 @model AttendanceManagementSystem.ViewModels.AttendanceViewModel
 @using AttendanceManagementSystem.Models
 @{
-    ViewData["Title"] = "My Attendance";
+    ViewData["Title"] = "My OT";
 }
 
 <style>
@@ -750,7 +750,7 @@
                     <!-- Date Picker -->
                     <form method="get" asp-action="Index" class="date-filter-form mb-0">
                         <div class="d-flex flex-column align-items-end">
-                            <label for="selectedDate" class="form-label mb-1 small">View Attendance Date</label>
+                            <label for="selectedDate" class="form-label mb-1 small">View OT Date</label>
                             <input type="date"
                                    id="selectedDate"
                                    name="selectedDate"
@@ -796,7 +796,7 @@
                                        readonly />
                             </div>
                             <div class="form-group">
-                                <label for="inTime" class="form-label">OT Start Time <span class="required">*</span></label>
+                                <label for="inTime" class="form-label">OT In Time <span class="required">*</span></label>
                                 <input type="time"
                                        id="inTime"
                                        name="inTime"
@@ -805,7 +805,7 @@
                                        required />
                             </div>
                             <div class="form-group">
-                                <label for="outTime" class="form-label">OT End Time <span class="required">*</span></label>
+                                <label for="outTime" class="form-label">OT Out Time <span class="required">*</span></label>
                                 <input type="time"
                                        id="outTime"
                                        name="outTime"

@@ -1,12 +1,12 @@
 @model AttendanceManagementSystem.ViewModels.AdminDashboardViewModel
 @{
-    ViewData["Title"] = "Admin Dashboard";
+    ViewData["Title"] = "Admin OT Dashboard";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h1 class="h3 mb-1">Admin Dashboard</h1>
-        <p class="text-muted mb-0">Operational summary for today</p>
+        <h1 class="h3 mb-1">Admin OT Dashboard</h1>
+        <p class="text-muted mb-0">OT operational summary for today</p>
     </div>
 </div>
 
@@ -22,7 +22,7 @@
     <div class="col-12 col-md-6 col-xl-3">
         <div class="card h-100">
             <div class="card-body">
-                <div class="text-muted small">Today Attendance</div>
+                <div class="text-muted small">Today OT Records</div>
                 <div class="display-6 fw-semibold">@Model.TodayAttendance</div>
             </div>
         </div>
@@ -30,7 +30,7 @@
     <div class="col-12 col-md-6 col-xl-2">
         <div class="card h-100">
             <div class="card-body">
-                <div class="text-muted small">Present</div>
+                <div class="text-muted small">OT Records</div>
                 <div class="h3 text-success">@Model.PresentCount</div>
             </div>
         </div>
@@ -38,7 +38,7 @@
     <div class="col-12 col-md-6 col-xl-2">
         <div class="card h-100">
             <div class="card-body">
-                <div class="text-muted small">Late</div>
+                <div class="text-muted small">Review</div>
                 <div class="h3 text-warning">@Model.LateCount</div>
             </div>
         </div>
@@ -46,7 +46,7 @@
     <div class="col-12 col-md-6 col-xl-2">
         <div class="card h-100">
             <div class="card-body">
-                <div class="text-muted small">Absent</div>
+                <div class="text-muted small">No OT</div>
                 <div class="h3 text-danger">@Model.AbsentCount</div>
             </div>
         </div>

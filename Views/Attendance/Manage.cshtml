@@ -1,13 +1,13 @@
 @model AttendanceManagementSystem.ViewModels.AttendanceManageViewModel
 @using AttendanceManagementSystem.Models
 @{
-    ViewData["Title"] = "Manage Attendance";
+    ViewData["Title"] = "Manage OT";
 
     var pageHeader = new PageHeaderViewModel
     {
         Eyebrow = "HR Operations",
-        Title = "Manage Attendance",
-        Subtitle = "Operational control panel for daily attendance records",
+        Title = "Manage OT",
+        Subtitle = "Operational control panel for daily OT records",
         Badges = new List<PageHeaderBadgeViewModel>
         {
             new() { Text = Model.ScopeLabel, Tone = "neutral", Icon = "bi-building" },
@@ -20,36 +20,23 @@
         FormAction = "Manage",
         FormController = "Attendance",
         SelectedDate = Model.SelectedDate,
-        DateLabel = "Attendance Date",
+        DateLabel = "OT Date",
         ScopeLabel = Model.ScopeLabel,
-        SummaryLabel = "Total Worked",
+        SummaryLabel = "Total OT",
         SummaryValue = $"{Model.TotalWorkedHours:0.0}h"
     };
 
     var cards = new List<SummaryCardViewModel>
     {
         new() { Label = "Total Records", Value = Model.TotalRecords.ToString(), Icon = "bi-journal-check", Tone = "neutral", HelperText = "Entries found for selected date" },
-        new() { Label = "Present", Value = Model.PresentCount.ToString(), Icon = "bi-check2-circle", Tone = "success", HelperText = "Present records today" },
-        new() { Label = "Late", Value = Model.LateCount.ToString(), Icon = "bi-alarm", Tone = "warning", HelperText = "Late entries for selected date" },
-        new() { Label = "Absent", Value = Model.AbsentCount.ToString(), Icon = "bi-x-circle", Tone = "danger", HelperText = "Marked absent records" },
-        new() { Label = "On Leave", Value = Model.OnLeaveCount.ToString(), Icon = "bi-person-dash", Tone = "sky", HelperText = "Leave records for selected date" },
         new() { Label = "OT Hours", Value = Model.OvertimeHours.ToString("0.0"), Icon = "bi-hourglass-split", Tone = "purple", HelperText = "Overtime hours for selected date" }
     };
 
     var emptyState = new EmptyStateViewModel
     {
         Icon = "bi-calendar-x",
-        Title = "No attendance records found",
-        Description = "No attendance entries exist for the selected date. Change the date to continue."
-    };
-
-    string StatusTone(string status) => status switch
-    {
-        AttendanceStatus.Present => "success",
-        AttendanceStatus.Late => "warning",
-        AttendanceStatus.Absent => "danger",
-        AttendanceStatus.Leave => "neutral",
-        _ => "neutral"
+        Title = "No OT records found",
+        Description = "No OT entries exist for the selected date. Change the date to continue."
     };
 }
 
@@ -67,8 +54,8 @@
     <article class="panel-card manage-table-card">
         <header class="panel-header">
             <div>
-                <h2>Attendance Register</h2>
-                <p class="panel-subtitle">Employee attendance logs with hours, status, and edit controls</p>
+                <h2>OT Register</h2>
+                <p class="panel-subtitle">Employee OT logs with duration and edit controls</p>
             </div>
             <div class="panel-meta-wrap">
                 <span class="panel-meta">@Model.TotalRecords records</span>
@@ -90,11 +77,10 @@
                         <tr>
                             <th>Employee Name</th>
                             <th>Section</th>
-                            <th>In Time</th>
-                            <th>Out Time</th>
-                            <th>Worked Hours</th>
+                            <th>OT In Time</th>
+                            <th>OT Out Time</th>
+                            <th>OT Duration</th>
                             <th>OT Hours</th>
-                            <th>Status</th>
                             @if (Model.CanEdit)
                             {
                                 <th class="text-end">Action</th>
@@ -105,8 +91,6 @@
                         @foreach (var row in Model.Attendances)
                         {
                             var initials = $"{row.User.FirstName.FirstOrDefault()}{row.User.LastName.FirstOrDefault()}";
-                            var badgeModel = new StatusBadgeViewModel { Status = row.Status, Tone = StatusTone(row.Status) };
-
                             <tr>
                                 <td>
                                     <div class="employee-cell">
@@ -122,9 +106,6 @@
                                 <td>@(row.OutTime?.ToString(@"hh\:mm") ?? "-")</td>
                                 <td>@row.TotalWorkedDisplay</td>
                                 <td>@(row.OvertimeMinutes > 0 ? row.OvertimeDisplay : "-")</td>
-                                <td>
-                                    <partial name="_StatusBadge" model="badgeModel" />
-                                </td>
                                 @if (Model.CanEdit)
                                 {
                                     <td class="text-end">
@@ -143,13 +124,13 @@
     </article>
 </section>
 
-<!-- Edit Attendance Modal -->
+<!-- Edit OT Modal -->
 <div class="modal fade" id="editAttendanceModal" tabindex="-1" aria-labelledby="editAttendanceModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="editAttendanceModalLabel">
-                    <i class="bi bi-pencil-square me-2"></i>Edit Attendance
+                    <i class="bi bi-pencil-square me-2"></i>Edit OT Record
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -168,32 +149,22 @@
                     
                     <div class="row mb-3">
                         <div class="col-md-6">
-                            <label for="inTime" class="form-label">In Time</label>
+                            <label for="inTime" class="form-label">OT In Time</label>
                             <input type="time" class="form-control" id="inTime" name="InTime" required />
                             <span class="text-danger" id="inTimeError"></span>
                         </div>
                         <div class="col-md-6">
-                            <label for="outTime" class="form-label">Out Time</label>
+                            <label for="outTime" class="form-label">OT Out Time</label>
                             <input type="time" class="form-control" id="outTime" name="OutTime" required />
                             <span class="text-danger" id="outTimeError"></span>
                         </div>
                     </div>
                     
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <label for="status" class="form-label">Status</label>
-                            <select class="form-select" id="status" name="Status" required>
-                                <option value="Present">On Time</option>
-                                <option value="Late">Late</option>
-                                <option value="Absent">Absent</option>
-                                <option value="Leave">Leave</option>
-                            </select>
-                        </div>
-                    </div>
+                    <input type="hidden" id="status" name="Status" value="Present" />
                     
                     <div class="row">
                         <div class="col-md-6">
-                            <label class="form-label text-muted">Worked Hours</label>
+                            <label class="form-label text-muted">OT Duration</label>
                             <div class="form-control-plaintext" id="workedHours">-</div>
                         </div>
                         <div class="col-md-6">
@@ -222,7 +193,7 @@
                 loadAttendanceForEdit(attendanceId);
             });
 
-            // Load attendance data for editing
+            // Load OT data for editing
             function loadAttendanceForEdit(attendanceId) {
                 $.ajax({
                     url: '@Url.Action("GetAttendanceForEdit", "Attendance")',
@@ -233,16 +204,16 @@
                             populateEditModal(response.data);
                             $('#editAttendanceModal').modal('show');
                         } else {
-                            showAlert('error', response.message || 'Failed to load attendance data');
+                            showAlert('error', response.message || 'Failed to load OT data');
                         }
                     },
                     error: function() {
-                        showAlert('error', 'An error occurred while loading attendance data');
+                        showAlert('error', 'An error occurred while loading OT data');
                     }
                 });
             }
 
-            // Populate modal with attendance data
+            // Populate modal with OT data
             function populateEditModal(data) {
                 console.log('[DEBUG] Populating modal with data:', data);
                 
@@ -258,7 +229,7 @@
                 
                 console.log('[DEBUG] Set time inputs - InTime:', data.inTimeString, 'OutTime:', data.outTimeString);
                 
-                // Display calculated hours
+                // Display calculated durations
                 $('#workedHours').text(data.workedHours + ' hours');
                 $('#otHours').text(data.otHours + ' hours');
                 
@@ -303,24 +274,19 @@
                 var outTime = $('#outTime').val();
                 
                 if (!inTime) {
-                    $('#inTimeError').text('In Time is required');
+                    $('#inTimeError').text('OT In Time is required');
                     isValid = false;
                 }
                 
                 if (!outTime) {
-                    $('#outTimeError').text('Out Time is required');
-                    isValid = false;
-                }
-                
-                if (inTime && outTime && inTime >= outTime) {
-                    $('#outTimeError').text('Out Time must be after In Time');
+                    $('#outTimeError').text('OT Out Time is required');
                     isValid = false;
                 }
                 
                 return isValid;
             }
 
-            // Save attendance
+            // Save OT record
             function saveAttendance() {
                 // Clear previous validation errors
                 $('.text-danger').text('');
@@ -353,7 +319,7 @@
                         if (response.success) {
                             console.log('[DEBUG] Update successful, closing modal and reloading page');
                             $('#editAttendanceModal').modal('hide');
-                            showAlert('success', response.message || 'Attendance updated successfully');
+                            showAlert('success', response.message || 'OT record updated successfully');
                             // Reload page to show updated data
                             setTimeout(function() {
                                 location.reload();
@@ -364,14 +330,14 @@
                                 console.log('[DEBUG] Validation errors:', response.errors);
                                 showModalError(response.message + ': ' + response.errors.join(', '));
                             } else {
-                                showModalError(response.message || 'Failed to update attendance');
+                                showModalError(response.message || 'Failed to update OT record');
                             }
                         }
                     },
                     error: function(xhr, status, error) {
                         console.log('[DEBUG] AJAX error:', { status: status, error: error, response: xhr.responseJSON });
                         
-                        var message = 'An error occurred while updating attendance';
+                        var message = 'An error occurred while updating OT record';
                         if (xhr.responseJSON && xhr.responseJSON.message) {
                             message = xhr.responseJSON.message;
                         }
@@ -420,25 +386,6 @@
                 row.find('td:eq(3)').text(data.outTime || '-');
                 row.find('td:eq(4)').text(data.workedHours + ' hours');
                 row.find('td:eq(5)').text(data.otHours > 0 ? data.otHours + ' hours' : '-');
-                
-                // Update status badge
-                var statusBadge = row.find('td:eq(6) .status-badge');
-                statusBadge.removeClass('success warning danger neutral');
-                
-                var tone = getStatusTone(data.status);
-                statusBadge.addClass(tone);
-                statusBadge.text(data.status);
-            }
-
-            // Get status tone for badge
-            function getStatusTone(status) {
-                switch(status) {
-                    case 'Present': return 'success';
-                    case 'Late': return 'warning';
-                    case 'Absent': return 'danger';
-                    case 'Leave': return 'neutral';
-                    default: return 'neutral';
-                }
             }
 
             // Show alert message
@@ -469,18 +416,18 @@
                 var inTime = $('#inTime').val();
                 var outTime = $('#outTime').val();
                 
-                if (inTime && outTime && inTime < outTime) {
+                if (inTime && outTime) {
                     var inDate = new Date('2000-01-01T' + inTime);
                     var outDate = new Date('2000-01-01T' + outTime);
+                    if (outDate < inDate) {
+                        outDate.setDate(outDate.getDate() + 1);
+                    }
                     var diffMs = outDate - inDate;
                     var diffHours = diffMs / (1000 * 60 * 60);
                     var workedHours = Math.round(diffHours * 100) / 100;
-                    
-                    var regularHours = 8;
-                    var otHours = workedHours > regularHours ? Math.round((workedHours - regularHours) * 100) / 100 : 0;
-                    
+
                     $('#workedHours').text(workedHours + ' hours');
-                    $('#otHours').text(otHours + ' hours');
+                    $('#otHours').text(workedHours + ' hours');
                 } else {
                     $('#workedHours').text('-');
                     $('#otHours').text('-');
