@@ -5,6 +5,21 @@ namespace AttendanceManagementSystem.Data
 {
     public class ApplicationDbContext : DbContext
     {
+        private static readonly DateTime SeedRoleCreatedAt = new DateTime(2026, 5, 13, 5, 55, 3, 354, DateTimeKind.Utc).AddTicks(4489);
+        private static readonly DateTime SeedRoleCreatedAt2 = new DateTime(2026, 5, 13, 5, 55, 3, 354, DateTimeKind.Utc).AddTicks(4650);
+        private static readonly DateTime SeedRoleCreatedAt3 = new DateTime(2026, 5, 13, 5, 55, 3, 354, DateTimeKind.Utc).AddTicks(4651);
+        private static readonly DateTime SeedSectionCreatedAt1 = new DateTime(2026, 5, 13, 5, 55, 3, 355, DateTimeKind.Utc).AddTicks(391);
+        private static readonly DateTime SeedSectionCreatedAt2 = new DateTime(2026, 5, 13, 5, 55, 3, 355, DateTimeKind.Utc).AddTicks(665);
+        private static readonly DateTime SeedSectionCreatedAt3 = new DateTime(2026, 5, 13, 5, 55, 3, 355, DateTimeKind.Utc).AddTicks(666);
+        private static readonly DateTime SeedSectionCreatedAt4 = new DateTime(2026, 5, 13, 5, 55, 3, 355, DateTimeKind.Utc).AddTicks(668);
+        private static readonly DateTime SeedSectionCreatedAt5 = new DateTime(2026, 5, 13, 5, 55, 3, 355, DateTimeKind.Utc).AddTicks(669);
+        private static readonly DateTime SeedSectionCreatedAt6 = new DateTime(2026, 5, 13, 5, 55, 3, 355, DateTimeKind.Utc).AddTicks(670);
+        private static readonly DateTime SeedSectionCreatedAt7 = new DateTime(2026, 5, 13, 5, 55, 3, 355, DateTimeKind.Utc).AddTicks(671);
+        private static readonly DateTime SeedSectionCreatedAt8 = new DateTime(2026, 5, 13, 5, 55, 3, 355, DateTimeKind.Utc).AddTicks(672);
+        private static readonly DateTime SeedSectionCreatedAt9 = new DateTime(2026, 5, 13, 5, 55, 3, 355, DateTimeKind.Utc).AddTicks(673);
+        private static readonly DateTime SeedSectionCreatedAt10 = new DateTime(2026, 5, 13, 5, 55, 3, 355, DateTimeKind.Utc).AddTicks(674);
+        private const string SeedSuperAdminPasswordHash = "$2a$11$jBmPeOcm/RJmOd4/1nrSjei2PtF7efgQUfPiU6r.RZjh2R0qSmgni";
+
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
         {
         }
@@ -50,12 +65,11 @@ namespace AttendanceManagementSystem.Data
                 entity.Property(e => e.PasswordHash).IsRequired().HasMaxLength(255);
                 entity.Property(e => e.Phone).HasColumnName("Phone").HasMaxLength(20);
                 entity.Property(e => e.Address).HasMaxLength(200);
+                entity.Property(e => e.ServiceId).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.UpdatedAt);
-                entity.Property(e => e.LoginTime);
-                entity.Property(e => e.LogoutTime);
-                entity.Property(e => e.AttendanceStatus).HasMaxLength(20);
                 entity.Property(e => e.IsActive).HasDefaultValue(true);
                 entity.HasIndex(e => e.Email).IsUnique();
+                entity.HasIndex(e => e.ServiceId).IsUnique();
 
                 entity.HasOne(e => e.Role)
                     .WithMany(r => r.Users)
@@ -112,9 +126,9 @@ namespace AttendanceManagementSystem.Data
             // Seed Roles
             var roles = new[]
             {
-                new Role { Id = 1, Name = RoleNames.SuperAdmin, Description = "Super Administrator with full system access", CreatedAt = DateTime.UtcNow },
-                new Role { Id = 2, Name = RoleNames.Admin, Description = "Section Administrator with limited access", CreatedAt = DateTime.UtcNow },
-                new Role { Id = 3, Name = RoleNames.Worker, Description = "Regular worker who can mark attendance", CreatedAt = DateTime.UtcNow }
+                new Role { Id = 1, Name = RoleNames.SuperAdmin, Description = "Super Administrator with full system access", CreatedAt = SeedRoleCreatedAt },
+                new Role { Id = 2, Name = RoleNames.Admin, Description = "Section Administrator with limited access", CreatedAt = SeedRoleCreatedAt2 },
+                new Role { Id = 3, Name = RoleNames.Worker, Description = "Regular worker who can mark attendance", CreatedAt = SeedRoleCreatedAt3 }
             };
 
             modelBuilder.Entity<Role>().HasData(roles);
@@ -122,16 +136,16 @@ namespace AttendanceManagementSystem.Data
             // Seed Sections
             var sections = new[]
             {
-                new Section { Id = 1, Name = "Information Technology", Description = "IT Department", CreatedAt = DateTime.UtcNow, IsActive = true },
-                new Section { Id = 2, Name = "Human Resources", Description = "HR Department", CreatedAt = DateTime.UtcNow, IsActive = true },
-                new Section { Id = 3, Name = "Finance", Description = "Finance and Accounting", CreatedAt = DateTime.UtcNow, IsActive = true },
-                new Section { Id = 4, Name = "Marketing", Description = "Marketing and Sales", CreatedAt = DateTime.UtcNow, IsActive = true },
-                new Section { Id = 5, Name = "Operations", Description = "Operations Department", CreatedAt = DateTime.UtcNow, IsActive = true },
-                new Section { Id = 6, Name = "Quality Assurance", Description = "QA Department", CreatedAt = DateTime.UtcNow, IsActive = true },
-                new Section { Id = 7, Name = "Research & Development", Description = "R&D Department", CreatedAt = DateTime.UtcNow, IsActive = true },
-                new Section { Id = 8, Name = "Customer Support", Description = "Customer Service", CreatedAt = DateTime.UtcNow, IsActive = true },
-                new Section { Id = 9, Name = "Administration", Description = "General Administration", CreatedAt = DateTime.UtcNow, IsActive = true },
-                new Section { Id = 10, Name = "Production", Description = "Production Department", CreatedAt = DateTime.UtcNow, IsActive = true }
+                new Section { Id = 1, Name = "Information Technology", Description = "IT Department", CreatedAt = SeedSectionCreatedAt1, IsActive = true },
+                new Section { Id = 2, Name = "Human Resources", Description = "HR Department", CreatedAt = SeedSectionCreatedAt2, IsActive = true },
+                new Section { Id = 3, Name = "Finance", Description = "Finance and Accounting", CreatedAt = SeedSectionCreatedAt3, IsActive = true },
+                new Section { Id = 4, Name = "Marketing", Description = "Marketing and Sales", CreatedAt = SeedSectionCreatedAt4, IsActive = true },
+                new Section { Id = 5, Name = "Operations", Description = "Operations Department", CreatedAt = SeedSectionCreatedAt5, IsActive = true },
+                new Section { Id = 6, Name = "Quality Assurance", Description = "QA Department", CreatedAt = SeedSectionCreatedAt6, IsActive = true },
+                new Section { Id = 7, Name = "Research & Development", Description = "R&D Department", CreatedAt = SeedSectionCreatedAt7, IsActive = true },
+                new Section { Id = 8, Name = "Customer Support", Description = "Customer Service", CreatedAt = SeedSectionCreatedAt8, IsActive = true },
+                new Section { Id = 9, Name = "Administration", Description = "General Administration", CreatedAt = SeedSectionCreatedAt9, IsActive = true },
+                new Section { Id = 10, Name = "Production", Description = "Production Department", CreatedAt = SeedSectionCreatedAt10, IsActive = true }
             };
 
             modelBuilder.Entity<Section>().HasData(sections);
@@ -143,8 +157,9 @@ namespace AttendanceManagementSystem.Data
                 FirstName = "Super",
                 LastName = "Admin",
                 Email = "superadmin@attendance.com",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
+                PasswordHash = SeedSuperAdminPasswordHash,
                 Phone = "1234567890",
+                ServiceId = "EMP900",
                 RoleId = 1, // Super Admin
                 SectionId = null,
                 IsActive = true

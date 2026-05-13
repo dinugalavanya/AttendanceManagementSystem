@@ -45,100 +45,17 @@ namespace AttendanceManagementSystem.Controllers
                 .Select(u => new UserListItemViewModel
                 {
                     Id = u.Id,
+                    ServiceId = u.ServiceId,
                     FullName = u.FirstName + " " + u.LastName,
                     Email = u.Email,
+                    Phone = u.Phone,
+                    Address = u.Address,
                     RoleName = u.Role.Name,
-                    SectionName = u.Section != null ? u.Section.Name : "-",
-                    IsActive = u.IsActive,
-                    LoginTime = u.LoginTime,
-                    LogoutTime = u.LogoutTime,
-                    AttendanceStatus = u.AttendanceStatus
+                    SectionName = u.Section != null ? u.Section.Name : "-"
                 })
                 .ToListAsync();
 
             return View(users);
-        }
-
-        // POST: api/user/update-attendance
-        [HttpPost]
-        public async Task<IActionResult> UpdateAttendance([FromBody] AttendanceUpdateRequest request)
-        {
-            try
-            {
-                var currentUser = _authService.GetCurrentUser();
-                if (currentUser == null)
-                {
-                    return Json(new { success = false, message = "Unauthorized" });
-                }
-
-                var user = await _context.Users.FindAsync(request.UserId);
-                if (user == null)
-                {
-                    return Json(new { success = false, message = "User not found" });
-                }
-
-                // Update the appropriate field
-                switch (request.Field.ToLower())
-                {
-                    case "login":
-                        if (string.IsNullOrEmpty(request.Value))
-                        {
-                            user.LoginTime = null;
-                        }
-                        else if (TimeSpan.TryParse(request.Value, out TimeSpan loginTime))
-                        {
-                            user.LoginTime = loginTime;
-                        }
-                        else
-                        {
-                            return Json(new { success = false, message = "Invalid login time format" });
-                        }
-                        break;
-
-                    case "logout":
-                        if (string.IsNullOrEmpty(request.Value))
-                        {
-                            user.LogoutTime = null;
-                        }
-                        else if (TimeSpan.TryParse(request.Value, out TimeSpan logoutTime))
-                        {
-                            user.LogoutTime = logoutTime;
-                        }
-                        else
-                        {
-                            return Json(new { success = false, message = "Invalid logout time format" });
-                        }
-                        break;
-
-                    case "status":
-                        var validStatuses = new[] { "On Time", "Late", "Leave" };
-                        if (string.IsNullOrEmpty(request.Value))
-                        {
-                            user.AttendanceStatus = null;
-                        }
-                        else if (validStatuses.Contains(request.Value))
-                        {
-                            user.AttendanceStatus = request.Value;
-                        }
-                        else
-                        {
-                            return Json(new { success = false, message = "Invalid status value" });
-                        }
-                        break;
-
-                    default:
-                        return Json(new { success = false, message = "Invalid request" });
-                }
-
-                user.UpdatedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
-
-                return Json(new { success = true, message = "Attendance updated successfully" });
-            }
-            catch (Exception ex)
-            {
-                return Json(new { success = false, message = "Error updating attendance: " + ex.Message });
-            }
         }
 
         // POST: User/CreateAdmin
@@ -202,13 +119,11 @@ namespace AttendanceManagementSystem.Controllers
                     PasswordHash = hashedPassword,
                     Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
                     Address = string.IsNullOrWhiteSpace(request.Address) ? null : request.Address.Trim(),
+                    ServiceId = await GenerateNextEmployeeServiceIdAsync(),
                     RoleId = 2, // Admin role
                     IsActive = true,
                     SectionId = request.SectionId.Value, // Assign selected section
-                    UpdatedAt = DateTime.UtcNow,
-                    LoginTime = null,
-                    LogoutTime = null,
-                    AttendanceStatus = null
+                    UpdatedAt = DateTime.UtcNow
                 };
 
                 _context.Users.Add(newAdmin);
@@ -299,21 +214,7 @@ namespace AttendanceManagementSystem.Controllers
                 // Hash password using BCrypt
                 string hashedPassword = BCrypt.Net.BCrypt.HashPassword(model.Password);
 
-                // Generate ServiceId: EMP + padded 3-digit ID
-                var lastEmployeeId = await _context.Users
-                    .Where(u => u.ServiceId != null && u.ServiceId.StartsWith("EMP"))
-                    .OrderByDescending(u => u.Id)
-                    .Select(u => u.ServiceId.Substring(3))
-                    .FirstOrDefaultAsync();
-                
-                int nextId = 1;
-                if (lastEmployeeId != null)
-                {
-                    int lastId = int.Parse(lastEmployeeId);
-                    nextId = lastId + 1;
-                }
-
-                string newServiceId = "EMP" + nextId.ToString().PadLeft(3, '0');
+                var newServiceId = await GenerateNextEmployeeServiceIdAsync();
 
                 // Create new employee with Worker role
                 var newEmployee = new User
@@ -328,10 +229,7 @@ namespace AttendanceManagementSystem.Controllers
                     IsActive = true,
                     SectionId = requestSectionId, // Use validated section
                     ServiceId = newServiceId,
-                    UpdatedAt = DateTime.UtcNow,
-                    LoginTime = null,
-                    LogoutTime = null,
-                    AttendanceStatus = null
+                    UpdatedAt = DateTime.UtcNow
                 };
 
                 _context.Users.Add(newEmployee);
@@ -349,28 +247,57 @@ namespace AttendanceManagementSystem.Controllers
             }
         }
 
+        private async Task<string> GenerateNextEmployeeServiceIdAsync()
+        {
+            var existingServiceIds = await _context.Users
+                .AsNoTracking()
+                .Where(u => u.ServiceId != null)
+                .Select(u => u.ServiceId!)
+                .ToListAsync();
+
+            var maxNumber = existingServiceIds
+                .Select(ParseEmployeeServiceNumber)
+                .Where(n => n.HasValue)
+                .Select(n => n!.Value)
+                .DefaultIfEmpty(0)
+                .Max();
+
+            return $"EMP{maxNumber + 1:D3}";
+        }
+
+        private static int? ParseEmployeeServiceNumber(string serviceId)
+        {
+            var normalized = serviceId.Trim().ToUpperInvariant();
+            if (!normalized.StartsWith("EMP", StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            var digitsOnly = new string(normalized
+                .Skip(3)
+                .TakeWhile(char.IsDigit)
+                .ToArray());
+
+            if (string.IsNullOrWhiteSpace(digitsOnly))
+            {
+                return null;
+            }
+
+            return int.TryParse(digitsOnly, out var parsed) ? parsed : null;
+        }
+
     }
 
     public class UserListItemViewModel
     {
         public int Id { get; set; }
+        public string ServiceId { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
+        public string? Phone { get; set; }
+        public string? Address { get; set; }
         public string RoleName { get; set; } = string.Empty;
         public string SectionName { get; set; } = string.Empty;
-        public bool IsActive { get; set; }
-        
-        // Attendance fields
-        public TimeSpan? LoginTime { get; set; }
-        public TimeSpan? LogoutTime { get; set; }
-        public string? AttendanceStatus { get; set; }
-    }
-
-    public class AttendanceUpdateRequest
-    {
-        public int UserId { get; set; }
-        public string Field { get; set; } = string.Empty;
-        public string Value { get; set; } = string.Empty;
     }
 
     public class CreateEmployeeViewModel

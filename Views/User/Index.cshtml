@@ -27,13 +27,13 @@
                                 <thead>
                                     <tr>
                                         <th>ID</th>
+                                        <th>Service ID</th>
                                         <th>Name</th>
                                         <th>Email</th>
+                                        <th>Phone</th>
+                                        <th>Address</th>
                                         <th>Role</th>
                                         <th>Section</th>
-                                        <th>Login</th>
-                                        <th>Logout</th>
-                                        <th>Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -41,55 +41,13 @@
                                     {
                                         <tr>
                                             <td>@user.Id</td>
+                                            <td>@user.ServiceId</td>
                                             <td>@user.FullName</td>
                                             <td>@user.Email</td>
+                                            <td>@(string.IsNullOrWhiteSpace(user.Phone) ? "-" : user.Phone)</td>
+                                            <td>@(string.IsNullOrWhiteSpace(user.Address) ? "-" : user.Address)</td>
                                             <td>@user.RoleName</td>
                                             <td>@user.SectionName</td>
-                                            <td>
-                                                <input type="time" 
-                                                       class="form-control form-control-sm" 
-                                                       id="login-@user.Id" 
-                                                       value="@(user.LoginTime?.ToString(@"hh\:mm") ?? "")"
-                                                       onchange="updateUserAttendance(@user.Id, 'login', this.value)" />
-                                            </td>
-                                            <td>
-                                                <input type="time" 
-                                                       class="form-control form-control-sm" 
-                                                       id="logout-@user.Id" 
-                                                       value="@(user.LogoutTime?.ToString(@"hh\:mm") ?? "")"
-                                                       onchange="updateUserAttendance(@user.Id, 'logout', this.value)" />
-                                            </td>
-                                            <td>
-                                                <select class="form-select form-select-sm" 
-                                                        id="status-@user.Id" 
-                                                        onchange="updateUserAttendance(@user.Id, 'status', this.value)">
-                                                    <option value="">-</option>
-                                                    @if (user.AttendanceStatus == "On Time")
-                                                    {
-                                                        <option value="On Time" selected>On Time</option>
-                                                    }
-                                                    else
-                                                    {
-                                                        <option value="On Time">On Time</option>
-                                                    }
-                                                    @if (user.AttendanceStatus == "Late")
-                                                    {
-                                                        <option value="Late" selected>Late</option>
-                                                    }
-                                                    else
-                                                    {
-                                                        <option value="Late">Late</option>
-                                                    }
-                                                    @if (user.AttendanceStatus == "Leave")
-                                                    {
-                                                        <option value="Leave" selected>Leave</option>
-                                                    }
-                                                    else
-                                                    {
-                                                        <option value="Leave">Leave</option>
-                                                    }
-                                                </select>
-                                            </td>
                                         </tr>
                                     }
                                 </tbody>
@@ -109,63 +67,6 @@
         </div>
     </div>
 </div>
-
-@section Scripts {
-    <script>
-        function updateUserAttendance(userId, field, value) {
-            const data = {
-                userId: userId,
-                field: field,
-                value: value
-            };
-
-            fetch('/api/user/update-attendance', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Show success feedback
-                    showNotification('Attendance updated successfully', 'success');
-                } else {
-                    // Show error feedback
-                    showNotification('Error updating attendance: ' + (data.message || 'Unknown error'), 'error');
-                    // Optionally revert the change
-                    location.reload();
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('Error updating attendance', 'error');
-                location.reload();
-            });
-        }
-
-        function showNotification(message, type) {
-            // Create a simple notification
-            const notification = document.createElement('div');
-            notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
-            notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
-            notification.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            document.body.appendChild(notification);
-            
-            // Auto-remove after 3 seconds
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, 3000);
-        }
-    </script>
-}
 
 <!-- Create Admin Modal -->
 @if (ViewBag.IsSuperAdmin == true)

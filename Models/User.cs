@@ -30,18 +30,11 @@ namespace AttendanceManagementSystem.Models
         [StringLength(200)]
         public string? Address { get; set; }
 
+        [Required]
         [StringLength(50)]
-        public string? ServiceId { get; set; }
+        public string ServiceId { get; set; } = string.Empty;
 
         public DateTime? UpdatedAt { get; set; }
-
-        // Attendance fields for User Management page
-        public TimeSpan? LoginTime { get; set; }
-
-        public TimeSpan? LogoutTime { get; set; }
-
-        [StringLength(20)]
-        public string? AttendanceStatus { get; set; }
 
         public bool IsActive { get; set; } = true;
 
