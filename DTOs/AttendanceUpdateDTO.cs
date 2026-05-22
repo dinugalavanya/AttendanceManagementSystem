@@ -17,6 +17,10 @@ namespace AttendanceManagementSystem.DTOs
 
         [Required]
         [StringLength(20)]
+        public string OtDate { get; set; } = string.Empty; // "yyyy-MM-dd" format
+
+        [Required]
+        [StringLength(20)]
         public string Status { get; set; } = string.Empty;
     }
 }

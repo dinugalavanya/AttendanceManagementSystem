@@ -1,64 +1,26 @@
 @model AttendanceManagementSystem.ViewModels.AdminDashboardViewModel
-@using AttendanceManagementSystem.Models
 @using System.Text.Json
 @{
     ViewData["Title"] = "Admin OT Dashboard";
     Layout = null;
-    var isWorkerSearchMode = Model.WorkerHistorySearchResult != null;
+
     var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
     var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
     var isDashboardActive = string.Equals(currentController, "Dashboard", StringComparison.OrdinalIgnoreCase);
     var isManageOvertimeActive = string.Equals(currentController, "Attendance", StringComparison.OrdinalIgnoreCase)
         && string.Equals(currentAction, "Manage", StringComparison.OrdinalIgnoreCase);
-    var sidebarDisplayName = User.Identity?.Name;
-    if (string.IsNullOrWhiteSpace(sidebarDisplayName))
-    {
-        sidebarDisplayName = "Admin User";
-    }
-    var sidebarRole = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Admin";
-    var sidebarInitials = GetUserInitials(sidebarDisplayName);
+
+    var sidebarDisplayName = "Dinuga Vithana";
+    var sidebarRoleLabel = "Admin";
+    var sidebarInitials = "DV";
+
+    var adminBadgeText = string.IsNullOrWhiteSpace(Model.SectionName)
+        ? "Admin"
+        : $"{Model.SectionName} Admin";
 }
 
 @functions {
-    public string GetStatusBadgeClass(string status)
-    {
-        return status switch
-        {
-            "Present" => "status-badge success",
-            "On Time" => "status-badge success",
-            "Late" => "status-badge warning",
-            "Leave" => "status-badge danger",
-            "Absent" => "status-badge secondary",
-            _ => "status-badge info"
-        };
-    }
-
-    public string GetStateBadgeClass(string state)
-    {
-        return state switch
-        {
-            "Completed" => "bg-info",
-            "Working" => "bg-success",
-            "Working OT" => "bg-purple",
-            "On Leave" => "bg-danger",
-            "Absent" => "bg-secondary",
-            _ => "bg-secondary"
-        };
-    }
-
-    public string GetStatusIcon(string status)
-    {
-        return status switch
-        {
-            "Present" => "<i class=\"bi bi-check-circle\"></i>",
-            "Late" => "<i class=\"bi bi-clock\"></i>",
-            "Leave" => "<i class=\"bi bi-calendar-x\"></i>",
-            "Absent" => "<i class=\"bi bi-x-circle\"></i>",
-            _ => "<i class=\"bi bi-question-circle\"></i>"
-        };
-    }
-
-    public string GetUserInitials(string? fullName)
+    public string GetInitials(string? fullName)
     {
         if (string.IsNullOrWhiteSpace(fullName))
         {
@@ -78,9 +40,7 @@
                 : parts[0].ToUpperInvariant();
         }
 
-        return string.Concat(
-            char.ToUpperInvariant(parts[0][0]),
-            char.ToUpperInvariant(parts[1][0]));
+        return string.Concat(char.ToUpperInvariant(parts[0][0]), char.ToUpperInvariant(parts[1][0]));
     }
 }
 
@@ -89,2503 +49,1106 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - OT Management System</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <title>@ViewData["Title"]</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <style>
+        :root {
+            --sidebar-width: 290px;
+            --page-bg: #f5f7fc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-soft: #64748b;
+            --border: #e2e8f0;
+            --purple: #7c3aed;
+            --purple-soft: #f3e8ff;
+            --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--page-bg);
+            color: var(--text-main);
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .dashboard-wrapper {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            min-width: var(--sidebar-width);
+            background: linear-gradient(180deg, #25476f 0%, #17365d 100%);
+            position: fixed;
+            inset: 0 auto 0 0;
+            padding: 18px 12px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08), 10px 0 28px rgba(2, 10, 26, 0.32);
+            z-index: 1000;
+        }
+
+        .sidebar-brand {
+            padding: 4px 8px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 10px;
+        }
+
+        .sidebar-brand h1 {
+            margin: 0;
+            color: #fff;
+            font-size: 1.7rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.08;
+        }
+
+        .sidebar-brand p {
+            margin: 0.35rem 0 0;
+            color: rgba(255, 255, 255, 0.65);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .sidebar-nav-link {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-height: 60px;
+            padding: 0 16px;
+            border-radius: 15px;
+            color: rgba(255, 255, 255, 0.72);
+            font-weight: 700;
+            font-size: 0.95rem;
+            text-decoration: none;
+            transition: all 0.25s ease;
+        }
+
+        .sidebar-nav-link:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.06);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+        }
+
+        .sidebar-nav-link.active {
+            color: #fff;
+            background: linear-gradient(135deg, #7287ff 0%, #9854c9 100%);
+            box-shadow: 0 12px 28px rgba(100, 90, 255, 0.28);
+        }
+
+        .sidebar-profile {
+            margin-top: auto;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 16px;
+        }
+
+        .sidebar-profile-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sidebar-avatar {
+            width: 58px;
+            height: 58px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #6f7cff 0%, #9654c9 100%);
+            color: #fff;
+            font-size: 1.35rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .sidebar-profile h4 {
+            margin: 0;
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: 800;
+        }
+
+        .sidebar-profile p {
+            margin: 4px 0 0;
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 0.82rem;
+        }
+
+        .sidebar-profile-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .sidebar-profile-btn {
+            height: 46px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: rgba(255, 255, 255, 0.02);
+            color: rgba(255, 255, 255, 0.92);
+            font-weight: 700;
+            font-size: 0.82rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-profile-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.28);
+            color: #fff;
+        }
+
+        .main-content {
+            margin-left: var(--sidebar-width);
+            width: calc(100% - var(--sidebar-width));
+            padding: 20px;
+        }
+
+        .hero-header {
+            background: var(--gradient);
+            border-radius: 16px;
+            padding: 22px 24px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.35);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .hero-header h2 {
+            margin: 0;
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+
+        .hero-header p {
+            margin: 6px 0 0;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.95rem;
+        }
+
+        .hero-badge {
+            white-space: nowrap;
+            background: rgba(255, 255, 255, 0.18);
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            color: #fff;
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 0.82rem;
+            font-weight: 600;
+        }
+
+        .card-shell {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+
+        .card-header-clean {
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--border);
+            background: #f8fafc;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .card-header-clean h3 {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+
+        .card-header-clean p {
+            margin: 4px 0 0;
+            color: var(--text-soft);
+            font-size: 0.86rem;
+        }
+
+        .card-body-clean {
+            padding: 18px;
+        }
+
+        .header-badge {
+            white-space: nowrap;
+            background: #e9edff;
+            color: #3b4cca;
+            border: 1px solid #d5dcff;
+            border-radius: 999px;
+            padding: 5px 10px;
+            font-size: 0.76rem;
+            font-weight: 700;
+        }
+
+        .search-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+        }
+
+        .search-card-header {
+            align-items: center;
+        }
+
+        .add-worker-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.42rem;
+            border: 0;
+            border-radius: 10px;
+            padding: 9px 14px;
+            text-decoration: none;
+            background: var(--gradient);
+            color: #fff;
+            font-weight: 600;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.24);
+            transition: all 0.2s ease;
+        }
+
+        .add-worker-btn:hover {
+            color: #fff;
+            transform: translateY(-1px);
+            box-shadow: 0 10px 24px rgba(102, 126, 234, 0.3);
+        }
+
+        .add-worker-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .add-worker-modal {
+            width: min(640px, 100%);
+            max-height: 90vh;
+            overflow: auto;
+            border-radius: 16px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 24px 48px rgba(15, 23, 42, 0.25);
+        }
+
+        .add-worker-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 18px;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        .add-worker-modal-title {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .add-worker-modal-close {
+            border: 0;
+            background: transparent;
+            color: #64748b;
+            font-size: 1.25rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .add-worker-modal-body {
+            padding: 16px 18px;
+        }
+
+        .add-worker-field-label {
+            margin-bottom: 6px;
+            color: #334155;
+            font-size: 0.83rem;
+            font-weight: 600;
+        }
+
+        .add-worker-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .add-worker-modal-footer {
+            padding: 14px 18px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .add-worker-btn-cancel {
+            border: 1px solid #d1d9e6;
+            border-radius: 10px;
+            padding: 9px 14px;
+            background: #f8fafc;
+            color: #334155;
+            font-weight: 600;
+        }
+
+        .add-worker-btn-save {
+            border: 0;
+            border-radius: 10px;
+            padding: 9px 14px;
+            background: var(--gradient);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .add-worker-message {
+            display: none;
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            font-size: 0.84rem;
+        }
+
+        .add-worker-message.success {
+            display: block;
+            background: #dcfce7;
+            border: 1px solid #86efac;
+            color: #166534;
+        }
+
+        .add-worker-message.error {
+            display: block;
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+        }
+
+        input[type="text"],
+        input[type="date"] {
+            border: 1px solid #d1d9e6;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 0.92rem;
+            width: 100%;
+        }
+
+        input[type="text"]:focus,
+        input[type="date"]:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+        }
+
+        .search-btn {
+            border: none;
+            border-radius: 10px;
+            padding: 10px 16px;
+            background: var(--gradient);
+            color: #fff;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .filter-grid,
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .range-inputs {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .field-label {
+            color: var(--text-soft);
+            font-size: 0.78rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .warning-box {
+            border: 1px solid #facc15;
+            background: #fefce8;
+            color: #854d0e;
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 16px;
+        }
+
+        .worker-profile {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 14px;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .worker-avatar {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            background: var(--purple-soft);
+            color: var(--purple);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: 800;
+        }
+
+        .worker-name {
+            margin: 0;
+            font-size: 1.03rem;
+            font-weight: 700;
+        }
+
+        .worker-meta {
+            margin-top: 3px;
+            color: var(--text-soft);
+            font-size: 0.85rem;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .metric-grid-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .metric-box {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            background: #fff;
+        }
+
+        .metric-label {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-soft);
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .metric-value {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .result-message {
+            border: 1px dashed #cbd5e1;
+            border-radius: 12px;
+            background: #fff;
+            color: #64748b;
+            padding: 14px;
+        }
+
+        .date-range-chart-wrap {
+            margin-top: 12px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #fbfcff;
+            padding: 10px 12px;
+        }
+
+        .date-range-chart-title {
+            margin: 0 0 8px 0;
+            font-size: 0.86rem;
+            font-weight: 700;
+            color: #4c3aa9;
+        }
+
+        .date-range-chart-container {
+            position: relative;
+            height: 180px;
+        }
+
+        .info-note {
+            margin-top: 12px;
+            color: #475569;
+            font-size: 0.84rem;
+        }
+
+        @@media (max-width: 992px) {
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+                padding: 14px;
+            }
+
+            .sidebar {
+                position: static;
+                width: 100%;
+                min-width: 0;
+                height: auto;
+                min-height: auto;
+            }
+
+            .dashboard-wrapper {
+                flex-direction: column;
+            }
+
+            .hero-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .filter-grid,
+            .result-grid,
+            .range-inputs,
+            .metric-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .search-row {
+                grid-template-columns: 1fr;
+            }
+
+            .search-card-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+        }
+    </style>
 </head>
 <body>
-<style>
-/* Global CSS Fixes for 100% Zoom */
-* {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  width: 100%;
-  max-width: 100%;
-  overflow-x: hidden;
-  margin: 0;
-  padding: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-/* Dashboard Layout with Sidebar */
-.dashboard-wrapper {
-    --sidebar-width: 290px;
-    display: flex;
-    min-height: 100vh;
-    background: #f8fafc;
-}
-
-/* Left Sidebar */
-.sidebar {
-    width: var(--sidebar-width);
-    min-width: var(--sidebar-width);
-    background: linear-gradient(180deg, #25476f 0%, #17365d 100%);
-    min-height: 100svh;
-    height: 100svh;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    position: fixed;
-    left: 0;
-    top: 0;
-    z-index: 1000;
-    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08), 8px 0 28px rgba(3, 8, 20, 0.28);
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-    overflow-x: hidden;
-    overflow-y: auto;
-    padding: 18px 12px;
-}
-
-.sidebar * {
-    max-width: 100%;
-}
-
-.sidebar-brand {
-    padding: 4px 8px 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    margin-bottom: 10px;
-}
-
-.sidebar-brand h1,
-.sidebar-brand-title {
-    color: white;
-    font-size: 1.7rem;
-    font-weight: 800;
-    margin: 0;
-    letter-spacing: -0.03em;
-    line-height: 1.05;
-}
-
-.sidebar-brand p,
-.sidebar-brand-subtitle {
-    color: rgba(225, 235, 255, 0.68);
-    font-size: 0.75rem;
-    margin: 0.35rem 0 0;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.sidebar-nav {
-    flex: 1;
-    padding: 4px 2px 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    overflow-x: hidden;
-}
-
-.nav-item,
-.sidebar-nav-link {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    min-height: 60px;
-    padding: 0 16px;
-    color: rgba(255, 255, 255, 0.78);
-    text-decoration: none;
-    border-radius: 15px;
-    transition: all 0.25s ease;
-    font-weight: 700;
-    font-size: 0.95rem;
-    line-height: 1;
-    cursor: pointer;
-}
-
-.nav-item:hover,
-.sidebar-nav-link:hover {
-    background: rgba(255, 255, 255, 0.06);
-    color: white;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
-}
-
-.nav-item.active,
-.sidebar-nav-link.active {
-    background: linear-gradient(135deg, #7287ff 0%, #9854c9 100%);
-    color: white;
-    box-shadow: 0 12px 28px rgba(100, 90, 255, 0.28);
-}
-
-.nav-item i,
-.sidebar-nav-link i {
-    font-size: 1.05rem;
-    width: 18px;
-    text-align: center;
-    flex-shrink: 0;
-}
-
-.sidebar-footer {
-    margin-top: auto;
-    padding: 12px 2px 2px;
-    border-top: none;
-}
-
-.user-profile-card {
-    background: rgba(255, 255, 255, 0.04);
-    border-radius: 16px;
-    padding: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    overflow: hidden;
-    backdrop-filter: blur(3px);
-}
-
-.user-profile-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 14px;
-}
-
-.user-avatar {
-    width: 58px;
-    height: 58px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, #6f7cff 0%, #9654c9 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 800;
-    font-size: 1.5rem;
-    flex-shrink: 0;
-    box-shadow: 0 8px 20px rgba(98, 102, 255, 0.24);
-}
-
-.user-info h4 {
-    color: white;
-    font-size: 0.95rem;
-    font-weight: 800;
-    margin: 0;
-    line-height: 1.2;
-    overflow-wrap: anywhere;
-}
-
-.user-info p {
-    color: rgba(226, 235, 252, 0.74);
-    font-size: 0.82rem;
-    margin: 4px 0 0;
-}
-
-.user-actions {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-}
-
-.user-action-btn {
-    min-height: 46px;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    background: rgba(255, 255, 255, 0.02);
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 0.82rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-}
-
-.user-action-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: white;
-    border-color: rgba(255, 255, 255, 0.28);
-}
-
-/* Main Content Area */
-.main-content {
-    flex: 1;
-    margin-left: var(--sidebar-width);
-    padding: 1rem 1.5rem;
-    max-width: none;
-    min-width: 0;
-    width: calc(100% - var(--sidebar-width));
-    overflow-x: hidden;
-    background: #f8fafc;
-    min-height: 100vh;
-}
-
-/* Top Header */
-.top-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.25rem;
-    padding: 0 0.25rem;
-}
-
-.header-left h1 {
-    font-size: 0.6875rem;
-    color: #64748b;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin: 0 0 0.25rem 0;
-}
-
-.header-left h2 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0;
-    letter-spacing: -0.025em;
-}
-
-.header-right {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.header-chip {
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    font-size: 0.8125rem;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.chip-admin {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-}
-
-.chip-date {
-    background: white;
-    color: #475569;
-    border: 1px solid #e2e8f0;
-}
-
-/* Hero Command Center Card */
-.hero-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 16px;
-    padding: 1.25rem 1.5rem;
-    margin-bottom: 1.25rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 10px 40px rgba(102, 126, 234, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    position: relative;
-    overflow: hidden;
-    min-height: 120px;
-}
-
-.hero-card::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    right: -50%;
-    width: 100%;
-    height: 100%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-}
-
-.hero-content {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.hero-left {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-}
-
-.hero-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.5rem;
-    box-shadow: 0 0 32px rgba(255, 255, 255, 0.3);
-    backdrop-filter: blur(10px);
-}
-
-.hero-text h2 {
-    color: white;
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin: 0 0 0.375rem 0;
-    letter-spacing: -0.025em;
-}
-
-.hero-text p {
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 0.875rem;
-    margin: 0;
-    line-height: 1.4;
-}
-
-.hero-right {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.hero-btn {
-    padding: 0.625rem 1.25rem;
-    border-radius: 8px;
-    border: none;
-    font-weight: 600;
-    font-size: 0.8125rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.hero-btn.primary {
-    background: white;
-    color: #667eea;
-}
-
-.hero-btn.primary:hover {
-    background: rgba(255, 255, 255, 0.9);
-    transform: translateY(-1px);
-}
-
-.hero-btn.secondary {
-    background: rgba(255, 255, 255, 0.15);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-.hero-btn.secondary:hover {
-    background: rgba(255, 255, 255, 0.25);
-}
-
-/* Modern Dashboard Layout */
-.dashboard-content {
-    max-width: none;
-    margin: 0;
-    padding: 0;
-    background: transparent;
-    width: 100%;
-    overflow-x: hidden;
-}
-
-/* Search Section */
-.search-section {
-    background: white;
-    border-radius: 16px;
-    padding: 1rem 1.5rem;
-    margin-bottom: 1.25rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e5e7eb;
-    min-height: 80px;
-}
-
-.search-section-header {
-    margin-bottom: 1rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 1rem;
-}
-
-.search-section-header h3 {
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0 0 0.375rem 0;
-}
-
-.search-section-header p {
-    font-size: 0.875rem;
-    color: #64748b;
-    margin: 0;
-}
-
-.search-form {
-    display: flex;
-    gap: 0.75rem;
-}
-
-.search-input {
-    flex: 1;
-    padding: 0.75rem 1rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 0.875rem;
-    transition: all 0.2s ease;
-}
-
-.search-input:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.search-btn {
-    padding: 0.75rem 1.5rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.search-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-/* KPI Cards Grid */
-.kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    overflow: visible;
-    align-items: stretch;
-}
-
-.kpi-card {
-    background: white;
-    border-radius: 16px;
-    padding: 20px 16px 22px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e5e7eb;
-    transition: all 0.3s ease;
-    min-height: 165px;
-    height: 165px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    overflow: visible;
-    text-align: center;
-}
-
-.kpi-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-}
-
-.kpi-icon-box {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    margin: 0;
-    flex-shrink: 0;
-}
-
-.kpi-icon-box.purple { background: #f3e8ff; color: #7c3aed; }
-.kpi-icon-box.green { background: #d1fae5; color: #059669; }
-.kpi-icon-box.blue { background: #dbeafe; color: #2563eb; }
-.kpi-icon-box.orange { background: #fed7aa; color: #ea580c; }
-.kpi-icon-box.red { background: #fee2e2; color: #dc2626; }
-
-.kpi-value {
-    font-size: 1.6rem;
-    font-weight: 800;
-    color: #0f172a;
-    margin: 0;
-    letter-spacing: -0.025em;
-    line-height: 1.1;
-}
-
-.kpi-label {
-    font-size: 0.7rem;
-    color: #64748b;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    line-height: 1.2;
-    margin: 0;
-    white-space: normal;
-}
-
-.chart-container {
-    height: 240px;
-    position: relative;
-}
-
-/* Data Cards Row */
-.data-cards-row {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-    margin-bottom: 1rem;
-}
-
-.data-card-full-width {
-    width: 100%;
-    margin-bottom: 1.5rem;
-}
-
-.data-card {
-    background: white;
-    border-radius: 16px;
-    padding: 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e5e7eb;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    min-height: 380px;
-}
-
-.data-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 1.25rem;
-    border-bottom: 1px solid #e5e7eb;
-    background: #f9fafb;
-    margin-bottom: 0;
-}
-
-.data-card-header h3 {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.data-card-body {
-    padding: 0;
-    flex: 1;
-    overflow-y: auto;
-    max-height: 300px;
-}
-
-.data-card-body table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.badge-top-performers {
-    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-    color: white;
-    padding: 0.375rem 0.75rem;
-    border-radius: 999px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.badge-live-ot {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    color: white;
-    padding: 0.375rem 0.75rem;
-    border-radius: 999px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-/* Compact Tables */
-.compact-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.compact-table thead {
-    position: sticky;
-    top: 0;
-    background: #f9fafb;
-    z-index: 10;
-}
-
-.compact-table th {
-    padding: 0.875rem 1rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    text-align: left;
-    border-bottom: 2px solid #e5e7eb;
-    background: #f9fafb;
-}
-
-.compact-table td {
-    padding: 0.875rem 1rem;
-    font-size: 0.875rem;
-    color: #0f172a;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.compact-table tbody tr:hover {
-    background: #f9fafb;
-}
-
-.compact-table tbody tr:last-child td {
-    border-bottom: none;
-}
-
-.ot-status-badge {
-    padding: 0.25rem 0.625rem;
-    border-radius: 999px;
-    font-size: 0.6875rem;
-    font-weight: 600;
-}
-
-.ot-status-badge.completed {
-    background: #dbeafe;
-    color: #1e3a8a;
-}
-
-.ot-status-badge.current {
-    background: #f3e8ff;
-    color: #7c3aed;
-}
-
-.ot-status-badge.working {
-    background: #d1fae5;
-    color: #059669;
-}
-
-/* Weekly Summary Strip */
-.weekly-summary-strip {
-    background: white;
-    border-radius: 12px;
-    padding: 1rem 1.5rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1.5rem;
-    margin-bottom: 0;
-    min-height: 90px;
-}
-
-.weekly-summary-left {
-    flex: 1;
-}
-
-.weekly-summary-title {
-    font-size: 1rem;
-    font-weight: 600;
-    color: #64748b;
-    margin-bottom: 1rem;
-}
-
-.weekly-metrics {
-    display: flex;
-    gap: 2rem;
-}
-
-.weekly-metric {
-    text-align: center;
-}
-
-.weekly-metric-value {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #0f172a;
-    margin-bottom: 0.125rem;
-    letter-spacing: -0.025em;
-}
-
-.weekly-metric-label {
-    font-size: 0.75rem;
-    color: #64748b;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.weekly-summary-right {
-    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-    border-radius: 10px;
-    padding: 0.875rem 1.25rem;
-    min-width: 280px;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
-}
-
-.performance-title {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #065f46;
-    margin: 0 0 0.375rem 0;
-}
-
-.performance-message {
-    font-size: 0.875rem;
-    color: #047857;
-    margin: 0 0 0.625rem 0;
-    line-height: 1.5;
-}
-
-.performance-trend {
-    font-size: 0.75rem;
-    color: #059669;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-}
-
-/* Footer Links */
-.footer-links {
-    display: flex;
-    justify-content: center;
-    gap: 1.5rem;
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid #e5e7eb;
-}
-
-.footer-link {
-    color: #667eea;
-    text-decoration: none;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    transition: color 0.2s ease;
-}
-
-.footer-link:hover {
-    color: #5568d3;
-}
-
-/* Attendance Modal - Hidden by default */
-.attendance-modal {
-    display: none;
-}
-
-.attendance-modal.show {
-    display: block;
-}
-
-.attendance-modal.hidden {
-    display: none;
-}
-
-/* Responsive Design */
-@@media (max-width: 1400px) {
-    .kpi-grid {
-        grid-template-columns: repeat(5, 1fr);
-        gap: 0.75rem;
-    }
-}
-
-@@media (max-width: 1200px) {
-    .kpi-grid {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 0.75rem;
-    }
-    
-    .data-cards-row {
-        grid-template-columns: 1fr;
-    }
-}
-
-@@media (max-width: 992px) {
-    .kpi-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .data-cards-row {
-        grid-template-columns: 1fr;
-    }
-    
-    .weekly-summary-strip {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .weekly-metrics {
-        justify-content: center;
-    }
-}
-
-@@media (max-width: 768px) {
-    .sidebar {
-        transform: translateX(-100%);
-        transition: transform 0.3s ease;
-    }
-    
-    .sidebar.open {
-        transform: translateX(0);
-    }
-    
-    .main-content {
-        margin-left: 0;
-        max-width: 100%;
-        width: 100%;
-    }
-    
-    .hero-content {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-    
-    .hero-right {
-        width: 100%;
-        justify-content: flex-start;
-    }
-    
-    .kpi-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-.page-header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-}
-
-.page-title-section h1 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 0.25rem;
-    color: white;
-    letter-spacing: -0.025em;
-}
-
-.page-title-section p {
-    opacity: 0.9;
-    margin: 0;
-    font-size: 0.875rem;
-    font-weight: 400;
-}
-
-.page-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.section-badge {
-    background: rgba(255, 255, 255, 0.15);
-    color: white;
-    padding: 0.4375rem 0.875rem;
-    border-radius: 6px;
-    font-weight: 600;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    font-size: 0.8125rem;
-}
-
-/* KPI Cards Grid */
-.kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 0.75rem;
-    margin-bottom: 1rem;
-}
-
-.kpi-card {
-    background: white;
-    border-radius: 10px;
-    padding: 0.875rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-    border: 1px solid #e5e7eb;
-    transition: all 0.2s ease;
-    position: relative;
-    overflow: hidden;
-    min-height: 95px;
-    max-height: 105px;
-}
-
-.kpi-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #667eea, #764ba2);
-}
-
-.kpi-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.kpi-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.875rem;
-    margin-bottom: 0.5rem;
-}
-
-.kpi-icon.success { background: #d1fae5; color: #059669; }
-.kpi-icon.warning { background: #fef3c7; color: #d97706; }
-.kpi-icon.danger { background: #fee2e2; color: #dc2626; }
-.kpi-icon.info { background: #dbeafe; color: #2563eb; }
-.kpi-icon.purple { background: #f3e8ff; color: #7c3aed; }
-
-.kpi-value {
-    font-size: 1.375rem;
-    font-weight: 700;
-    color: #111827;
-    margin-bottom: 0.125rem;
-    line-height: 1.2;
-}
-
-.kpi-label {
-    color: #6b7280;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-/* Dashboard Sections */
-.dashboard-section {
-    background: white;
-    border-radius: 10px;
-    padding: 1rem 1.25rem;
-    margin-bottom: 0.875rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-    border: 1px solid #e5e7eb;
-}
-
-.section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.625rem;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.section-title {
-    font-size: 0.9375rem;
-    font-weight: 700;
-    color: #111827;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    letter-spacing: -0.025em;
-}
-
-.section-subtitle {
-    color: #6b7280;
-    font-size: 0.8125rem;
-    margin: 0.125rem 0 0 0;
-    font-weight: 400;
-}
-
-/* Two Column Layout */
-.two-column-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.875rem;
-    margin-bottom: 0.875rem;
-}
-
-/* Full Width Sections */
-.full-width-section {
-    grid-column: 1 / -1;
-}
-
-/* Search Section */
-.search-section {
-    background: white;
-    border-radius: 10px;
-    padding: 1rem 1.25rem;
-    margin-bottom: 0.875rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-    border: 1px solid #e5e7eb;
-}
-
-.search-container {
-    display: flex;
-    gap: 0.75rem;
-    align-items: end;
-    flex-wrap: wrap;
-}
-
-.search-input {
-    flex: 1;
-    min-width: 250px;
-    height: 42px;
-    padding: 0.625rem 0.875rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 0.875rem;
-    transition: all 0.2s ease;
-}
-
-.search-input:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.search-button {
-    height: 42px;
-    padding: 0 1.25rem;
-    border-radius: 8px;
-    font-weight: 600;
-    transition: all 0.2s ease;
-    font-size: 0.875rem;
-}
-
-/* Charts */
-.chart-container {
-    background: white;
-    border-radius: 10px;
-    padding: 1rem 1.25rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-    border: 1px solid #e5e7eb;
-    height: 260px;
-    display: flex;
-    flex-direction: column;
-}
-
-.chart-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.chart-title {
-    font-size: 0.875rem;
-    font-weight: 700;
-    color: #111827;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    letter-spacing: -0.025em;
-}
-
-.chart-body {
-    flex: 1;
-    position: relative;
-    min-height: 200px;
-}
-
-/* Tables */
-.data-table {
-    background: white;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-    border: 1px solid #e5e7eb;
-}
-
-.data-table table {
-    margin: 0;
-    border-collapse: collapse;
-    width: 100%;
-}
-
-.data-table th {
-    background: #f9fafb;
-    padding: 0.75rem 1rem;
-    text-align: left;
-    font-weight: 600;
-    color: #374151;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.data-table td {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid #f3f4f6;
-    vertical-align: middle;
-    font-size: 0.875rem;
-}
-
-.data-table tbody tr:hover {
-    background: #f9fafb;
-}
-
-/* Legacy Status Badges - Removed to avoid conflicts with new badge system */
-
-/* Empty States */
-.empty-state {
-    text-align: center;
-    padding: 2rem 1rem;
-    color: #6b7280;
-}
-
-.empty-state-icon {
-    font-size: 2.5rem;
-    margin-bottom: 0.75rem;
-    opacity: 0.5;
-}
-
-.empty-state-title {
-    font-size: 0.9375rem;
-    font-weight: 600;
-    margin-bottom: 0.375rem;
-    color: #374151;
-}
-
-.empty-state-description {
-    font-size: 0.8125rem;
-    max-width: 400px;
-    margin: 0 auto;
-}
-
-/* Form Styles for Add Worker Modal */
-.form-group {
-    margin-bottom: 1rem;
-}
-
-.form-label {
-    display: block;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #374151;
-    margin-bottom: 0.5rem;
-}
-
-.form-control {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 0.875rem;
-    transition: all 0.2s ease;
-    background: white;
-}
-
-.form-control:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.form-control.is-invalid {
-    border-color: #ef4444;
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
-}
-
-.invalid-feedback {
-    display: block;
-    width: 100%;
-    margin-top: 0.25rem;
-    font-size: 0.75rem;
-    color: #ef4444;
-    font-weight: 500;
-}
-
-.alert-info {
-    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-    border: 1px solid #93c5fd;
-    color: #1e40af;
-    padding: 0.75rem 1rem;
-    border-radius: 8px;
-    font-size: 0.8125rem;
-    display: flex;
-    align-items: center;
-    margin-top: 1rem;
-}
-
-.btn-secondary {
-    background: white;
-    color: #64748b;
-    border: 1px solid #e5e7eb;
-    padding: 0.625rem 1.25rem;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.8125rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.btn-secondary:hover {
-    background: #f9fafb;
-    border-color: #d1d5db;
-}
-
-.btn-primary {
-    padding: 0.625rem 1.25rem;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 0.8125rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    color: white;
-}
-
-.btn-primary:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-/* Modal Footer */
-.attendance-modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.75rem;
-    padding: 1rem 1.5rem;
-    border-top: 1px solid #e5e7eb;
-    background: #f9fafb;
-}
-
-/* Weekly OT Summary Strip */
-.weekly-summary-strip {
-    background: white;
-    border-radius: 10px;
-    padding: 0.875rem 1.25rem;
-    margin-top: 0.875rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-    border: 1px solid #e5e7eb;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    min-height: 85px;
-    max-height: 95px;
-}
-
-.weekly-summary-content {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-}
-
-.weekly-summary-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.25rem;
-}
-
-.weekly-summary-info {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
-}
-
-.weekly-summary-title {
-    font-size: 0.9375rem;
-    font-weight: 700;
-    color: #111827;
-    margin: 0;
-}
-
-.weekly-summary-date {
-    font-size: 0.8125rem;
-    color: #6b7280;
-    margin: 0;
-}
-
-.weekly-summary-metrics {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
-}
-
-.weekly-metric {
-    display: flex;
-    flex-direction: column;
-    gap: 0.125rem;
-}
-
-.weekly-metric-label {
-    font-size: 0.6875rem;
-    color: #6b7280;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.weekly-metric-value {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #111827;
-}
-
-.weekly-summary-divider {
-    width: 1px;
-    height: 35px;
-    background: #e5e7eb;
-}
-
-.weekly-summary-performance {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    align-items: flex-end;
-}
-
-.weekly-performance-message {
-    font-size: 0.8125rem;
-    font-weight: 600;
-    color: #059669;
-    margin: 0;
-}
-
-.weekly-performance-detail {
-    font-size: 0.6875rem;
-    color: #6b7280;
-    margin: 0;
-    text-align: right;
-}
-
-/* Responsive Design */
-@@media (max-width: 1400px) {
-    .dashboard-content {
-        max-width: 100%;
-        padding: 0.875rem 1rem;
-    }
-    
-    .kpi-grid {
-        grid-template-columns: repeat(5, 1fr);
-        gap: 0.625rem;
-    }
-}
-
-@@media (max-width: 1200px) {
-    .dashboard-content {
-        padding: 0.875rem 1rem;
-    }
-    
-    .kpi-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-    
-    .two-column-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-@@media (max-width: 992px) {
-    .dashboard-content {
-        padding: 0.75rem 0.875rem;
-    }
-    
-    .kpi-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    
-    .two-column-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-@@media (max-width: 768px) {
-    .dashboard-content {
-        padding: 0.625rem 0.875rem;
-    }
-    
-    .page-header {
-        padding: 0.875rem;
-        min-height: auto;
-        max-height: none;
-    }
-    
-    .page-header-content {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .page-title-section h1 {
-        font-size: 1.125rem;
-    }
-    
-    .kpi-grid {
-        grid-template-columns: 1fr;
-        gap: 0.625rem;
-    }
-    
-    .two-column-grid {
-        grid-template-columns: 1fr;
-        gap: 0.625rem;
-    }
-    
-    .chart-container {
-        height: 220px;
-    }
-    
-    .kpi-card {
-        padding: 0.75rem;
-    }
-    
-    .kpi-value {
-        font-size: 1.25rem;
-    }
-    
-    .search-container {
-        flex-direction: column;
-    }
-    
-    .search-input {
-        width: 100%;
-    }
-    
-    .search-button {
-        width: 100%;
-    }
-}
-
-@@media (max-width: 480px) {
-    .kpi-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .page-header-actions {
-        flex-direction: column;
-        width: 100%;
-    }
-    
-    .section-badge {
-        width: 100%;
-        text-align: center;
-    }
-}
-
-/* Legacy styles for compatibility */
-.dashboard-card {
-    background: white;
-    border-radius: 10px;
-    padding: 1rem 1.25rem;
-    margin-bottom: 0.875rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-    border: 1px solid #e5e7eb;
-}
-
-.summary-card {
-    padding: 0.875rem;
-    border-radius: 8px;
-    background: #f9fafb;
-    text-align: center;
-    border: 1px solid #e5e7eb;
-}
-
-.worker-chart-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.875rem;
-    margin: 0.875rem 0;
-}
-
-.worker-chart-card {
-    background: #fff;
-    border-radius: 10px;
-    border: 1px solid #e5e7eb;
-    padding: 1rem 1.25rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
-}
-
-.worker-chart-box {
-    position: relative;
-    height: 240px;
-}
-
-.chart-card-header {
-    padding: 0.875rem 1rem;
-    font-size: 0.875rem;
-    font-weight: 700;
-    color: #111827;
-    border-bottom: 1px solid #e5e7eb;
-    background: #ffffff;
-}
-
-.chart-box {
-    position: relative;
-    height: 260px;
-    padding: 1rem;
-}
-
-.worker-history-table-wrap {
-    max-height: 350px;
-    overflow-y: auto;
-}
-
-.worker-profile-info {
-    background: #f9fafb;
-    padding: 1rem;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
-}
-
-.profile-item label {
-    margin-bottom: 0.25rem;
-    font-weight: 500;
-}
-
-.profile-item div {
-    margin-bottom: 0.5rem;
-}
-
-/* Strong Layout Overrides to Fix Blank Space */
-.dashboard-wrapper,
-.dashboard-content {
-    width: 100% !important;
-    max-width: none !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-    transform: none !important;
-}
-
-.main-content {
-    margin-left: var(--sidebar-width) !important;
-    width: calc(100% - var(--sidebar-width)) !important;
-    padding: 1rem 1.5rem !important;
-    overflow-x: hidden !important;
-}
-
-.sidebar {
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
-}
-
-.sidebar * {
-    max-width: 100% !important;
-}
-
-/* Ensure all dashboard sections use full width */
-.hero-card,
-.search-section,
-.kpi-grid,
-.data-cards-row,
-.weekly-summary-strip {
-    width: 100% !important;
-    max-width: none !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-}
-
-@@media (max-width: 768px) {
-    .main-content {
-        margin-left: 0 !important;
-        width: 100% !important;
-    }
-}
-
-/* KPI clipping fix: enforce vertical room and prevent card/row clipping */
-.kpi-grid,
-.stats-grid,
-.summary-cards,
-.dashboard-stats {
-    height: auto !important;
-    min-height: 175px !important;
-    overflow: visible !important;
-    margin-bottom: 24px !important;
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 14px;
-    align-items: stretch;
-}
-
-.kpi-card,
-.stat-card,
-.summary-card,
-.metric-card {
-    height: auto !important;
-    min-height: 170px !important;
-    max-height: none !important;
-    padding: 20px 16px 24px !important;
-    overflow: visible !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 10px !important;
-    text-align: center !important;
-    position: relative !important;
-}
-
-.kpi-icon-box,
-.kpi-icon,
-.stat-icon,
-.metric-icon {
-    width: 58px !important;
-    height: 58px !important;
-    flex-shrink: 0 !important;
-    margin: 0 !important;
-}
-
-.kpi-value,
-.stat-value,
-.metric-value {
-    font-size: 1.55rem !important;
-    font-weight: 800 !important;
-    line-height: 1.1 !important;
-    margin: 0 !important;
-    position: static !important;
-    transform: none !important;
-}
-
-.kpi-label,
-.stat-label,
-.metric-label {
-    display: block !important;
-    font-size: 0.72rem !important;
-    font-weight: 700 !important;
-    line-height: 1.25 !important;
-    letter-spacing: 0.06em !important;
-    text-transform: uppercase !important;
-    color: #64748b !important;
-    margin: 0 !important;
-    white-space: normal !important;
-    overflow: visible !important;
-    position: static !important;
-    transform: none !important;
-}
-
-.data-cards-row,
-.lower-dashboard-section,
-.ot-panels-section {
-    margin-top: 0 !important;
-}
-
-@@media (max-width: 1200px) {
-    .kpi-grid,
-    .stats-grid,
-    .summary-cards,
-    .dashboard-stats {
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    }
-}
-
-@@media (max-width: 992px) {
-    .kpi-grid,
-    .stats-grid,
-    .summary-cards,
-    .dashboard-stats {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    }
-}
-
-@@media (max-width: 768px) {
-    .kpi-grid,
-    .stats-grid,
-    .summary-cards,
-    .dashboard-stats {
-        grid-template-columns: 1fr !important;
-    }
-}
-
-.add-worker-btn {
-    height: 46px;
-    padding: 0 22px;
-    border-radius: 10px;
-    border: none;
-    color: #ffffff;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    font-weight: 700;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.add-worker-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.3);
-}
-
-.add-worker-modal-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-    background: rgba(15, 23, 42, 0.45);
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-}
-
-.add-worker-modal {
-    width: 100%;
-    max-width: 460px;
-    background: #ffffff;
-    border-radius: 18px;
-    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
-    padding: 24px;
-}
-
-.add-worker-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-}
-
-.add-worker-modal-header h3 {
-    margin: 0;
-    font-size: 22px;
-    font-weight: 700;
-    color: #0f172a;
-}
-
-.modal-close-btn {
-    border: none;
-    background: transparent;
-    font-size: 28px;
-    line-height: 1;
-    cursor: pointer;
-    color: #64748b;
-}
-
-.add-worker-modal .form-group {
-    margin-bottom: 16px;
-}
-
-.add-worker-modal .form-group label {
-    display: block;
-    margin-bottom: 7px;
-    font-weight: 600;
-    color: #1e293b;
-}
-
-.add-worker-modal .form-group input,
-.add-worker-modal .form-group select {
-    width: 100%;
-    height: 46px;
-    border: 1px solid #dbe2ea;
-    border-radius: 10px;
-    padding: 0 14px;
-    font-size: 14px;
-    outline: none;
-}
-
-.add-worker-modal .form-group input:focus,
-.add-worker-modal .form-group select:focus {
-    border-color: #6d5dfc;
-    box-shadow: 0 0 0 3px rgba(109, 93, 252, 0.12);
-}
-
-.password-info-box {
-    margin: 12px 0 16px;
-    padding: 12px 14px;
-    border: 1px solid #93c5fd;
-    background: #eff6ff;
-    color: #1d4ed8;
-    border-radius: 10px;
-    font-size: 14px;
-    line-height: 1.5;
-}
-
-.add-worker-message {
-    margin-bottom: 16px;
-    padding: 12px 14px;
-    border-radius: 10px;
-    font-size: 14px;
-    line-height: 1.5;
-}
-
-.add-worker-message.success {
-    background: #ecfdf5;
-    color: #047857;
-    border: 1px solid #a7f3d0;
-}
-
-.add-worker-message.error {
-    background: #fef2f2;
-    color: #b91c1c;
-    border: 1px solid #fecaca;
-}
-
-.modal-actions {
-    display: flex;
-    gap: 12px;
-    justify-content: flex-end;
-}
-
-.btn-cancel,
-.btn-create-worker {
-    height: 46px;
-    padding: 0 22px;
-    border-radius: 10px;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.btn-cancel {
-    background: #ffffff;
-    color: #0f172a;
-    border: 1px solid #dbe2ea;
-}
-
-.btn-create-worker {
-    border: none;
-    color: #ffffff;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-</style>
-
 @if (!Model.HasSection)
 {
-    <div class="container-fluid px-4">
-        <div class="row justify-content-center">
-            <div class="col-md-6">
-                <div class="card border-danger">
-                    <div class="card-body text-center">
-                        <i class="bi bi-exclamation-triangle text-danger" style="font-size: 3rem;"></i>
-                        <h4 class="text-danger mt-3">@Model.NoSectionMessage</h4>
-                        <a href="/Account/Logout" class="btn btn-primary mt-3">Contact SuperAdmin</a>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="container py-5">
+        <div class="warning-box">@Model.NoSectionMessage</div>
     </div>
 }
 else
 {
     <div class="dashboard-wrapper">
-        <!-- Left Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-brand">
-                <h1 class="sidebar-brand-title">PulseHR</h1>
-                <p class="sidebar-brand-subtitle">OVERTIME CONSOLE</p>
+                <h1>PulseHR</h1>
+                <p>Overtime Management</p>
             </div>
+
             <nav class="sidebar-nav">
-                <a href="/Dashboard/Index" class="nav-item @(isDashboardActive ? "active" : "")">
-                    <i class="bi bi-speedometer2"></i>
+                <a class="sidebar-nav-link @(isDashboardActive ? "active" : string.Empty)" asp-controller="Dashboard" asp-action="Index">
+                    <i class="bi bi-grid-1x2-fill"></i>
                     <span>Dashboard</span>
                 </a>
-                <a href="/Attendance/Manage" class="nav-item @(isManageOvertimeActive ? "active" : "")">
+                <a class="sidebar-nav-link @(isManageOvertimeActive ? "active" : string.Empty)" asp-controller="Attendance" asp-action="Manage">
                     <i class="bi bi-clock-history"></i>
                     <span>Manage Overtime</span>
                 </a>
             </nav>
-            <div class="sidebar-footer">
-                <div class="user-profile-card">
-                    <div class="user-profile-header">
-                        <div class="user-avatar">@sidebarInitials</div>
-                        <div class="user-info">
-                            <h4>@sidebarDisplayName</h4>
-                            <p>@sidebarRole</p>
-                        </div>
+
+            <div class="sidebar-profile">
+                <div class="sidebar-profile-top">
+                    <div class="sidebar-avatar">@sidebarInitials</div>
+                    <div>
+                        <h4>@sidebarDisplayName</h4>
+                        <p>@sidebarRoleLabel</p>
                     </div>
-                    <div class="user-actions">
-                        <a href="/Account/Profile" class="user-action-btn">Profile</a>
-                        <a href="/Account/Logout" class="user-action-btn">Logout</a>
-                    </div>
+                </div>
+                <div class="sidebar-profile-actions">
+                    <a class="sidebar-profile-btn" asp-controller="Account" asp-action="Profile">Profile</a>
+                    <a class="sidebar-profile-btn" asp-controller="Account" asp-action="Logout">Logout</a>
                 </div>
             </div>
         </aside>
 
-        <!-- Main Content Area -->
         <main class="main-content">
-            <!-- Top Header -->
-            <header class="top-header">
-                <div class="header-left">
-                    <h1>OVERTIME MANAGEMENT SYSTEM</h1>
-                    <h2>Admin OT Dashboard</h2>
+            <section class="hero-header">
+                <div>
+                    <h2>Overtime Command Center</h2>
+                    <p>Search a worker by Service ID to view overtime details.</p>
                 </div>
-                <div class="header-right">
-                    <div class="header-chip chip-admin">
-                        <i class="bi bi-shield-check"></i> Admin
-                    </div>
-                    <div class="header-chip chip-date">
-                        <i class="bi bi-calendar3"></i> Friday, 08 May 2026
-                    </div>
-                </div>
-            </header>
+                <div class="hero-badge">@adminBadgeText</div>
+            </section>
 
-            <div class="dashboard-content">
-                <!-- Hero Command Center Card -->
-                <div class="hero-card">
-                    <div class="hero-content">
-                        <div class="hero-left">
-                            <div class="hero-icon">
-                                <i class="bi bi-clock-history"></i>
-                            </div>
-                            <div class="hero-text">
-                                <h2>Overtime Command Center</h2>
-                                <p>Monitor live overtime, total OT hours, top contributors, and section performance.</p>
-                            </div>
-                        </div>
-                        <div class="hero-right">
-                            <div class="section-badge">
-                                <i class="bi bi-shield-check"></i> Marketing Admin
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Search Section -->
-                <div class="search-section">
-                    <div class="search-section-header">
+            <form id="workerOtSearchForm" method="get" asp-controller="Dashboard" asp-action="Index">
+                <section class="card-shell">
+                    <header class="card-header-clean search-card-header">
                         <div>
-                            <h3><i class="bi bi-search me-2"></i>Search Worker OT History</h3>
-                            <p>Search by Service ID to view overtime history</p>
+                            <h3>Search Worker OT History</h3>
+                            <p>Search by Service ID / Service Number to view overtime history</p>
                         </div>
                         <button type="button" id="openAddWorkerModal" class="add-worker-btn">
-                            <i class="bi bi-person-plus me-2"></i>
-                            Add New Worker
+                            <i class="bi bi-person-plus-fill"></i>
+                            <span>Add New Worker</span>
                         </button>
-                    </div>
-                    <form method="get" asp-controller="Dashboard" asp-action="Index" class="search-form">
-                        <input type="text" 
-                               class="search-input" 
-                               id="serviceId" 
-                               name="serviceId" 
-                               placeholder="Enter Service ID..."
-                               value="@Model.SearchServiceId">
-                        <button type="submit" class="search-btn">
-                            <i class="bi bi-search me-2"></i>Search
-                        </button>
-                        @if (!string.IsNullOrEmpty(Model.SearchServiceId))
-                        {
-                            <a href="/Dashboard/Index" class="search-btn" style="background: white; color: #64748b; border: 1px solid #e5e7eb;">
-                                <i class="bi bi-x-lg me-2"></i>Clear
-                            </a>
-                        }
-                    </form>
-                </div>
-
-                @if (isWorkerSearchMode)
-                {
-                    <!-- Worker Search Results -->
-                    <div class="data-card">
-                        <div class="data-card-header">
-                            <h3><i class="bi bi-person-lines-fill me-2"></i>Worker OT History</h3>
+                    </header>
+                    <div class="card-body-clean">
+                        <div class="search-row">
+                            <input
+                                type="text"
+                                id="serviceId"
+                                name="serviceId"
+                                value="@Model.SearchServiceId"
+                                placeholder="Enter Service ID / Service Number (e.g., EMP001)"
+                                autocomplete="off" />
+                            <button type="submit" class="search-btn">Search</button>
                         </div>
-                        @if (Model.WorkerHistorySearchResult != null && Model.WorkerHistorySearchResult.OTHistory != null && Model.WorkerHistorySearchResult.OTHistory.Any())
-                        {
-                            <table class="compact-table">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>OT Start Time</th>
-                                        <th>OT End Time</th>
-                                        <th>OT Hours</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var history in Model.WorkerHistorySearchResult.OTHistory)
-                                    {
-                                        <tr>
-                                            <td>@history.Date.ToString("ddd, dd MMM yyyy")</td>
-                                            <td>@history.InTime</td>
-                                            <td>@history.OutTime</td>
-                                            <td>@history.OTHours</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        }
-                        else
-                        {
-                            <div class="empty-state">
-                                <div class="empty-state-icon">
-                                    <i class="bi bi-calendar3"></i>
+                    </div>
+                </section>
+
+                <section class="filter-grid">
+                    <article class="card-shell">
+                        <header class="card-header-clean">
+                            <div>
+                                <h3>Select Date</h3>
+                                <p>Choose a single date to view overtime details</p>
+                            </div>
+                        </header>
+                        <div class="card-body-clean">
+                            <label class="field-label" for="singleDate">Single Date</label>
+                            <input type="date" id="singleDate" name="singleDate" value="@Model.SingleDate.ToString("yyyy-MM-dd")" />
+                        </div>
+                    </article>
+
+                    <article class="card-shell">
+                        <header class="card-header-clean">
+                            <div>
+                                <h3>Select Date Range</h3>
+                                <p>Choose a date range to view overtime details</p>
+                            </div>
+                        </header>
+                        <div class="card-body-clean">
+                            <div class="range-inputs">
+                                <div>
+                                    <label class="field-label" for="fromDate">From</label>
+                                    <input type="date" id="fromDate" name="fromDate" value="@Model.RangeFromDate.ToString("yyyy-MM-dd")" />
                                 </div>
-                                <div class="empty-state-title">No OT history found for this worker.</div>
+                                <div>
+                                    <label class="field-label" for="toDate">To</label>
+                                    <input type="date" id="toDate" name="toDate" value="@Model.RangeToDate.ToString("yyyy-MM-dd")" />
+                                </div>
                             </div>
-                        }
-                    </div>
-                }
-                else
-                {
-                    <!-- KPI Summary Cards -->
-                    <div class="kpi-grid">
-                        <div class="kpi-card">
-                            <div class="kpi-icon-box purple">
-                                <i class="bi bi-clock-history"></i>
-                            </div>
-                            <div class="kpi-value">@Model.WorkingOtToday</div>
-                            <div class="kpi-label">Workers in OT Now</div>
                         </div>
-                        
-                        <div class="kpi-card">
-                            <div class="kpi-icon-box green">
-                                <i class="bi bi-check2-circle"></i>
-                            </div>
-                            <div class="kpi-value">@Model.CompletedOtToday</div>
-                            <div class="kpi-label">Completed OT Today</div>
-                        </div>
-                        
-                        <div class="kpi-card">
-                            <div class="kpi-icon-box blue">
-                                <i class="bi bi-clock"></i>
-                            </div>
-                            <div class="kpi-value">@Model.TotalOtHoursToday.ToString("F1")h</div>
-                            <div class="kpi-label">Total OT Hours Today</div>
-                        </div>
-                        
-                        <div class="kpi-card">
-                            <div class="kpi-icon-box orange">
-                                <i class="bi bi-bar-chart"></i>
-                            </div>
-                            <div class="kpi-value">@((Model.TotalOtHoursThisMonth / Math.Max(Model.PresentToday, 1)).ToString("F1"))h</div>
-                            <div class="kpi-label">Average OT per Worker</div>
-                        </div>
-                        
-                        <div class="kpi-card">
-                            <div class="kpi-icon-box red">
-                                <i class="bi bi-trophy"></i>
-                            </div>
-                            <div class="kpi-value">@((Model.OtWorkers.Any() ? Model.OtWorkers.Max(w => w.OtHours) : 0).ToString("F1"))h</div>
-                            <div class="kpi-label">Highest OT Today</div>
-                        </div>
-                    </div>
+                    </article>
+                </section>
+            </form>
 
-                    <!-- Data Cards Row -->
-                    <div class="data-cards-row">
-                        <!-- Top OT Workers Today -->
-                        <div class="data-card">
-                            <div class="data-card-header">
-                                <h3><i class="bi bi-trophy me-2"></i>Top OT Workers Today</h3>
-                                <span class="badge-top-performers">Top Performers</span>
+            @if (!string.IsNullOrWhiteSpace(Model.WorkerSearchMessage))
+            {
+                <div class="warning-box">@Model.WorkerSearchMessage</div>
+            }
+
+            @if (Model.ShowWorkerResultCards && Model.WorkerProfile != null)
+            {
+                <section class="result-grid">
+                    <article class="card-shell">
+                        <header class="card-header-clean">
+                            <div>
+                                <h3>Worker OT Details - Single Date</h3>
                             </div>
-                            <div class="data-card-body">
-                            @if (!Model.OtWorkers.Any())
+                            <span class="header-badge">Date: @Model.SingleDate.ToString("dd/MM/yyyy")</span>
+                        </header>
+                        <div class="card-body-clean">
+                            <div class="worker-profile">
+                                <div class="worker-avatar">@Model.WorkerProfile.Initials</div>
+                                <div>
+                                    <h4 class="worker-name">@Model.WorkerProfile.FullName</h4>
+                                    <div class="worker-meta">Service ID / Service Number: @Model.WorkerProfile.ServiceId | Section: @Model.WorkerProfile.SectionName</div>
+                                </div>
+                            </div>
+
+                            @if (Model.SingleDateOtDetails != null)
                             {
-                                <div class="empty-state">
-                                    <div class="empty-state-icon">
-                                        <i class="bi bi-clock"></i>
+                                <div class="metric-grid">
+                                    <div class="metric-box">
+                                        <div class="metric-label">OT In Time</div>
+                                        <div class="metric-value">@Model.SingleDateOtDetails.OvertimeInTime</div>
                                     </div>
-                                    <div class="empty-state-title">No OT workers for selected date</div>
+                                    <div class="metric-box">
+                                        <div class="metric-label">OT Out Time</div>
+                                        <div class="metric-value">@Model.SingleDateOtDetails.OvertimeOutTime</div>
+                                    </div>
+                                    <div class="metric-box">
+                                        <div class="metric-label">OT Hours</div>
+                                        <div class="metric-value">@Model.SingleDateOtDetails.OvertimeHours</div>
+                                    </div>
                                 </div>
                             }
                             else
                             {
-                                <table class="compact-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Worker Name</th>
-                                            <th>OT Start</th>
-                                            <th>OT End</th>
-                                            <th>OT Hours</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var worker in Model.OtWorkers.Take(5))
-                                        {
-                                            <tr>
-                                                <td>@worker.WorkerName</td>
-                                                <td>@worker.LoginTimeDisplay</td>
-                                                <td>@worker.LogoutTimeDisplay</td>
-                                                <td>@worker.OtHours.ToString("F1")h</td>
-                                                <td>
-                                                    <span class="ot-status-badge completed">Completed OT</span>
-                                                </td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
+                                <div class="result-message">@(Model.SingleDateMessage ?? "No overtime record found for this selected date.")</div>
                             }
-                            </div>
-                        </div>
 
-                        <!-- Live OT Monitor -->
-                        <div class="data-card">
-                            <div class="data-card-header">
-                                <h3><i class="bi bi-activity me-2"></i>Live OT Monitor</h3>
-                                <span class="badge-live-ot">@Model.WorkingOtToday in OT now</span>
+                            <p class="info-note">Showing overtime details for @Model.SingleDate.ToString("dd/MM/yyyy")</p>
+                        </div>
+                    </article>
+
+                    <article class="card-shell">
+                        <header class="card-header-clean">
+                            <div>
+                                <h3>Worker OT Details - Date Range</h3>
                             </div>
-                            <div class="data-card-body">
-                            @if (!Model.TodayWorkers.Any())
-                            {
-                                <div class="empty-state">
-                                    <div class="empty-state-icon">
-                                        <i class="bi bi-inbox"></i>
-                                    </div>
-                                    <div class="empty-state-title">No OT records in section for selected date</div>
+                            <span class="header-badge">From: @Model.RangeFromDate.ToString("dd/MM/yyyy") to @Model.RangeToDate.ToString("dd/MM/yyyy")</span>
+                        </header>
+                        <div class="card-body-clean">
+                            <div class="worker-profile">
+                                <div class="worker-avatar">@Model.WorkerProfile.Initials</div>
+                                <div>
+                                    <h4 class="worker-name">@Model.WorkerProfile.FullName</h4>
+                                    <div class="worker-meta">Service ID / Service Number: @Model.WorkerProfile.ServiceId | Section: @Model.WorkerProfile.SectionName</div>
                                 </div>
+                            </div>
+
+                            @if (Model.DateRangeOtSummary != null)
+                            {
+                                <div class="metric-grid metric-grid-2">
+                                    <div class="metric-box">
+                                        <div class="metric-label">Total Days</div>
+                                        <div class="metric-value">@Model.DateRangeOtSummary.TotalDays</div>
+                                    </div>
+                                    <div class="metric-box">
+                                        <div class="metric-label">Total OT Hours</div>
+                                        <div class="metric-value">@Model.DateRangeOtSummary.TotalOvertimeDisplay</div>
+                                    </div>
+                                </div>
+
+                                @if (Model.DateRangeChartData.Any())
+                                {
+                                    <div class="date-range-chart-wrap">
+                                        <h5 class="date-range-chart-title">Daily OT Trend</h5>
+                                        <div class="date-range-chart-container">
+                                            <canvas id="dateRangeOtTrendChart"></canvas>
+                                        </div>
+                                    </div>
+                                }
                             }
                             else
                             {
-                                <table class="compact-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Worker</th>
-                                            <th>OT Hours</th>
-                                            <th>Current State</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var worker in Model.TodayWorkers.Where(w => w.CurrentState == "Working OT" || w.CurrentState == "Completed").Take(5))
-                                        {
-                                            <tr>
-                                                <td>@worker.WorkerName</td>
-                                                <td>@worker.OtHoursDisplay</td>
-                                                <td>
-                                                    <span class="ot-status-badge @(worker.CurrentState == "Completed OT" ? "completed" : "working")">@worker.CurrentState</span>
-                                                </td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
+                                <div class="result-message">@(Model.DateRangeMessage ?? "No overtime records found for this selected date range.")</div>
                             }
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Full Width Card Row -->
-                    <div class="data-card-full-width">
-                        <!-- Last 2 Weeks Overtime Summary -->
-                        <div class="data-card">
-                            <div class="data-card-header">
-                                <h3><i class="bi bi-calendar3 me-2"></i>2-Week OT Overview</h3>
-                            </div>
-                            <div class="data-card-body">
-                            @if (Model.LastTwoWeeksCalendarData.Any())
-                            {
-                                <table class="compact-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Date</th>
-                                            <th>Workers in OT</th>
-                                            <th>Total OT Hours</th>
-                                            <th>Peak OT Worker</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var day in Model.LastTwoWeeksCalendarData.Take(5))
-                                        {
-                                            <tr>
-                                                <td>@day.Date.ToString("ddd, dd MMM yyyy")</td>
-                                                <td>@day.PresentCount</td>
-                                                <td>@day.TotalOtHours.ToString("F1")h</td>
-                                                <td>-</td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                                <div class="footer-links">
-                                    <a href="#" class="footer-link">View all top OT workers</a>
-                                    <a href="#" class="footer-link">View all live OT workers</a>
-                                    <a href="#" class="footer-link">View full overtime history</a>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="empty-state">
-                                    <div class="empty-state-icon">
-                                        <i class="bi bi-calendar3"></i>
-                                    </div>
-                                    <div class="empty-state-title">No historical OT data</div>
-                                </div>
-                            }
-                            </div>
+                            <p class="info-note">Showing overtime summary from @Model.RangeFromDate.ToString("dd/MM/yyyy") to @Model.RangeToDate.ToString("dd/MM/yyyy")</p>
                         </div>
-                    </div>
-
-                    <!-- Weekly Summary Strip -->
-                    <div class="weekly-summary-strip">
-                        <div class="weekly-summary-left">
-                            <div class="weekly-summary-title">Weekly OT Summary (04 May – 10 May 2026)</div>
-                            <div class="weekly-metrics">
-                                <div class="weekly-metric">
-                                    <div class="weekly-metric-value">523.4h</div>
-                                    <div class="weekly-metric-label">Total OT Hours</div>
-                                </div>
-                                <div class="weekly-metric">
-                                    <div class="weekly-metric-value">78</div>
-                                    <div class="weekly-metric-label">Workers in OT</div>
-                                </div>
-                                <div class="weekly-metric">
-                                    <div class="weekly-metric-value">1.9h</div>
-                                    <div class="weekly-metric-label">Avg OT/Worker</div>
-                                </div>
-                                <div class="weekly-metric">
-                                    <div class="weekly-metric-value">142.3h</div>
-                                    <div class="weekly-metric-label">Completed OT</div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="weekly-summary-right">
-                            <div class="performance-title">Great Performance!</div>
-                            <div class="performance-message">Overtime hours are up 12% this week.</div>
-                            <div class="performance-trend">
-                                <i class="bi bi-arrow-up-right"></i> Keep up the excellent work!
-                            </div>
-                        </div>
-                    </div>
-                }
-            </div>
+                    </article>
+                </section>
+            }
         </main>
     </div>
 }
-
-<div id="addWorkerModal" class="add-worker-modal-overlay" style="display: none;">
+<div id="addWorkerModalOverlay" class="add-worker-modal-overlay">
     <div class="add-worker-modal">
         <div class="add-worker-modal-header">
-            <h3>Add New Worker</h3>
-            <button type="button" id="closeAddWorkerModal" class="modal-close-btn">&times;</button>
+            <h4 class="add-worker-modal-title">Add New Worker</h4>
+            <button type="button" id="closeAddWorkerModalX" class="add-worker-modal-close" aria-label="Close">&times;</button>
         </div>
-
-        <form id="addWorkerForm">
-            @Html.AntiForgeryToken()
-
-            <div class="form-group">
-                <label for="workerServiceId">Service ID</label>
-                <input type="text" id="workerServiceId" name="serviceId" placeholder="Enter Service ID" required />
-            </div>
-
-            <div class="form-group">
-                <label for="workerEmail">Email Address</label>
-                <input type="email" id="workerEmail" name="email" placeholder="Enter Email Address" required />
-            </div>
-
-            <div class="form-group">
-                <label for="workerPhone">Phone Number</label>
-                <input type="tel" id="workerPhone" name="phone" placeholder="Enter Phone Number" required />
-            </div>
-
-            <div class="form-group">
-                <label for="workerSectionId">Section</label>
-                <select id="workerSectionId" name="sectionId" required>
-                    <option value="">Select Section</option>
-                    @if (ViewBag.Sections != null)
-                    {
-                        foreach (var section in ViewBag.Sections)
-                        {
-                            <option value="@(section.Id)">@(section.Name)</option>
-                        }
-                    }
-                </select>
-            </div>
-
-            <div class="password-info-box">
-                A temporary password will be securely generated.
-            </div>
-
-            <div id="addWorkerMessage" class="add-worker-message" style="display: none;"></div>
-
-            <div class="modal-actions">
-                <button type="button" id="cancelAddWorkerModal" class="btn-cancel">Cancel</button>
-                <button type="submit" class="btn-create-worker">Create Worker</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Attendance Details Modal -->
-<div class="attendance-modal" id="attendanceModal">
-    <div class="attendance-modal-overlay" onclick="closeAttendanceModal()"></div>
-    <div class="attendance-modal-content">
-        <div class="attendance-modal-header">
-            <div class="attendance-modal-header-content">
-                <div class="attendance-modal-title-section">
-                    <h3 class="attendance-modal-title" id="modalWorkerName">-</h3>
-                    <p class="attendance-modal-date" id="modalDate">-</p>
+        <div class="add-worker-modal-body">
+            <div id="addWorkerMessage" class="add-worker-message"></div>
+            <form id="addWorkerForm">
+                @Html.AntiForgeryToken()
+                <div class="add-worker-grid">
+                    <div>
+                        <label class="add-worker-field-label" for="workerServiceId">Service ID / Service Number</label>
+                        <input type="text" id="workerServiceId" class="form-control" placeholder="Enter Service ID (e.g., EMP001)" required />
+                    </div>
+                    <div>
+                        <label class="add-worker-field-label" for="workerEmail">Email Address</label>
+                        <input type="email" id="workerEmail" class="form-control" placeholder="Enter Email Address" required />
+                    </div>
+                    <div>
+                        <label class="add-worker-field-label" for="workerPhone">Phone Number</label>
+                        <input type="text" id="workerPhone" class="form-control" placeholder="Enter Phone Number" required />
+                    </div>
+                    <div>
+                        <label class="add-worker-field-label" for="workerSectionId">Section</label>
+                        <select id="workerSectionId" class="form-select" required>
+                            <option value="">Select Section</option>
+                            @foreach (var sectionItem in Model.Sections)
+                            {
+                                <option value="@sectionItem.Value">@sectionItem.Text</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="result-message">A temporary password will be securely generated.</div>
                 </div>
-                <button class="attendance-modal-close" onclick="closeAttendanceModal()">
-                    <i class="bi bi-x-lg"></i>
-                </button>
-            </div>
+            </form>
         </div>
-        <div class="attendance-modal-worker-summary">
-            <div class="worker-summary-item">
-                <div class="worker-summary-label">Service ID</div>
-                <div class="worker-summary-value" id="modalWorkerServiceId">-</div>
-            </div>
-            <div class="worker-summary-item">
-                <div class="worker-summary-label">Section</div>
-                <div class="worker-summary-value" id="modalWorkerSection">-</div>
-            </div>
-            <div class="worker-summary-item">
-                <div class="worker-summary-label">Date</div>
-                <div class="worker-summary-value" id="modalDateDisplay">-</div>
-            </div>
-        </div>
-        <div class="attendance-modal-body" id="modalBody">
-            <!-- Content will be dynamically loaded -->
-        </div>
-        <div class="attendance-modal-footer">
-            <button type="button" class="btn-secondary" onclick="closeAttendanceModal()">Close</button>
+        <div class="add-worker-modal-footer">
+            <button type="button" id="cancelAddWorkerModal" class="add-worker-btn-cancel">Cancel</button>
+            <button type="button" id="saveAddWorkerBtn" class="add-worker-btn-save">Create Worker</button>
         </div>
     </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const form = document.getElementById("workerOtSearchForm");
+            const serviceInput = document.getElementById("serviceId");
+            const singleDateInput = document.getElementById("singleDate");
+            const fromDateInput = document.getElementById("fromDate");
+            const toDateInput = document.getElementById("toDate");
 
-@{
-    Layout = null;
-}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const openBtn = document.getElementById("openAddWorkerModal");
-        const modal = document.getElementById("addWorkerModal");
-        const closeBtn = document.getElementById("closeAddWorkerModal");
-        const cancelBtn = document.getElementById("cancelAddWorkerModal");
-        const form = document.getElementById("addWorkerForm");
-        const messageBox = document.getElementById("addWorkerMessage");
-
-        function showMessage(type, message) {
-            if (!messageBox) return;
-
-            messageBox.style.display = "block";
-            messageBox.className = "add-worker-message " + type;
-            messageBox.innerHTML = message;
-        }
-
-        function clearMessage() {
-            if (!messageBox) return;
-
-            messageBox.style.display = "none";
-            messageBox.className = "add-worker-message";
-            messageBox.innerHTML = "";
-        }
-
-        function openModal() {
-            if (!modal) {
-                console.error("Add Worker modal not found. Missing id='addWorkerModal'.");
+            if (!form || !serviceInput) {
                 return;
             }
 
-            clearMessage();
-            modal.style.display = "flex";
-            document.body.style.overflow = "hidden";
-        }
-
-        function closeModal() {
-            if (!modal) return;
-
-            modal.style.display = "none";
-            document.body.style.overflow = "";
-
-            if (form) {
-                form.reset();
-            }
-
-            clearMessage();
-        }
-
-        if (!openBtn) {
-            console.error("Add New Worker button not found. Missing id='openAddWorkerModal'.");
-        } else {
-            openBtn.addEventListener("click", function (event) {
-                event.preventDefault();
-                openModal();
-            });
-        }
-
-        if (closeBtn) {
-            closeBtn.addEventListener("click", closeModal);
-        }
-
-        if (cancelBtn) {
-            cancelBtn.addEventListener("click", closeModal);
-        }
-
-        if (modal) {
-            modal.addEventListener("click", function (event) {
-                if (event.target === modal) {
-                    closeModal();
+            function submitIfServiceIdExists() {
+                if (serviceInput.value.trim() !== "") {
+                    form.submit();
                 }
-            });
-        }
-
-        document.addEventListener("keydown", function (event) {
-            if (event.key === "Escape" && modal && modal.style.display === "flex") {
-                closeModal();
             }
-        });
 
-        if (form) {
-            form.addEventListener("submit", async function (event) {
-                event.preventDefault();
+            if (singleDateInput) {
+                singleDateInput.addEventListener("change", submitIfServiceIdExists);
+            }
 
-                const serviceId = document.getElementById("workerServiceId")?.value?.trim();
-                const email = document.getElementById("workerEmail")?.value?.trim();
-                const phone = document.getElementById("workerPhone")?.value?.trim();
-                const sectionId = document.getElementById("workerSectionId")?.value;
+            if (fromDateInput) {
+                fromDateInput.addEventListener("change", function () {
+                    if (toDateInput && toDateInput.value) {
+                        submitIfServiceIdExists();
+                    }
+                });
+            }
 
-                if (!serviceId || !email || !phone || !sectionId) {
-                    showMessage("error", "Please fill all required fields.");
+            if (toDateInput) {
+                toDateInput.addEventListener("change", function () {
+                    if (fromDateInput && fromDateInput.value) {
+                        submitIfServiceIdExists();
+                    }
+                });
+            }
+
+            const openAddWorkerModalBtn = document.getElementById("openAddWorkerModal");
+            const addWorkerModalOverlay = document.getElementById("addWorkerModalOverlay");
+            const closeAddWorkerModalX = document.getElementById("closeAddWorkerModalX");
+            const cancelAddWorkerModal = document.getElementById("cancelAddWorkerModal");
+            const saveAddWorkerBtn = document.getElementById("saveAddWorkerBtn");
+            const addWorkerForm = document.getElementById("addWorkerForm");
+            const addWorkerMessage = document.getElementById("addWorkerMessage");
+
+            function showAddWorkerMessage(type, message) {
+                if (!addWorkerMessage) {
+                    return;
+                }
+                addWorkerMessage.className = "add-worker-message " + type;
+                addWorkerMessage.textContent = message;
+                addWorkerMessage.style.display = "block";
+            }
+
+            function clearAddWorkerMessage() {
+                if (!addWorkerMessage) {
+                    return;
+                }
+                addWorkerMessage.className = "add-worker-message";
+                addWorkerMessage.textContent = "";
+                addWorkerMessage.style.display = "none";
+            }
+
+            function openAddWorkerModal() {
+                if (!addWorkerModalOverlay) {
+                    return;
+                }
+                clearAddWorkerMessage();
+                addWorkerModalOverlay.style.display = "flex";
+                document.body.style.overflow = "hidden";
+            }
+
+            function closeAddWorkerModal() {
+                if (!addWorkerModalOverlay) {
+                    return;
+                }
+                addWorkerModalOverlay.style.display = "none";
+                document.body.style.overflow = "";
+                clearAddWorkerMessage();
+                if (addWorkerForm) {
+                    addWorkerForm.reset();
+                }
+            }
+
+            async function saveWorker() {
+                const serviceIdValue = document.getElementById("workerServiceId")?.value?.trim() ?? "";
+                const email = document.getElementById("workerEmail")?.value?.trim() ?? "";
+                const phone = document.getElementById("workerPhone")?.value?.trim() ?? "";
+                const sectionIdValue = document.getElementById("workerSectionId")?.value ?? "";
+
+                if (!serviceIdValue || !email || !phone || !sectionIdValue) {
+                    showAddWorkerMessage("error", "Please fill all required fields.");
                     return;
                 }
 
-                const token = document.querySelector('#addWorkerForm input[name="__RequestVerificationToken"]')?.value;
+                const token = document.querySelector('#addWorkerForm input[name="__RequestVerificationToken"]')?.value ?? "";
 
                 try {
-                    const response = await fetch("/Dashboard/CreateWorker", {
+                    const response = await fetch("@Url.Action("CreateWorker", "Dashboard")", {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
-                            "RequestVerificationToken": token || ""
+                            "RequestVerificationToken": token
                         },
                         body: JSON.stringify({
-                            serviceId: serviceId,
+                            serviceId: serviceIdValue,
                             email: email,
                             phone: phone,
-                            sectionId: parseInt(sectionId)
+                            sectionId: parseInt(sectionIdValue)
                         })
                     });
 
                     const result = await response.json();
-
                     if (result.success) {
-                        showMessage("success", result.message || "Worker created successfully.");
-
+                        showAddWorkerMessage("success", result.message || "Worker created successfully.");
                         setTimeout(function () {
-                            closeModal();
+                            closeAddWorkerModal();
                             window.location.reload();
-                        }, 1000);
+                        }, 800);
                     } else {
-                        let errorText = result.message || "Failed to create worker.";
-
+                        let errorMessage = result.message || "Failed to create worker.";
                         if (result.errors) {
-                            errorText = Object.values(result.errors)
-                                .flat()
-                                .join("<br>");
+                            const allErrors = Object.values(result.errors).flat();
+                            if (allErrors.length > 0) {
+                                errorMessage = allErrors.join(" ");
+                            }
                         }
-
-                        showMessage("error", errorText);
+                        showAddWorkerMessage("error", errorMessage);
                     }
                 } catch (error) {
-                    console.error(error);
-                    showMessage("error", "Something went wrong while creating the worker.");
+                    showAddWorkerMessage("error", "An error occurred while creating the worker.");
+                }
+            }
+
+            if (openAddWorkerModalBtn) {
+                openAddWorkerModalBtn.addEventListener("click", openAddWorkerModal);
+            }
+            if (closeAddWorkerModalX) {
+                closeAddWorkerModalX.addEventListener("click", closeAddWorkerModal);
+            }
+            if (cancelAddWorkerModal) {
+                cancelAddWorkerModal.addEventListener("click", closeAddWorkerModal);
+            }
+            if (saveAddWorkerBtn) {
+                saveAddWorkerBtn.addEventListener("click", saveWorker);
+            }
+            if (addWorkerModalOverlay) {
+                addWorkerModalOverlay.addEventListener("click", function (event) {
+                    if (event.target === addWorkerModalOverlay) {
+                        closeAddWorkerModal();
+                    }
+                });
+            }
+
+            document.addEventListener("keydown", function (event) {
+                if (event.key === "Escape" && addWorkerModalOverlay && addWorkerModalOverlay.style.display === "flex") {
+                    closeAddWorkerModal();
                 }
             });
-        }
-    });
+        });
 
-    function closeAttendanceModal() {
-        const modal = document.getElementById("attendanceModal");
+        (function () {
+            const chartElement = document.getElementById("dateRangeOtTrendChart");
+            if (!chartElement) {
+                return;
+            }
 
-        if (!modal) return;
+            const labels = @Html.Raw(JsonSerializer.Serialize(Model.DateRangeChartData.Select(x => x.DateLabel).ToList()));
+            const values = @Html.Raw(JsonSerializer.Serialize(Model.DateRangeChartData.Select(x => x.OTHours).ToList()));
 
-        modal.classList.remove("show");
+            if (!labels.length || !values.length) {
+                return;
+            }
 
-        setTimeout(function () {
-            modal.classList.add("hidden");
-        }, 300);
-    }
-</script>
+            new Chart(chartElement, {
+                type: "line",
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: "OT Hours",
+                            data: values,
+                            borderColor: "#7c3aed",
+                            backgroundColor: "rgba(124, 58, 237, 0.10)",
+                            pointBackgroundColor: "#7c3aed",
+                            pointBorderColor: "#ffffff",
+                            pointBorderWidth: 1.5,
+                            pointRadius: 3,
+                            pointHoverRadius: 4,
+                            borderWidth: 2,
+                            tension: 0.32,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label(context) {
+                                    return `OT Hours: ${context.parsed.y}h`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                color: "rgba(148, 163, 184, 0.15)"
+                            },
+                            ticks: {
+                                color: "#5f6f87",
+                                maxRotation: 0,
+                                autoSkipPadding: 14
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: "rgba(148, 163, 184, 0.22)"
+                            },
+                            ticks: {
+                                color: "#5f6f87",
+                                callback(value) {
+                                    return `${value}h`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        })();
+    </script>
 </body>
 </html>

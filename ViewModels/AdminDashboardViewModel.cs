@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using AttendanceManagementSystem.ViewModels;
+using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace AttendanceManagementSystem.ViewModels
 {
@@ -64,6 +65,18 @@ namespace AttendanceManagementSystem.ViewModels
         public bool IsWorkerSearchMode { get; set; }
         public string? SearchServiceId { get; set; }
         public string? WorkerSearchMessage { get; set; }
+        public DateTime SingleDate { get; set; } = DateTime.Today;
+        public DateTime RangeFromDate { get; set; } = DateTime.Today.AddDays(-7);
+        public DateTime RangeToDate { get; set; } = DateTime.Today;
+        public bool ShowWorkerResultCards { get; set; }
+        public WorkerOtProfileViewModel? WorkerProfile { get; set; }
+        public WorkerSingleDateOtDetailsViewModel? SingleDateOtDetails { get; set; }
+        public WorkerDateRangeOtSummaryViewModel? DateRangeOtSummary { get; set; }
+        public List<DailyOtChartPointViewModel> DateRangeChartData { get; set; } = new();
+        public string? SingleDateMessage { get; set; }
+        public string? DateRangeMessage { get; set; }
+        public CreateWorkerViewModel AddWorker { get; set; } = new();
+        public List<SelectListItem> Sections { get; set; } = new();
         public WorkerHistorySearchViewModel? WorkerHistorySearchResult { get; set; }
         public SelectedDateAttendanceViewModel? SelectedDateAttendance { get; set; }
         
@@ -81,8 +94,8 @@ namespace AttendanceManagementSystem.ViewModels
     public class WorkerAttendanceRow
     {
         public string WorkerName { get; set; } = string.Empty;
-        public string LoginTimeDisplay { get; set; } = string.Empty;
-        public string LogoutTimeDisplay { get; set; } = string.Empty;
+        public string OTLoginTimeDisplay { get; set; } = string.Empty;
+        public string OTLogoutTimeDisplay { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
         public string LateByDisplay { get; set; } = string.Empty;
         public string OtHoursDisplay { get; set; } = string.Empty;
@@ -99,8 +112,8 @@ namespace AttendanceManagementSystem.ViewModels
     {
         public string WorkerName { get; set; } = string.Empty;
         public decimal OtHours { get; set; }
-        public string LoginTimeDisplay { get; set; } = string.Empty;
-        public string LogoutTimeDisplay { get; set; } = string.Empty;
+        public string OTLoginTimeDisplay { get; set; } = string.Empty;
+        public string OTLogoutTimeDisplay { get; set; } = string.Empty;
     }
 
     public class DailyAttendanceSummary
@@ -110,6 +123,37 @@ namespace AttendanceManagementSystem.ViewModels
         public int LateCount { get; set; }
         public int LeaveCount { get; set; }
         public decimal TotalOtHours { get; set; }
+    }
+
+    public class WorkerOtProfileViewModel
+    {
+        public string FullName { get; set; } = string.Empty;
+        public string ServiceId { get; set; } = "-";
+        public string SectionName { get; set; } = "Unassigned";
+        public string Initials { get; set; } = "AU";
+    }
+
+    public class WorkerSingleDateOtDetailsViewModel
+    {
+        public DateTime Date { get; set; }
+        public string OvertimeInTime { get; set; } = "-";
+        public string OvertimeOutTime { get; set; } = "-";
+        public string OvertimeHours { get; set; } = "0h 0m";
+    }
+
+    public class WorkerDateRangeOtSummaryViewModel
+    {
+        public DateTime FromDate { get; set; }
+        public DateTime ToDate { get; set; }
+        public int TotalDays { get; set; }
+        public int TotalOvertimeMinutes { get; set; }
+        public string TotalOvertimeDisplay { get; set; } = "0h 0m";
+    }
+
+    public class DailyOtChartPointViewModel
+    {
+        public string DateLabel { get; set; } = string.Empty;
+        public decimal OTHours { get; set; }
     }
 
     }

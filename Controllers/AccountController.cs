@@ -47,7 +47,8 @@ namespace AttendanceManagementSystem.Controllers
 
             if (user.Role?.Name == Models.RoleNames.Worker)
             {
-                return RedirectToAction("Index", "Attendance");
+                // Workers should always land on the Worker Dashboard first after login.
+                return RedirectToAction("Index", "Dashboard");
             }
 
             return RedirectToAction("Index", "Dashboard");

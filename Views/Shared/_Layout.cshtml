@@ -27,36 +27,15 @@
         return string.Equals(currentAction, action, StringComparison.OrdinalIgnoreCase) ? "active" : string.Empty;
     }
 
-    var sidebarDisplayName = User.Identity?.Name;
-    if (string.IsNullOrWhiteSpace(sidebarDisplayName))
-    {
-        sidebarDisplayName = "Admin User";
-    }
-
-    string SidebarInitials(string? fullName)
-    {
-        if (string.IsNullOrWhiteSpace(fullName))
-        {
-            return "AU";
-        }
-
-        var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0)
-        {
-            return "AU";
-        }
-
-        if (parts.Length == 1)
-        {
-            return parts[0].Length >= 2
-                ? parts[0][..2].ToUpperInvariant()
-                : parts[0].ToUpperInvariant();
-        }
-
-        return string.Concat(
-            char.ToUpperInvariant(parts[0][0]),
-            char.ToUpperInvariant(parts[1][0]));
-    }
+    var firstName = User.FindFirst("FirstName")?.Value?.Trim() ?? string.Empty;
+    var lastName = User.FindFirst("LastName")?.Value?.Trim() ?? string.Empty;
+    var sidebarDisplayName = !string.IsNullOrWhiteSpace(firstName) || !string.IsNullOrWhiteSpace(lastName)
+        ? $"{firstName} {lastName}".Trim()
+        : (User.Identity?.Name ?? "User");
+    var sidebarRoleLabel = currentRole;
+    var firstInitial = !string.IsNullOrWhiteSpace(firstName) ? char.ToUpperInvariant(firstName[0]) : 'U';
+    var lastInitial = !string.IsNullOrWhiteSpace(lastName) ? char.ToUpperInvariant(lastName[0]) : 'S';
+    var sidebarInitials = $"{firstInitial}{lastInitial}";
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -123,11 +102,11 @@
                 <div class="app-sidebar-footer sidebar-profile-card">
                     <div class="sidebar-user sidebar-profile-top">
                         <div class="sidebar-user-icon sidebar-avatar">
-                            @SidebarInitials(sidebarDisplayName)
+                            @sidebarInitials
                         </div>
                         <div class="sidebar-profile-meta">
                             <strong class="sidebar-profile-name">@sidebarDisplayName</strong>
-                            <p class="sidebar-profile-role">@currentRole</p>
+                            <p class="sidebar-profile-role">@sidebarRoleLabel</p>
                         </div>
                     </div>
                     <div class="sidebar-actions sidebar-profile-actions">
@@ -148,7 +127,7 @@
                             <i class="bi bi-list"></i>
                         </button>
                         <div>
-                            <p class="topbar-label">OT Management System</p>
+                            <p class="topbar-label">OT MANAGEMENT SYSTEM</p>
                             <h2>@ViewData["Title"]</h2>
                         </div>
                     </div>

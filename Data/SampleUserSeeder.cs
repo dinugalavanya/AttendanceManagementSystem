@@ -39,6 +39,18 @@ namespace AttendanceManagementSystem.Data
                 .ToListAsync(cancellationToken);
 
             var usersToInsert = new List<User>();
+            var maxServiceNumber = await context.Users
+                .AsNoTracking()
+                .Where(u => u.ServiceId != null)
+                .Select(u => u.ServiceId!)
+                .ToListAsync(cancellationToken);
+
+            var nextServiceNumber = maxServiceNumber
+                .Select(ParseEmployeeServiceNumber)
+                .Where(n => n.HasValue)
+                .Select(n => n!.Value)
+                .DefaultIfEmpty(0)
+                .Max() + 1;
 
             for (var i = 1; i <= SampleUserCount; i++)
             {
@@ -64,6 +76,7 @@ namespace AttendanceManagementSystem.Data
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(DefaultSamplePassword),
                     Phone = $"077{i:000000}",
                     Address = $"Sample Address {i}",
+                    ServiceId = $"EMP{nextServiceNumber++:D3}",
                     IsActive = true,
                     RoleId = roleId,
                     SectionId = sectionId
@@ -80,6 +93,27 @@ namespace AttendanceManagementSystem.Data
             await context.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation("Inserted {Count} sample users into Users table.", usersToInsert.Count);
+        }
+
+        private static int? ParseEmployeeServiceNumber(string serviceId)
+        {
+            var normalized = serviceId.Trim().ToUpperInvariant();
+            if (!normalized.StartsWith("EMP", StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            var digitsOnly = new string(normalized
+                .Skip(3)
+                .TakeWhile(char.IsDigit)
+                .ToArray());
+
+            if (string.IsNullOrWhiteSpace(digitsOnly))
+            {
+                return null;
+            }
+
+            return int.TryParse(digitsOnly, out var parsed) ? parsed : null;
         }
     }
 }

@@ -159,6 +159,11 @@ namespace AttendanceManagementSystem.Services
                 }
             };
 
+            for (int i = 0; i < demoUsers.Count; i++)
+            {
+                demoUsers[i].ServiceId = $"EMP{i + 1:D3}";
+            }
+
             await _context.Users.AddRangeAsync(demoUsers);
             await _context.SaveChangesAsync();
         }

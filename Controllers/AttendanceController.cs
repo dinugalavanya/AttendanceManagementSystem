@@ -232,13 +232,13 @@ namespace AttendanceManagementSystem.Controllers
             string checkInTimeDisplay = "-";
             if (selectedAttendance?.InTime.HasValue == true)
             {
-                checkInTimeDisplay = DateTime.Today.Add(selectedAttendance.InTime.Value).ToString("hh:mm tt");
+                checkInTimeDisplay = selectedAttendance.InTime.Value.ToString(@"hh\:mm");
             }
 
             string checkOutTimeDisplay = "-";
             if (selectedAttendance?.OutTime.HasValue == true)
             {
-                checkOutTimeDisplay = DateTime.Today.Add(selectedAttendance.OutTime.Value).ToString("hh:mm tt");
+                checkOutTimeDisplay = selectedAttendance.OutTime.Value.ToString(@"hh\:mm");
             }
 
             string workedTimeDisplay = "-";
@@ -268,7 +268,8 @@ namespace AttendanceManagementSystem.Controllers
                 CurrentStatus = selectedAttendance != null ? "Recorded" : "Not Recorded",
                 OvertimeHelperText = todayOTMinutes > 0 ? "Overtime duration entered" : "No overtime recorded",
                 RegularWorkMinutes = 0, // No regular work calculation for OT-only page
-                TotalWorkMinutes = selectedAttendance?.TotalWorkedMinutes ?? 0
+                TotalWorkMinutes = selectedAttendance?.TotalWorkedMinutes ?? 0,
+                IsAlreadySubmitted = selectedAttendance != null
             };
 
             return View(model);
@@ -342,6 +343,19 @@ namespace AttendanceManagementSystem.Controllers
 
             try
             {
+                var existingRecord = await _context.Attendances
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(a =>
+                        a.UserId == currentUser.Id &&
+                        a.AttendanceDate.Date == selectedDate.Date);
+
+                // Workers can submit OT once per selected date and cannot edit it afterward from this page.
+                if (existingRecord != null)
+                {
+                    TempData["Error"] = "You have already submitted OT for this date. This record cannot be changed.";
+                    return RedirectToAction("Index", new { selectedDate = selectedDate.Date.ToString("yyyy-MM-dd") });
+                }
+
                 // Validation: OT Start Time is required
                 if (inTime == null)
                 {
@@ -356,35 +370,20 @@ namespace AttendanceManagementSystem.Controllers
                     return RedirectToAction("Index", new { selectedDate = selectedDate });
                 }
 
-                // Find existing attendance record for the user and date
-                var existingAttendance = await _context.Attendances
-                    .Where(a => a.UserId == currentUser.Id && a.AttendanceDate.Date == selectedDate.Date)
-                    .FirstOrDefaultAsync();
-
-                if (existingAttendance != null)
+                // Create new record (duplicate records are blocked by validation above).
+                var existingAttendance = new Attendance
                 {
-                    // Update existing record
-                    existingAttendance.InTime = inTime;
-                    existingAttendance.OutTime = outTime;
-                    existingAttendance.Notes = notes;
-                    existingAttendance.UpdatedAt = DateTime.UtcNow;
-                }
-                else
-                {
-                    // Create new record
-                    existingAttendance = new Attendance
-                    {
-                        UserId = currentUser.Id,
-                        AttendanceDate = selectedDate.Date,
-                        InTime = inTime,
-                        OutTime = outTime,
-                        Notes = notes,
-                        IsLocked = false,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    _context.Attendances.Add(existingAttendance);
-                }
+                    UserId = currentUser.Id,
+                    AttendanceDate = selectedDate.Date,
+                    OtDate = selectedDate.Date,
+                    InTime = inTime,
+                    OutTime = outTime,
+                    Notes = notes,
+                    IsLocked = false,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+                _context.Attendances.Add(existingAttendance);
 
                 // Calculate OT Duration directly: OT End Time - OT Start Time
                 if (inTime.HasValue && outTime.HasValue)
@@ -493,6 +492,18 @@ namespace AttendanceManagementSystem.Controllers
             var model = new AttendanceManageViewModel
             {
                 Attendances = attendances,
+                Rows = attendances.Select(a => new AttendanceManageRowViewModel
+                {
+                    AttendanceId = a.Id,
+                    EmployeeName = a.User.FullName,
+                    EmployeeEmail = a.User.Email,
+                    SectionName = a.User.Section?.Name ?? "Unassigned",
+                    OvertimeInTime = a.InTime?.ToString(@"hh\:mm") ?? "-",
+                    OvertimeOutTime = a.OutTime?.ToString(@"hh\:mm") ?? "-",
+                    OvertimeDuration = a.TotalWorkedDisplay,
+                    ServiceId = string.IsNullOrWhiteSpace(a.User.ServiceId) ? "-" : a.User.ServiceId,
+                    Initials = $"{a.User.FirstName.FirstOrDefault()}{a.User.LastName.FirstOrDefault()}"
+                }).ToList(),
                 SelectedDate = selectedDate,
                 CanEdit = currentUser.Role.Name == RoleNames.SuperAdmin || currentUser.Role.Name == RoleNames.Admin,
                 ScopeLabel = currentUser.Role.Name == RoleNames.SuperAdmin
@@ -649,6 +660,7 @@ namespace AttendanceManagementSystem.Controllers
                     Id = attendance.Id,
                     UserId = attendance.UserId,
                     EmployeeName = attendance.User?.FullName ?? "Unknown",
+                    OtDate = attendance.OtDate ?? attendance.AttendanceDate,
                     InTime = attendance.InTime,
                     OutTime = attendance.OutTime,
                     Status = attendance.Status,
@@ -657,7 +669,8 @@ namespace AttendanceManagementSystem.Controllers
                     OTHours = attendance.OvertimeMinutes > 0 ? Math.Round(attendance.OvertimeMinutes / 60m, 2) : 0,
                     // Add formatted time strings for HTML input compatibility (24-hour format)
                     InTimeString = attendance.InTime?.ToString(@"hh\:mm"),
-                    OutTimeString = attendance.OutTime?.ToString(@"hh\:mm")
+                    OutTimeString = attendance.OutTime?.ToString(@"hh\:mm"),
+                    OtDateString = (attendance.OtDate ?? attendance.AttendanceDate).ToString("yyyy-MM-dd")
                 };
 
                 Console.WriteLine($"[DEBUG] Returning model with InTimeString: {model.InTimeString}, OutTimeString: {model.OutTimeString}");
@@ -676,6 +689,63 @@ namespace AttendanceManagementSystem.Controllers
             }
         }
 
+        // AJAX GET: Get attendance by user and date (used when changing OT Date in modal)
+        [HttpGet]
+        [Authorize(Roles = $"{RoleNames.SuperAdmin},{RoleNames.Admin}")]
+        public async Task<IActionResult> GetAttendanceByUserAndDate(int userId, string date)
+        {
+            try
+            {
+                var currentUser = _authService.GetCurrentUser();
+                if (currentUser == null)
+                {
+                    return Json(new { success = false, message = "User not authenticated" });
+                }
+
+                if (string.IsNullOrWhiteSpace(date))
+                {
+                    return Json(new { success = false, message = "Date is required" });
+                }
+
+                if (!DateTime.TryParseExact(date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var targetDate))
+                {
+                    if (!DateTime.TryParse(date, out targetDate))
+                    {
+                        return Json(new { success = false, message = "Invalid date format" });
+                    }
+                }
+
+                var attendance = await _context.Attendances
+                    .Include(a => a.User)
+                    .FirstOrDefaultAsync(a => a.UserId == userId && a.AttendanceDate.Date == targetDate.Date);
+
+                if (attendance == null)
+                {
+                    return Json(new { success = false, message = "No attendance found for selected date" });
+                }
+
+                // Permission check for Admins
+                if (currentUser.Role.Name == RoleNames.Admin && currentUser.SectionId != attendance.User.SectionId)
+                {
+                    return Json(new { success = false, message = "You don't have permission to view this record" });
+                }
+
+                var data = new
+                {
+                    inTimeString = attendance.InTime?.ToString(@"hh\:mm"),
+                    outTimeString = attendance.OutTime?.ToString(@"hh\:mm"),
+                    status = attendance.Status
+                };
+
+                return Json(new { success = true, data });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[DEBUG] Error in GetAttendanceByUserAndDate: {ex.Message}");
+                return Json(new { success = false, message = "An error occurred while loading attendance" });
+            }
+        }
+
         // AJAX POST: Update attendance record
         [HttpPost]
         [Authorize(Roles = $"{RoleNames.SuperAdmin},{RoleNames.Admin}")]
@@ -684,7 +754,7 @@ namespace AttendanceManagementSystem.Controllers
         {
             try
             {
-                Console.WriteLine($"[DEBUG] UpdateAttendance called with: Id={dto?.Id}, InTime={dto?.InTime}, OutTime={dto?.OutTime}, Status={dto?.Status}");
+                Console.WriteLine($"[DEBUG] UpdateAttendance called with: Id={dto?.Id}, OtDate={dto?.OtDate}, InTime={dto?.InTime}, OutTime={dto?.OutTime}, Status={dto?.Status}");
 
                 // Log ModelState errors if any
                 if (!ModelState.IsValid)
@@ -724,6 +794,12 @@ namespace AttendanceManagementSystem.Controllers
                 {
                     Console.WriteLine("[DEBUG] OutTime is null or empty");
                     return Json(new { success = false, message = "OT Out Time is required" });
+                }
+
+                if (string.IsNullOrWhiteSpace(dto.OtDate))
+                {
+                    Console.WriteLine("[DEBUG] OtDate is null or empty");
+                    return Json(new { success = false, message = "OT Date is required" });
                 }
 
                 var currentUser = _authService.GetCurrentUser();
@@ -766,7 +842,13 @@ namespace AttendanceManagementSystem.Controllers
                     }
                 }
 
-                Console.WriteLine($"[DEBUG] Parsed times: InTime={inTimeSpan}, OutTime={outTimeSpan}");
+                if (!DateTime.TryParseExact(dto.OtDate, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var otDate))
+                {
+                    Console.WriteLine($"[DEBUG] Failed to parse OtDate: {dto.OtDate}");
+                    return Json(new { success = false, message = "Invalid OT Date format. Use yyyy-MM-dd format." });
+                }
+
+                Console.WriteLine($"[DEBUG] Parsed values: OtDate={otDate:yyyy-MM-dd}, InTime={inTimeSpan}, OutTime={outTimeSpan}");
 
                 // Load attendance with User and Section navigation properties using Id only
                 var attendance = await _context.Attendances
@@ -801,6 +883,7 @@ namespace AttendanceManagementSystem.Controllers
                 Console.WriteLine($"[DEBUG] Updating attendance with: InTime={inTimeSpan}, OutTime={outTimeSpan}, Status={normalizedStatus}");
 
                 // Update attendance fields
+                attendance.OtDate = otDate.Date;
                 attendance.InTime = inTimeSpan;
                 attendance.OutTime = outTimeSpan;
                 attendance.Status = normalizedStatus;
@@ -828,6 +911,7 @@ namespace AttendanceManagementSystem.Controllers
                 var responseData = new
                 {
                     id = attendance.Id,
+                    otDate = attendance.OtDate?.ToString("yyyy-MM-dd"),
                     inTime = attendance.InTime?.ToString(@"hh\:mm"),
                     outTime = attendance.OutTime?.ToString(@"hh\:mm"),
                     workedHours = Math.Round(attendance.TotalWorkedMinutes / 60m, 2),

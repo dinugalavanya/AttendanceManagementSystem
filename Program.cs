@@ -58,7 +58,6 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<DatabaseMigrationService>();
 builder.Services.AddScoped<AttendanceCalculationService>();
-builder.Services.AddScoped<DemoDataService>();
 
 var app = builder.Build();
 
@@ -66,12 +65,12 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
     if (string.IsNullOrWhiteSpace(connectionString))
     {
         logger.LogError("DefaultConnection is missing or empty.");
+        throw new InvalidOperationException("DefaultConnection is missing or empty.");
     }
     else
     {
@@ -91,33 +90,19 @@ using (var scope = app.Services.CreateScope())
 
         try
         {
-            var canConnect = await dbContext.Database.CanConnectAsync();
-            if (!canConnect)
-            {
-                logger.LogWarning("Initial DB connectivity check failed. Attempting EnsureCreated for database {Database}.", sqlBuilder.InitialCatalog);
-            }
-
-            // Initialize database and add missing columns
+            logger.LogInformation("Starting database migration and initialization.");
             var dbMigration = scope.ServiceProvider.GetRequiredService<DatabaseMigrationService>();
             await dbMigration.InitializeAsync();
-            canConnect = await dbContext.Database.CanConnectAsync();
 
-            // Regenerate attendance data with correct checkout times
-            var demoDataService = scope.ServiceProvider.GetRequiredService<DemoDataService>();
-            await demoDataService.SeedDemoDataAsync();
+            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await DatabaseInitializer.EnsureCoreDataAsync(dbContext, logger);
 
-            if (canConnect)
-            {
-                logger.LogInformation("Database connectivity check succeeded.");
-            }
-            else
-            {
-                logger.LogError("Database connectivity check failed for Server={Server}; Database={Database}", sqlBuilder.DataSource, sqlBuilder.InitialCatalog);
-            }
+            logger.LogInformation("Database initialization completed successfully for Server={Server}; Database={Database}", sqlBuilder.DataSource, sqlBuilder.InitialCatalog);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Database connectivity check failed for Server={Server}; Database={Database}", sqlBuilder.DataSource, sqlBuilder.InitialCatalog);
+            logger.LogError(ex, "Database initialization failed for Server={Server}; Database={Database}: {Message}", sqlBuilder.DataSource, sqlBuilder.InitialCatalog, ex.Message);
+            logger.LogWarning("Continuing application startup without a completed database initialization. Login and other database-backed actions may still fail until the database issue is resolved.");
         }
     }
 }
