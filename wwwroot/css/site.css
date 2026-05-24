@@ -2089,47 +2089,49 @@ a {
 .sidebar-subnav {
   display: flex;
   flex-direction: column;
-  padding-left: 20px;
-  margin-top: 4px;
-  gap: 6px;
+  padding-left: 18px;
+  margin-top: 2px;
+  gap: 8px;
 }
 
 .sidebar-sub-link {
-  display: block;
+  display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  color: #334155;
-  background: #ffffff;
-  border: 1.5px solid #e2e8f0;
-  box-shadow: 0 6px 18px rgba(16,24,40,0.04);
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: 15px;
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: none;
   font-weight: 700;
   font-size: 0.95rem;
   text-decoration: none;
   transition: all 0.18s ease;
-  width: calc(100% - 8px);
+  width: calc(100% - 6px);
   box-sizing: border-box;
 }
 
 .sidebar-sub-link i {
-  width: 16px;
-  font-size: 0.95rem;
-  color: #7c3aed;
+  width: 18px;
+  font-size: 1rem;
+  color: currentColor;
 }
 
 .sidebar-sub-link:hover {
-  color: #7c3aed;
-  border-color: rgba(124,58,237,0.35);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 26px rgba(124,58,237,0.08);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .sidebar-sub-link.active {
   color: #fff;
-  background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #7287ff 0%, #9854c9 100%);
   border-color: transparent;
-  box-shadow: 0 12px 28px rgba(124,58,237,0.18);
+  box-shadow: 0 12px 28px rgba(100, 90, 255, 0.28);
 }
 
 .app-sidebar-footer,
