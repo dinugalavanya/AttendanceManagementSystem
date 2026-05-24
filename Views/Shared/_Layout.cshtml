@@ -72,15 +72,19 @@
 
                     @if (User.IsInRole(RoleNames.Worker))
                     {
-                        <a class="app-nav-link sidebar-nav-link @NavClass("Attendance", "Index")" asp-controller="Attendance" asp-action="Index">
-                            <i class="bi bi-person-check-fill"></i>
-                            <span>My OT</span>
-                        </a>
+                        <div class="sidebar-nav-group">
+                            <a class="app-nav-link sidebar-nav-link @NavClass("Attendance", "Index")" asp-controller="Attendance" asp-action="Index">
+                                <i class="bi bi-person-check-fill"></i>
+                                <span>My OT</span>
+                            </a>
 
-                        <a class="app-nav-link sidebar-nav-link @NavClass("Attendance", "History")" asp-controller="Attendance" asp-action="History">
-                            <i class="bi bi-calendar-history"></i>
-                            <span>View History</span>
-                        </a>
+                            <nav class="sidebar-subnav">
+                                <a class="sidebar-sub-link @NavClass("Attendance", "History")" asp-controller="Attendance" asp-action="History">
+                                    <i class="bi bi-calendar-history"></i>
+                                    <span>View History</span>
+                                </a>
+                            </nav>
+                        </div>
                     }
 
                     @if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.SuperAdmin))
