@@ -76,6 +76,11 @@
                             <i class="bi bi-person-check-fill"></i>
                             <span>My OT</span>
                         </a>
+
+                        <a class="app-nav-link sidebar-nav-link @NavClass("Attendance", "History")" asp-controller="Attendance" asp-action="History">
+                            <i class="bi bi-calendar-history"></i>
+                            <span>View History</span>
+                        </a>
                     }
 
                     @if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.SuperAdmin))
