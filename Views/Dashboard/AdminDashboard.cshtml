@@ -199,6 +199,12 @@
             margin-top: 14px;
         }
 
+        .sidebar-action-stack {
+            display: grid;
+            gap: 10px;
+            margin: 14px 0 8px;
+        }
+
         .sidebar-profile-btn {
             height: 46px;
             border-radius: 12px;
@@ -217,6 +223,24 @@
         .sidebar-profile-btn:hover {
             background: rgba(255, 255, 255, 0.08);
             border-color: rgba(255, 255, 255, 0.28);
+            color: #fff;
+        }
+
+        .sidebar-profile-btn-primary {
+            background: linear-gradient(135deg, #7c8cff 0%, #8f5bd8 100%);
+            border-color: transparent;
+            box-shadow: 0 10px 22px rgba(119, 104, 236, 0.28);
+        }
+
+        .sidebar-profile-btn-danger {
+            background: rgba(239, 68, 68, 0.12);
+            border-color: rgba(239, 68, 68, 0.28);
+            color: #ffd6d6;
+        }
+
+        .sidebar-profile-btn-danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: rgba(239, 68, 68, 0.4);
             color: #fff;
         }
 
@@ -678,6 +702,17 @@ else
                 </a>
             </nav>
 
+            <div class="sidebar-action-stack">
+                <button type="button" id="openAddWorkerModal" class="sidebar-profile-btn sidebar-profile-btn-primary">
+                    <i class="bi bi-person-plus-fill me-2"></i>
+                    <span>Create User</span>
+                </button>
+                <button type="button" id="openDeleteUserModal" class="sidebar-profile-btn sidebar-profile-btn-danger">
+                    <i class="bi bi-person-dash-fill me-2"></i>
+                    <span>Delete User</span>
+                </button>
+            </div>
+
             <div class="sidebar-profile">
                 <div class="sidebar-profile-top">
                     <div class="sidebar-avatar">@sidebarInitials</div>
@@ -709,10 +744,6 @@ else
                             <h3>Search Worker OT History</h3>
                             <p>Search by Service ID / Service Number to view overtime history</p>
                         </div>
-                        <button type="button" id="openAddWorkerModal" class="add-worker-btn">
-                            <i class="bi bi-person-plus-fill"></i>
-                            <span>Add New Worker</span>
-                        </button>
                     </header>
                     <div class="card-body-clean">
                         <div class="search-row">
@@ -870,7 +901,7 @@ else
 <div id="addWorkerModalOverlay" class="add-worker-modal-overlay">
     <div class="add-worker-modal">
         <div class="add-worker-modal-header">
-            <h4 class="add-worker-modal-title">Add New Worker</h4>
+            <h4 class="add-worker-modal-title">Create User</h4>
             <button type="button" id="closeAddWorkerModalX" class="add-worker-modal-close" aria-label="Close">&times;</button>
         </div>
         <div class="add-worker-modal-body">
@@ -878,6 +909,10 @@ else
             <form id="addWorkerForm">
                 @Html.AntiForgeryToken()
                 <div class="add-worker-grid">
+                    <div>
+                        <label class="add-worker-field-label" for="workerName">Worker Name</label>
+                        <input type="text" id="workerName" class="form-control" placeholder="Enter worker's full name" required />
+                    </div>
                     <div>
                         <label class="add-worker-field-label" for="workerServiceId">Service ID / Service Number</label>
                         <input type="text" id="workerServiceId" class="form-control" placeholder="Enter Service ID (e.g., EMP001)" required />
@@ -891,14 +926,8 @@ else
                         <input type="text" id="workerPhone" class="form-control" placeholder="Enter Phone Number" required />
                     </div>
                     <div>
-                        <label class="add-worker-field-label" for="workerSectionId">Section</label>
-                        <select id="workerSectionId" class="form-select" required>
-                            <option value="">Select Section</option>
-                            @foreach (var sectionItem in Model.Sections)
-                            {
-                                <option value="@sectionItem.Value">@sectionItem.Text</option>
-                            }
-                        </select>
+                        <label class="add-worker-field-label" for="workerSectionName">Section</label>
+                        <input type="text" id="workerSectionName" class="form-control" value="@(string.IsNullOrWhiteSpace(Model.SectionName) ? "No section assigned" : Model.SectionName)" disabled readonly />
                     </div>
                     <div class="result-message">A temporary password will be securely generated.</div>
                 </div>
@@ -906,13 +935,39 @@ else
         </div>
         <div class="add-worker-modal-footer">
             <button type="button" id="cancelAddWorkerModal" class="add-worker-btn-cancel">Cancel</button>
-            <button type="button" id="saveAddWorkerBtn" class="add-worker-btn-save">Create Worker</button>
+            <button type="button" id="saveAddWorkerBtn" class="add-worker-btn-save">Create User</button>
+        </div>
+    </div>
+</div>
+<div id="deleteUserModalOverlay" class="add-worker-modal-overlay">
+    <div class="add-worker-modal">
+        <div class="add-worker-modal-header">
+            <h4 class="add-worker-modal-title">Delete User</h4>
+            <button type="button" id="closeDeleteUserModalX" class="add-worker-modal-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="add-worker-modal-body">
+            <div id="deleteUserMessage" class="add-worker-message"></div>
+            <form id="deleteUserForm">
+                @Html.AntiForgeryToken()
+                <div class="add-worker-grid">
+                    <div>
+                        <label class="add-worker-field-label" for="deleteUserServiceId">Service ID / Service Number</label>
+                        <input type="text" id="deleteUserServiceId" class="form-control" placeholder="Enter Service ID to delete" required />
+                    </div>
+                    <div class="result-message text-danger">This will deactivate the user in your section.</div>
+                </div>
+            </form>
+        </div>
+        <div class="add-worker-modal-footer">
+            <button type="button" id="cancelDeleteUserModal" class="add-worker-btn-cancel">Cancel</button>
+            <button type="button" id="confirmDeleteUserBtn" class="add-worker-btn-save">Delete User</button>
         </div>
     </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function () {
+            const hasSection = @Model.HasSection.ToString().ToLowerInvariant();
             const form = document.getElementById("workerOtSearchForm");
             const serviceInput = document.getElementById("serviceId");
             const singleDateInput = document.getElementById("singleDate");
@@ -956,6 +1011,14 @@ else
             const saveAddWorkerBtn = document.getElementById("saveAddWorkerBtn");
             const addWorkerForm = document.getElementById("addWorkerForm");
             const addWorkerMessage = document.getElementById("addWorkerMessage");
+            const workerNameInput = document.getElementById("workerName");
+            const deleteUserModalOverlay = document.getElementById("deleteUserModalOverlay");
+            const openDeleteUserModalBtn = document.getElementById("openDeleteUserModal");
+            const closeDeleteUserModalX = document.getElementById("closeDeleteUserModalX");
+            const cancelDeleteUserModal = document.getElementById("cancelDeleteUserModal");
+            const confirmDeleteUserBtn = document.getElementById("confirmDeleteUserBtn");
+            const deleteUserForm = document.getElementById("deleteUserForm");
+            const deleteUserMessage = document.getElementById("deleteUserMessage");
 
             function showAddWorkerMessage(type, message) {
                 if (!addWorkerMessage) {
@@ -964,6 +1027,45 @@ else
                 addWorkerMessage.className = "add-worker-message " + type;
                 addWorkerMessage.textContent = message;
                 addWorkerMessage.style.display = "block";
+            }
+
+            function showDeleteUserMessage(type, message) {
+                if (!deleteUserMessage) {
+                    return;
+                }
+                deleteUserMessage.className = "add-worker-message " + type;
+                deleteUserMessage.textContent = message;
+                deleteUserMessage.style.display = "block";
+            }
+
+            function clearDeleteUserMessage() {
+                if (!deleteUserMessage) {
+                    return;
+                }
+                deleteUserMessage.className = "add-worker-message";
+                deleteUserMessage.textContent = "";
+                deleteUserMessage.style.display = "none";
+            }
+
+            function openDeleteUserModal() {
+                if (!deleteUserModalOverlay) {
+                    return;
+                }
+                clearDeleteUserMessage();
+                deleteUserModalOverlay.style.display = "flex";
+                document.body.style.overflow = "hidden";
+            }
+
+            function closeDeleteUserModal() {
+                if (!deleteUserModalOverlay) {
+                    return;
+                }
+                deleteUserModalOverlay.style.display = "none";
+                document.body.style.overflow = "";
+                clearDeleteUserMessage();
+                if (deleteUserForm) {
+                    deleteUserForm.reset();
+                }
             }
 
             function clearAddWorkerMessage() {
@@ -975,13 +1077,31 @@ else
                 addWorkerMessage.style.display = "none";
             }
 
-            function openAddWorkerModal() {
+            async function openAddWorkerModal() {
                 if (!addWorkerModalOverlay) {
                     return;
                 }
                 clearAddWorkerMessage();
                 addWorkerModalOverlay.style.display = "flex";
                 document.body.style.overflow = "hidden";
+
+                const serviceIdInput = document.getElementById("workerServiceId");
+                if (serviceIdInput) {
+                    serviceIdInput.value = "";
+                }
+
+                try {
+                    const response = await fetch("@Url.Action("GetNextServiceId", "Dashboard")");
+                    const result = await response.json();
+
+                    if (result.success && serviceIdInput) {
+                        serviceIdInput.value = result.serviceId || "";
+                    } else if (result.message) {
+                        showAddWorkerMessage("error", result.message);
+                    }
+                } catch (error) {
+                    showAddWorkerMessage("error", "An error occurred while generating the Service ID.");
+                }
             }
 
             function closeAddWorkerModal() {
@@ -997,12 +1117,63 @@ else
             }
 
             async function saveWorker() {
+                            async function deleteUser() {
+                                const serviceIdValue = document.getElementById("deleteUserServiceId")?.value?.trim() ?? "";
+
+                                if (!hasSection) {
+                                    showDeleteUserMessage("error", "No section is assigned to your account.");
+                                    return;
+                                }
+
+                                if (!serviceIdValue) {
+                                    showDeleteUserMessage("error", "Please enter a Service ID.");
+                                    return;
+                                }
+
+                                const token = document.querySelector('#deleteUserForm input[name="__RequestVerificationToken"]')?.value ?? "";
+
+                                try {
+                                    const response = await fetch("@Url.Action("DeleteUser", "Dashboard")", {
+                                        method: "POST",
+                                        headers: {
+                                            "Content-Type": "application/json",
+                                            "RequestVerificationToken": token
+                                        },
+                                        body: JSON.stringify({ serviceId: serviceIdValue })
+                                    });
+
+                                    const result = await response.json();
+                                    if (result.success) {
+                                        showDeleteUserMessage("success", result.message || "User deleted successfully.");
+                                        setTimeout(function () {
+                                            closeDeleteUserModal();
+                                            window.location.reload();
+                                        }, 900);
+                                    } else {
+                                        let errorMessage = result.message || "Failed to delete user.";
+                                        if (result.errors) {
+                                            const allErrors = Object.values(result.errors).flat();
+                                            if (allErrors.length > 0) {
+                                                errorMessage = allErrors.join(" ");
+                                            }
+                                        }
+                                        showDeleteUserMessage("error", errorMessage);
+                                    }
+                                } catch (error) {
+                                    showDeleteUserMessage("error", "An error occurred while deleting the user.");
+                                }
+                            }
+                const workerName = workerNameInput?.value?.trim() ?? "";
                 const serviceIdValue = document.getElementById("workerServiceId")?.value?.trim() ?? "";
                 const email = document.getElementById("workerEmail")?.value?.trim() ?? "";
                 const phone = document.getElementById("workerPhone")?.value?.trim() ?? "";
-                const sectionIdValue = document.getElementById("workerSectionId")?.value ?? "";
 
-                if (!serviceIdValue || !email || !phone || !sectionIdValue) {
+                if (!hasSection) {
+                    showAddWorkerMessage("error", "No section is assigned to your account.");
+                    return;
+                }
+
+                if (!workerName || !serviceIdValue || !email || !phone) {
                     showAddWorkerMessage("error", "Please fill all required fields.");
                     return;
                 }
@@ -1017,10 +1188,10 @@ else
                             "RequestVerificationToken": token
                         },
                         body: JSON.stringify({
+                            workerName: workerName,
                             serviceId: serviceIdValue,
                             email: email,
-                            phone: phone,
-                            sectionId: parseInt(sectionIdValue)
+                            phone: phone
                         })
                     });
 
@@ -1058,10 +1229,29 @@ else
             if (saveAddWorkerBtn) {
                 saveAddWorkerBtn.addEventListener("click", saveWorker);
             }
+            if (openDeleteUserModalBtn) {
+                openDeleteUserModalBtn.addEventListener("click", openDeleteUserModal);
+            }
+            if (closeDeleteUserModalX) {
+                closeDeleteUserModalX.addEventListener("click", closeDeleteUserModal);
+            }
+            if (cancelDeleteUserModal) {
+                cancelDeleteUserModal.addEventListener("click", closeDeleteUserModal);
+            }
+            if (confirmDeleteUserBtn) {
+                confirmDeleteUserBtn.addEventListener("click", deleteUser);
+            }
             if (addWorkerModalOverlay) {
                 addWorkerModalOverlay.addEventListener("click", function (event) {
                     if (event.target === addWorkerModalOverlay) {
                         closeAddWorkerModal();
+                    }
+                });
+            }
+            if (deleteUserModalOverlay) {
+                deleteUserModalOverlay.addEventListener("click", function (event) {
+                    if (event.target === deleteUserModalOverlay) {
+                        closeDeleteUserModal();
                     }
                 });
             }

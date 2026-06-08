@@ -5,6 +5,10 @@ namespace AttendanceManagementSystem.ViewModels
     public class CreateWorkerViewModel
     {
         [Required]
+        [StringLength(150)]
+        public string WorkerName { get; set; } = string.Empty;
+
+        [Required]
         [StringLength(50)]
         public string ServiceId { get; set; } = string.Empty;
 
@@ -16,8 +20,5 @@ namespace AttendanceManagementSystem.ViewModels
         [Required]
         [StringLength(20)]
         public string Phone { get; set; } = string.Empty;
-
-        [Required]
-        public int SectionId { get; set; }
     }
 }

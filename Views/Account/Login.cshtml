@@ -5,6 +5,14 @@
 
 <div class="card-body">
     <h4 class="text-center mb-4">Sign In</h4>
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
     
     <form method="post">
         <div asp-validation-summary="All" class="text-danger mb-3"></div>
@@ -42,14 +50,17 @@
             <button type="submit" class="btn btn-primary btn-lg">
                 <i class="bi bi-box-arrow-in-right"></i> Sign In
             </button>
+            <a asp-action="AzureLogin" class="btn btn-outline-primary btn-lg">
+                <i class="bi bi-microsoft"></i> Sign in with Azure
+            </a>
         </div>
     </form>
     
     <div class="text-center mt-4">
         <small class="text-muted">
             Default Credentials:<br>
-            Super Admin: superadmin@attendance.com / Admin@123
-            dinugavithana578@gmail.com / 123
+            Super Admin: superadmin@attendance.com / Admin@123<br>
+            Admin: tvvithana@gmail.com / Din@yak!23
         </small>
     </div>
 </div>
@@ -57,5 +68,3 @@
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
 }
- 
-normal eka

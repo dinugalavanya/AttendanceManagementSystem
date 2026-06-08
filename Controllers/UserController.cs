@@ -12,11 +12,13 @@ namespace AttendanceManagementSystem.Controllers
     {
         private readonly IAuthService _authService;
         private readonly ApplicationDbContext _context;
+        private readonly IEmailService _emailService;
 
-        public UserController(IAuthService authService, ApplicationDbContext context)
+        public UserController(IAuthService authService, ApplicationDbContext context, IEmailService emailService)
         {
             _authService = authService;
             _context = context;
+            _emailService = emailService;
         }
 
         // GET: User
@@ -28,7 +30,6 @@ namespace AttendanceManagementSystem.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            // Check if current user is SuperAdmin
             ViewBag.IsSuperAdmin = currentUser.Role?.Name == RoleNames.SuperAdmin;
 
             // Load active sections for the Create Admin modal
@@ -37,9 +38,17 @@ namespace AttendanceManagementSystem.Controllers
                 .OrderBy(s => s.Name)
                 .ToListAsync();
 
-            var users = await _context.Users
+            var isSuperAdmin = currentUser.Role?.Name == RoleNames.SuperAdmin;
+
+            var usersQuery = _context.Users
                 .Include(u => u.Role)
                 .Include(u => u.Section)
+                .AsQueryable();
+
+            if (isSuperAdmin)
+                usersQuery = usersQuery.Where(u => u.Role.Name == RoleNames.Admin);
+
+            var users = await usersQuery
                 .OrderBy(u => u.FirstName)
                 .ThenBy(u => u.LastName)
                 .Select(u => new UserListItemViewModel
@@ -74,7 +83,6 @@ namespace AttendanceManagementSystem.Controllers
                 if (string.IsNullOrWhiteSpace(request.FirstName) ||
                     string.IsNullOrWhiteSpace(request.LastName) ||
                     string.IsNullOrWhiteSpace(request.Email) ||
-                    string.IsNullOrWhiteSpace(request.Password) ||
                     !request.SectionId.HasValue)
                 {
                     return Json(new { success = false, message = "All required fields must be filled." });
@@ -107,8 +115,9 @@ namespace AttendanceManagementSystem.Controllers
                     return Json(new { success = false, message = "Admin role not found." });
                 }
 
-                // Hash password using BCrypt
-                string hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
+                // Auto-generate a secure temporary password
+                string tempPassword = GenerateSecurePassword();
+                string hashedPassword = BCrypt.Net.BCrypt.HashPassword(tempPassword);
 
                 // Create new admin user
                 var newAdmin = new User
@@ -129,9 +138,19 @@ namespace AttendanceManagementSystem.Controllers
                 _context.Users.Add(newAdmin);
                 await _context.SaveChangesAsync();
 
+                // Send login credentials to admin's email
+                try
+                {
+                    await _emailService.SendLoginCredentialsAsync(newAdmin.Email, newAdmin.FullName, newAdmin.ServiceId, tempPassword, "Admin");
+                }
+                catch (Exception emailEx)
+                {
+                    Console.WriteLine($"[EMAIL ERROR] Failed to send email to {newAdmin.Email}: {emailEx.Message}");
+                }
+
                 return Json(new { 
                     success = true, 
-                    message = "Admin created successfully." 
+                    message = "Admin created successfully. Login credentials have been sent to their email."
                 });
             }
             catch (Exception ex)
@@ -247,6 +266,57 @@ namespace AttendanceManagementSystem.Controllers
             }
         }
 
+        // GET: User/LookupAdmin?serviceId=EMP901
+        [HttpGet]
+        public async Task<IActionResult> LookupAdmin(string serviceId)
+        {
+            var currentUser = _authService.GetCurrentUser();
+            if (currentUser?.Role?.Name != RoleNames.SuperAdmin)
+                return Json(new { success = false, message = "Unauthorized." });
+
+            var admin = await _context.Users
+                .Include(u => u.Role)
+                .Include(u => u.Section)
+                .FirstOrDefaultAsync(u => u.ServiceId == serviceId && u.Role.Name == RoleNames.Admin);
+
+            if (admin == null)
+                return Json(new { success = false, message = "No Admin found with that Service ID." });
+
+            return Json(new
+            {
+                success = true,
+                fullName = admin.FirstName + " " + admin.LastName,
+                serviceId = admin.ServiceId,
+                sectionName = admin.Section?.Name ?? "Not Assigned"
+            });
+        }
+
+        // POST: User/ChangeAdminSection
+        [HttpPost]
+        public async Task<IActionResult> ChangeAdminSection([FromBody] ChangeAdminSectionRequest request)
+        {
+            var currentUser = _authService.GetCurrentUser();
+            if (currentUser?.Role?.Name != RoleNames.SuperAdmin)
+                return Json(new { success = false, message = "Unauthorized." });
+
+            var admin = await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.ServiceId == request.ServiceId && u.Role.Name == RoleNames.Admin);
+
+            if (admin == null)
+                return Json(new { success = false, message = "Admin not found." });
+
+            var section = await _context.Sections.FirstOrDefaultAsync(s => s.Id == request.SectionId && s.IsActive);
+            if (section == null)
+                return Json(new { success = false, message = "Invalid section." });
+
+            admin.SectionId = request.SectionId;
+            admin.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return Json(new { success = true, message = $"Section changed to '{section.Name}' successfully." });
+        }
+
         private async Task<string> GenerateNextEmployeeServiceIdAsync()
         {
             var existingServiceIds = await _context.Users
@@ -263,6 +333,23 @@ namespace AttendanceManagementSystem.Controllers
                 .Max();
 
             return $"EMP{maxNumber + 1:D3}";
+        }
+
+        private static string GenerateSecurePassword()
+        {
+            const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+            const string lower = "abcdefghijkmnpqrstuvwxyz";
+            const string digits = "23456789";
+            const string special = "!@#$%^&*";
+            const string all = upper + lower + digits + special;
+            var rng = new Random();
+            var chars = new char[12];
+            chars[0] = upper[rng.Next(upper.Length)];
+            chars[1] = lower[rng.Next(lower.Length)];
+            chars[2] = digits[rng.Next(digits.Length)];
+            chars[3] = special[rng.Next(special.Length)];
+            for (int i = 4; i < 12; i++) chars[i] = all[rng.Next(all.Length)];
+            return new string(chars.OrderBy(_ => rng.Next()).ToArray());
         }
 
         private static int? ParseEmployeeServiceNumber(string serviceId)
@@ -317,9 +404,14 @@ namespace AttendanceManagementSystem.Controllers
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
         public string? Phone { get; set; }
         public string? Address { get; set; }
         public int? SectionId { get; set; }
+    }
+
+    public class ChangeAdminSectionRequest
+    {
+        public string ServiceId { get; set; } = string.Empty;
+        public int SectionId { get; set; }
     }
 }

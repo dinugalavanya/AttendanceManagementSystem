@@ -6,6 +6,7 @@ namespace AttendanceManagementSystem.Services
     {
         Task<User?> AuthenticateAsync(string email, string password);
         Task<User?> LoginAsync(string email, string password);
+        Task<User?> GetUserByEmailAsync(string email);
         Task<bool> RegisterAsync(User user);
         Task<User?> GetUserByIdAsync(int userId);
         Task<bool> IsUserInRoleAsync(int userId, string roleName);

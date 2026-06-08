@@ -77,8 +77,10 @@ namespace AttendanceManagementSystem.ViewModels
         public string? DateRangeMessage { get; set; }
         public CreateWorkerViewModel AddWorker { get; set; } = new();
         public List<SelectListItem> Sections { get; set; } = new();
+        public List<SelectListItem> WorkerServiceOptions { get; set; } = new();
         public WorkerHistorySearchViewModel? WorkerHistorySearchResult { get; set; }
         public SelectedDateAttendanceViewModel? SelectedDateAttendance { get; set; }
+        public List<WorkerOtRangeRowViewModel> DateRangeRows { get; set; } = new();
         
         // Properties for Add Employee form
         public string FirstName { get; set; } = string.Empty;
@@ -154,6 +156,15 @@ namespace AttendanceManagementSystem.ViewModels
     {
         public string DateLabel { get; set; } = string.Empty;
         public decimal OTHours { get; set; }
+    }
+
+    public class WorkerOtRangeRowViewModel
+    {
+        public DateTime Date { get; set; }
+        public string OvertimeInTime { get; set; } = "-";
+        public string OvertimeOutTime { get; set; } = "-";
+        public string OvertimeHours { get; set; } = "-";
+        public string Status { get; set; } = "-";
     }
 
     }

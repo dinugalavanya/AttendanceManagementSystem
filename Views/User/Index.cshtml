@@ -9,16 +9,21 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5><i class="bi bi-people"></i> User Management</h5>
+                    <h5><i class="bi bi-people"></i> @(ViewBag.IsSuperAdmin == true ? "Admin Management" : "User Management")</h5>
                     @if (ViewBag.IsSuperAdmin == true)
                     {
-                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createAdminModal">
-                            <i class="bi bi-plus-circle"></i> ADD Admin
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#changeSectionModal">
+                                <i class="bi bi-arrow-left-right"></i> Change Section
+                            </button>
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createAdminModal">
+                                <i class="bi bi-plus-circle"></i> ADD Admin
+                            </button>
+                        </div>
                     }
                 </div>
                 <div class="card-body">
-                    <p class="text-muted mb-3">Showing live data from the Users table.</p>
+                    <p class="text-muted mb-3">@(ViewBag.IsSuperAdmin == true ? "Showing all Admin users." : "Showing live data from the Users table.")</p>
 
                     @if (Model != null && Model.Any())
                     {
@@ -67,6 +72,143 @@
         </div>
     </div>
 </div>
+
+<!-- Change Section Modal -->
+@if (ViewBag.IsSuperAdmin == true)
+{
+    <div class="modal fade" id="changeSectionModal" tabindex="-1" aria-labelledby="changeSectionModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="changeSectionModalLabel"><i class="bi bi-arrow-left-right"></i> Change Admin Section</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Step 1: Enter Service ID -->
+                    <div id="stepLookup">
+                        <div class="mb-3">
+                            <label for="lookupServiceId" class="form-label">Admin Service ID *</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="lookupServiceId" placeholder="e.g. EMP901">
+                                <button class="btn btn-outline-primary" type="button" onclick="lookupAdmin()">Find Admin</button>
+                            </div>
+                        </div>
+                        <div id="lookupError" class="alert alert-danger d-none"></div>
+                    </div>
+                    <!-- Step 2: Change Section (shown after lookup) -->
+                    <div id="stepChange" class="d-none">
+                        <div class="alert alert-info mb-3" id="adminInfo"></div>
+                        <div class="mb-3">
+                            <label for="newSectionId" class="form-label">New Section *</label>
+                            <select class="form-select" id="newSectionId">
+                                <option value="">-- Select Section --</option>
+                                @{
+                                    var sectionListCs = ViewBag.Sections as List<AttendanceManagementSystem.Models.Section>;
+                                }
+                                @if (sectionListCs != null)
+                                {
+                                    foreach (var sec in sectionListCs)
+                                    {
+                                        <option value="@sec.Id">@sec.Name</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div id="changeError" class="alert alert-danger d-none"></div>
+                        <div id="changeSuccess" class="alert alert-success d-none"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-warning d-none" id="btnChangeSection" onclick="changeSection()">Change Section</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let foundAdminServiceId = null;
+
+        function lookupAdmin() {
+            const serviceId = document.getElementById('lookupServiceId').value.trim();
+            document.getElementById('lookupError').classList.add('d-none');
+
+            if (!serviceId) {
+                document.getElementById('lookupError').textContent = 'Please enter a Service ID.';
+                document.getElementById('lookupError').classList.remove('d-none');
+                return;
+            }
+
+            fetch(`/User/LookupAdmin?serviceId=${encodeURIComponent(serviceId)}`)
+                .then(r => r.json())
+                .then(result => {
+                    if (result.success) {
+                        foundAdminServiceId = serviceId;
+                        document.getElementById('adminInfo').textContent =
+                            `Found: ${result.fullName} (${result.serviceId}) — Current Section: ${result.sectionName}`;
+                        document.getElementById('stepChange').classList.remove('d-none');
+                        document.getElementById('btnChangeSection').classList.remove('d-none');
+                    } else {
+                        document.getElementById('lookupError').textContent = result.message;
+                        document.getElementById('lookupError').classList.remove('d-none');
+                        document.getElementById('stepChange').classList.add('d-none');
+                        document.getElementById('btnChangeSection').classList.add('d-none');
+                        foundAdminServiceId = null;
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('lookupError').textContent = 'Error looking up admin.';
+                    document.getElementById('lookupError').classList.remove('d-none');
+                });
+        }
+
+        function changeSection() {
+            const sectionId = document.getElementById('newSectionId').value;
+            document.getElementById('changeError').classList.add('d-none');
+            document.getElementById('changeSuccess').classList.add('d-none');
+
+            if (!sectionId) {
+                document.getElementById('changeError').textContent = 'Please select a section.';
+                document.getElementById('changeError').classList.remove('d-none');
+                return;
+            }
+
+            fetch('/User/ChangeAdminSection', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ serviceId: foundAdminServiceId, sectionId: parseInt(sectionId) })
+            })
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    document.getElementById('changeSuccess').textContent = result.message;
+                    document.getElementById('changeSuccess').classList.remove('d-none');
+                    setTimeout(() => {
+                        bootstrap.Modal.getInstance(document.getElementById('changeSectionModal')).hide();
+                        location.reload();
+                    }, 1500);
+                } else {
+                    document.getElementById('changeError').textContent = result.message;
+                    document.getElementById('changeError').classList.remove('d-none');
+                }
+            })
+            .catch(() => {
+                document.getElementById('changeError').textContent = 'Error changing section.';
+                document.getElementById('changeError').classList.remove('d-none');
+            });
+        }
+
+        document.getElementById('changeSectionModal').addEventListener('hidden.bs.modal', function () {
+            document.getElementById('lookupServiceId').value = '';
+            document.getElementById('lookupError').classList.add('d-none');
+            document.getElementById('stepChange').classList.add('d-none');
+            document.getElementById('btnChangeSection').classList.add('d-none');
+            document.getElementById('changeError').classList.add('d-none');
+            document.getElementById('changeSuccess').classList.add('d-none');
+            foundAdminServiceId = null;
+        });
+    </script>
+}
 
 <!-- Create Admin Modal -->
 @if (ViewBag.IsSuperAdmin == true)
@@ -117,16 +259,9 @@
 }
                                 </select>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="Password" class="form-label">Password *</label>
-                                <input type="password" class="form-control" id="Password" name="Password" required>
-                            </div>
                         </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label for="ConfirmPassword" class="form-label">Confirm Password *</label>
-                                <input type="password" class="form-control" id="ConfirmPassword" name="ConfirmPassword" required>
-                            </div>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> A secure temporary password will be auto-generated and sent to the admin's email address.
                         </div>
                         <div class="mb-3">
                             <label for="Address" class="form-label">Address</label>
@@ -153,22 +288,11 @@
             document.getElementById('errorMessage').classList.add('d-none');
             document.getElementById('successMessage').classList.add('d-none');
             
-            // Validate passwords match
-            const password = formData.get('Password');
-            const confirmPassword = formData.get('ConfirmPassword');
-            
-            if (password !== confirmPassword) {
-                document.getElementById('errorMessage').textContent = 'Password and Confirm Password must match.';
-                document.getElementById('errorMessage').classList.remove('d-none');
-                return;
-            }
-            
             // Create JSON payload
             const data = {
                 FirstName: formData.get('FirstName'),
                 LastName: formData.get('LastName'),
                 Email: formData.get('Email'),
-                Password: password,
                 Phone: formData.get('Phone') || null,
                 Address: formData.get('Address') || null,
                 SectionId: formData.get('SectionId') ? parseInt(formData.get('SectionId')) : null

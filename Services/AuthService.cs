@@ -39,6 +39,19 @@ namespace AttendanceManagementSystem.Services
             return await AuthenticateAsync(email, password);
         }
 
+        public async Task<User?> GetUserByEmailAsync(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return null;
+            }
+
+            return await _context.Users
+                .Include(u => u.Role)
+                .Include(u => u.Section)
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower() && u.IsActive);
+        }
+
         public async Task<bool> RegisterAsync(User user)
         {
             try
@@ -103,6 +116,7 @@ namespace AttendanceManagementSystem.Services
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.Name, user.FullName),
                 new Claim(ClaimTypes.Role, user.Role.Name),
+                new Claim("ServiceId", user.ServiceId),
                 new Claim("SectionId", user.SectionId?.ToString() ?? ""),
                 new Claim("FirstName", user.FirstName),
                 new Claim("LastName", user.LastName)

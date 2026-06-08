@@ -7,8 +7,8 @@ namespace AttendanceManagementSystem.Data
     {
         public const string DefaultSuperAdminEmail = "superadmin@attendance.com";
         public const string DefaultSuperAdminPassword = "Admin@123";
-        public const string DefaultAdminEmail = "dinugavithana578@gmail.com";
-        public const string DefaultAdminPassword = "123";
+        public const string DefaultAdminEmail = "tvvithana@gmail.com";
+        public const string DefaultAdminPassword = "Din@yak!23";
         public const string DefaultWorkerEmail = "yenu@gmail.com";
         public const string DefaultWorkerPassword = "123";
         public const string DefaultMarketingSectionName = "Marketing";
@@ -354,6 +354,56 @@ namespace AttendanceManagementSystem.Data
             var existingUsersByEmail = await context.Users
                 .ToDictionaryAsync(u => u.Email.ToLower(), cancellationToken);
 
+            // Track service IDs already in use (from DB) and those we assign during seeding
+            var takenServiceIds = existingUsersByEmail.Values
+                .Select(u => (u.ServiceId ?? string.Empty).ToUpperInvariant())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .ToHashSet(StringComparer.Ordinal);
+
+            async Task<string> GetAvailableServiceIdAsync(string preferred, int? currentUserId)
+            {
+                var normalized = (preferred ?? string.Empty).Trim().ToUpperInvariant();
+                if (string.IsNullOrWhiteSpace(normalized))
+                {
+                    normalized = BuildEmployeeServiceId(1);
+                }
+
+                // If preferred is free in DB and not yet taken in this run, use it
+                var preferredUsedByOther = await context.Users
+                    .AsNoTracking()
+                    .AnyAsync(u => u.ServiceId != null && u.ServiceId.ToUpper() == normalized && (!currentUserId.HasValue || u.Id != currentUserId.Value), cancellationToken);
+
+                if (!preferredUsedByOther && !takenServiceIds.Contains(normalized))
+                {
+                    takenServiceIds.Add(normalized);
+                    return normalized;
+                }
+
+                // Start searching from the preferred number if it looks like EMP###
+                var startNumber = 1;
+                if (normalized.StartsWith("EMP", StringComparison.Ordinal) && int.TryParse(normalized[3..], out var parsed) && parsed > 0)
+                {
+                    startNumber = parsed + 1;
+                }
+
+                var candidateNumber = Math.Max(1, startNumber);
+                while (true)
+                {
+                    var candidate = BuildEmployeeServiceId(candidateNumber);
+                    var inDb = await context.Users
+                        .AsNoTracking()
+                        .AnyAsync(u => u.ServiceId != null && u.ServiceId.ToUpper() == candidate && (!currentUserId.HasValue || u.Id != currentUserId.Value), cancellationToken);
+
+                    if (!inDb && !takenServiceIds.Contains(candidate))
+                    {
+                        takenServiceIds.Add(candidate);
+                        return candidate;
+                    }
+
+                    candidateNumber++;
+                }
+            }
+
             if (workerRoleId == 0 || sections.Count == 0)
             {
                 logger.LogWarning("Cannot seed workers: Worker role or sections not found.");
@@ -436,11 +486,9 @@ namespace AttendanceManagementSystem.Data
                             shouldUpdate = true;
                         }
 
-                        var resolvedServiceId = await ResolveUniqueServiceIdAsync(
-                            context,
+                        var resolvedServiceId = await GetAvailableServiceIdAsync(
                             preferredServiceId,
-                            existingUser.Id,
-                            cancellationToken);
+                            existingUser.Id);
                         if (!string.Equals(existingUser.ServiceId, resolvedServiceId, StringComparison.Ordinal))
                         {
                             existingUser.ServiceId = resolvedServiceId;
@@ -455,11 +503,9 @@ namespace AttendanceManagementSystem.Data
                         continue;
                     }
 
-                    var newWorkerServiceId = await ResolveUniqueServiceIdAsync(
-                        context,
+                    var newWorkerServiceId = await GetAvailableServiceIdAsync(
                         preferredServiceId,
-                        null,
-                        cancellationToken);
+                        null);
 
                     workersToAdd.Add(new User
                     {

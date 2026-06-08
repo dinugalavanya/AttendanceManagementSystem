@@ -1,5 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.Extensions.Configuration;
+using System.Security.Claims;
 using AttendanceManagementSystem.Data;
 using AttendanceManagementSystem.Services;
 
@@ -8,41 +13,120 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
-// Add Swagger for API testing
+// Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo 
-    { 
-        Title = "Attendance Management System API", 
+    c.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "Attendance Management System API",
         Version = "v1",
         Description = "API for managing attendance, users, and sections"
     });
-    
-    // Add XML comments for better documentation
-    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-    if (File.Exists(xmlPath))
-    {
-        c.IncludeXmlComments(xmlPath);
-    }
 });
 
-// Configure Entity Framework
+// EF Core
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Configure Authentication
-builder.Services.AddAuthentication("CookieAuth")
-    .AddCookie("CookieAuth", options =>
-    {
-        options.Cookie.Name = "UserLoginCookie";
-        options.LoginPath = "/Account/Login";
-        options.AccessDeniedPath = "/Account/AccessDenied";
-        options.ExpireTimeSpan = TimeSpan.FromHours(8);
-    });
+// =======================
+// AUTHENTICATION (FIXED)
+// =======================
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = "CookieAuth";
+    options.DefaultChallengeScheme = "AzureAd";
+})
+.AddCookie("CookieAuth", options =>
+{
+    options.Cookie.Name = "UserLoginCookie";
+    options.LoginPath = "/Account/Login";
+    options.AccessDeniedPath = "/Account/AccessDenied";
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+})
+.AddOpenIdConnect("AzureAd", options =>
+{
+    var azureAd = builder.Configuration.GetSection("AzureAd");
 
-// Configure Session
+    var tenantId = azureAd["TenantId"];
+    var instance = azureAd["Instance"] ?? "https://login.microsoftonline.com/";
+    var clientId = azureAd["ClientId"];
+    var clientSecret = azureAd["ClientSecret"];
+    var callbackPath = azureAd["CallbackPath"] ?? "/signin-oidc";
+
+    if (string.IsNullOrWhiteSpace(tenantId))
+    {
+        throw new InvalidOperationException("AzureAd:TenantId is required for single-tenant authentication.");
+    }
+
+    if (string.IsNullOrWhiteSpace(clientId))
+    {
+        throw new InvalidOperationException("AzureAd:ClientId is required.");
+    }
+
+    if (string.IsNullOrWhiteSpace(clientSecret))
+    {
+        throw new InvalidOperationException("AzureAd:ClientSecret is required for Authorization Code Flow.");
+    }
+
+    // Single-tenant authority - forces organizational accounts only
+    options.Authority = $"{instance.TrimEnd('/')}/{tenantId.TrimEnd('/')}/v2.0";
+
+    options.ClientId = clientId;
+    options.ClientSecret = clientSecret;
+
+    options.CallbackPath = callbackPath.StartsWith('/') ? callbackPath : $"/{callbackPath}";
+    options.SignInScheme = "CookieAuth";
+
+    // Authorization Code Flow (required by Azure AD)
+    options.ResponseType = "code";
+    options.SaveTokens = true;
+    options.GetClaimsFromUserInfoEndpoint = true;
+
+    // Scopes for organizational accounts
+    options.Scope.Clear();
+    options.Scope.Add("openid");
+    options.Scope.Add("profile");
+    options.Scope.Add("email");
+
+    // Let Microsoft.Identity handle all token validation automatically based on Authority
+    // No manual TokenValidationParameters overrides needed
+
+    // Events for error handling and logging
+    options.Events = new OpenIdConnectEvents
+    {
+        OnRedirectToIdentityProvider = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+            logger.LogInformation("OIDC redirect to: {Authority} for ClientId: {ClientId}", context.Options.Authority, clientId);
+            return Task.CompletedTask;
+        },
+        OnRemoteFailure = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+            logger.LogError(context.Failure, "OIDC remote failure: {Message}", context.Failure?.Message);
+            context.HandleResponse();
+            context.Response.Redirect("/Account/Login?error=" + Uri.EscapeDataString(context.Failure?.Message ?? "Authentication failed"));
+            return Task.CompletedTask;
+        },
+        OnAuthenticationFailed = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+            logger.LogError(context.Exception, "OIDC authentication failed: {Message}", context.Exception.Message);
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+            var issuer = context.Principal?.FindFirst("iss")?.Value;
+            var subject = context.Principal?.FindFirst("sub")?.Value;
+            logger.LogInformation("OIDC token validated. Issuer: {Issuer}, Subject: {Subject}", issuer, subject);
+            return Task.CompletedTask;
+        }
+    };
+});
+
+// Session
 builder.Services.AddSession(options =>
 {
     options.IdleTimeout = TimeSpan.FromHours(8);
@@ -50,92 +134,36 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
-// Add HttpContextAccessor
 builder.Services.AddHttpContextAccessor();
 
-// Register custom services
+// Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<DatabaseMigrationService>();
 builder.Services.AddScoped<AttendanceCalculationService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 var app = builder.Build();
 
-// Startup database diagnostics and connectivity check
-using (var scope = app.Services.CreateScope())
-{
-    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-    if (string.IsNullOrWhiteSpace(connectionString))
-    {
-        logger.LogError("DefaultConnection is missing or empty.");
-        throw new InvalidOperationException("DefaultConnection is missing or empty.");
-    }
-    else
-    {
-        var sqlBuilder = new SqlConnectionStringBuilder(connectionString);
-        var authMode = sqlBuilder.IntegratedSecurity ? "Windows Authentication" : "SQL Authentication";
-
-        logger.LogInformation(
-            "Database target configured: Server={Server}; Database={Database}; AuthMode={AuthMode}",
-            sqlBuilder.DataSource,
-            sqlBuilder.InitialCatalog,
-            authMode);
-
-        if (sqlBuilder.IntegratedSecurity)
-        {
-            logger.LogInformation("Windows identity for DB connection: {WindowsUser}", $"{Environment.UserDomainName}\\{Environment.UserName}");
-        }
-
-        try
-        {
-            logger.LogInformation("Starting database migration and initialization.");
-            var dbMigration = scope.ServiceProvider.GetRequiredService<DatabaseMigrationService>();
-            await dbMigration.InitializeAsync();
-
-            var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            await DatabaseInitializer.EnsureCoreDataAsync(dbContext, logger);
-
-            logger.LogInformation("Database initialization completed successfully for Server={Server}; Database={Database}", sqlBuilder.DataSource, sqlBuilder.InitialCatalog);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Database initialization failed for Server={Server}; Database={Database}: {Message}", sqlBuilder.DataSource, sqlBuilder.InitialCatalog, ex.Message);
-            logger.LogWarning("Continuing application startup without a completed database initialization. Login and other database-backed actions may still fail until the database issue is resolved.");
-        }
-    }
-}
-
-// Configure the HTTP request pipeline.
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Home/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-    app.UseHsts();
-}
-
-// Enable Swagger in development
+// Swagger
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Attendance Management API V1");
-        c.RoutePrefix = "swagger"; // Set Swagger UI at /swagger
-    });
+    app.UseSwaggerUI();
 }
 
-// Use HTTPS redirection only in production
+// Pipeline
 if (!app.Environment.IsDevelopment())
 {
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
     app.UseHttpsRedirection();
 }
 
 app.UseStaticFiles();
+
 app.UseRouting();
 
-// Use authentication and session
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -143,6 +171,5 @@ app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Account}/{action=Login}/{id?}");
-
 
 app.Run();
