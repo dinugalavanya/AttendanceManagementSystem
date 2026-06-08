@@ -85,9 +85,14 @@
                                 </a>
                             </nav>
                         </div>
+
+                        <a class="app-nav-link sidebar-nav-link" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
+                            <i class="bi bi-gear-fill"></i>
+                            <span>Settings</span>
+                        </a>
                     }
 
-                    @if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.SuperAdmin))
+                    @if (User.IsInRole(RoleNames.Admin))
                     {
                         <a class="app-nav-link sidebar-nav-link @NavClass("Attendance", "Manage")" asp-controller="Attendance" asp-action="Manage">
                             <i class="bi bi-clipboard-data-fill"></i>

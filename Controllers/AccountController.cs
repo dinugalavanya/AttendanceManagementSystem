@@ -140,29 +140,20 @@ namespace AttendanceManagementSystem.Controllers
 
         [Authorize]
         [HttpPost]
-        [ValidateAntiForgeryToken]
+        [IgnoreAntiforgeryToken]
         public async Task<IActionResult> ChangePassword(string currentPassword, string newPassword, string confirmPassword)
         {
             var user = _authService.GetCurrentUser();
-            if (user == null) return RedirectToAction(nameof(Login));
+            if (user == null) return Json(new { success = false, message = "Not authenticated." });
 
             if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
-            {
-                TempData["PasswordError"] = "New password must be at least 6 characters.";
-                return RedirectToAction(nameof(Profile));
-            }
+                return Json(new { success = false, message = "New password must be at least 6 characters." });
 
             if (newPassword != confirmPassword)
-            {
-                TempData["PasswordError"] = "Passwords do not match.";
-                return RedirectToAction(nameof(Profile));
-            }
+                return Json(new { success = false, message = "Passwords do not match." });
 
             if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
-            {
-                TempData["PasswordError"] = "Current password is incorrect.";
-                return RedirectToAction(nameof(Profile));
-            }
+                return Json(new { success = false, message = "Current password is incorrect." });
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
             user.UpdatedAt = DateTime.UtcNow;
@@ -171,8 +162,7 @@ namespace AttendanceManagementSystem.Controllers
             dbContext.Users.Update(user);
             await dbContext.SaveChangesAsync();
 
-            TempData["PasswordSuccess"] = "Password changed successfully.";
-            return RedirectToAction(nameof(Profile));
+            return Json(new { success = true, message = "Password changed successfully." });
         }
 
         [Authorize]

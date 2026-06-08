@@ -243,6 +243,57 @@
 </section>
 
 @section Scripts {
+    <!-- Change Password Modal -->
+    <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:16px;border:none;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+                <div class="modal-header" style="background:linear-gradient(135deg,#6c5ce7,#a855f7);border-radius:16px 16px 0 0;border:none;">
+                    <div class="d-flex align-items-center gap-2">
+                        <div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:6px 10px;">
+                            <i class="bi bi-shield-lock-fill text-white"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title text-white mb-0" id="changePasswordModalLabel">Change Password</h5>
+                            <p class="text-white mb-0" style="font-size:12px;opacity:0.8;">Update your account password</p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="cpError" class="alert alert-danger d-none"></div>
+                    <div id="cpSuccess" class="alert alert-success d-none"></div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Current Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                            <input type="password" id="cpCurrent" class="form-control" placeholder="Enter current password" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">New Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-key"></i></span>
+                            <input type="password" id="cpNew" class="form-control" placeholder="Enter new password" />
+                        </div>
+                        <div class="form-text">Minimum 6 characters.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Confirm New Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-key-fill"></i></span>
+                            <input type="password" id="cpConfirm" class="form-control" placeholder="Confirm new password" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top:1px solid #f0f0f0;">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn text-white" style="background:linear-gradient(135deg,#6c5ce7,#a855f7);" onclick="submitChangePassword()">
+                        <i class="bi bi-check2-circle me-1"></i> Update Password
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script>
         const workerTrendLabels = @Html.Raw(JsonSerializer.Serialize(trendLabels));
@@ -309,6 +360,70 @@
                 }
             });
         }
+
+        function submitChangePassword() {
+            const current = document.getElementById('cpCurrent').value;
+            const newPwd = document.getElementById('cpNew').value;
+            const confirm = document.getElementById('cpConfirm').value;
+            const errorEl = document.getElementById('cpError');
+            const successEl = document.getElementById('cpSuccess');
+
+            errorEl.classList.add('d-none');
+            successEl.classList.add('d-none');
+
+            if (!current || !newPwd || !confirm) {
+                errorEl.textContent = 'All fields are required.';
+                errorEl.classList.remove('d-none');
+                return;
+            }
+            if (newPwd.length < 6) {
+                errorEl.textContent = 'New password must be at least 6 characters.';
+                errorEl.classList.remove('d-none');
+                return;
+            }
+            if (newPwd !== confirm) {
+                errorEl.textContent = 'Passwords do not match.';
+                errorEl.classList.remove('d-none');
+                return;
+            }
+
+            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+            const formData = new FormData();
+            formData.append('currentPassword', current);
+            formData.append('newPassword', newPwd);
+            formData.append('confirmPassword', confirm);
+            if (token) formData.append('__RequestVerificationToken', token);
+
+            fetch('/Account/ChangePassword', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(result => {
+                    if (result.success) {
+                        successEl.textContent = result.message;
+                        successEl.classList.remove('d-none');
+                        document.getElementById('cpCurrent').value = '';
+                        document.getElementById('cpNew').value = '';
+                        document.getElementById('cpConfirm').value = '';
+                        setTimeout(() => {
+                            bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+                        }, 1500);
+                    } else {
+                        errorEl.textContent = result.message;
+                        errorEl.classList.remove('d-none');
+                    }
+                })
+                .catch(() => {
+                    errorEl.textContent = 'An error occurred. Please try again.';
+                    errorEl.classList.remove('d-none');
+                });
+        }
+
+        document.getElementById('changePasswordModal').addEventListener('hidden.bs.modal', function () {
+            document.getElementById('cpCurrent').value = '';
+            document.getElementById('cpNew').value = '';
+            document.getElementById('cpConfirm').value = '';
+            document.getElementById('cpError').classList.add('d-none');
+            document.getElementById('cpSuccess').classList.add('d-none');
+        });
     </script>
 }
 

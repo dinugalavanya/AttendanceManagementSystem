@@ -10,9 +10,13 @@
     var isManageOvertimeActive = string.Equals(currentController, "Attendance", StringComparison.OrdinalIgnoreCase)
         && string.Equals(currentAction, "Manage", StringComparison.OrdinalIgnoreCase);
 
-    var sidebarDisplayName = "Dinuga Vithana";
-    var sidebarRoleLabel = "Admin";
-    var sidebarInitials = "DV";
+    var sidebarDisplayName = User.FindFirst("FirstName")?.Value?.Trim() + " " + User.FindFirst("LastName")?.Value?.Trim();
+    sidebarDisplayName = sidebarDisplayName.Trim();
+    if (string.IsNullOrWhiteSpace(sidebarDisplayName)) sidebarDisplayName = User.Identity?.Name ?? "Admin";
+    var sidebarRoleLabel = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Admin";
+    var firstName = User.FindFirst("FirstName")?.Value?.Trim() ?? "A";
+    var lastName = User.FindFirst("LastName")?.Value?.Trim() ?? "U";
+    var sidebarInitials = $"{(firstName.Length > 0 ? char.ToUpperInvariant(firstName[0]) : 'A')}{(lastName.Length > 0 ? char.ToUpperInvariant(lastName[0]) : 'U')}";
 
     var adminBadgeText = string.IsNullOrWhiteSpace(Model.SectionName)
         ? "Admin"
@@ -700,6 +704,10 @@ else
                     <i class="bi bi-clock-history"></i>
                     <span>Manage Overtime</span>
                 </a>
+                <a class="sidebar-nav-link" style="cursor:pointer;" onclick="document.getElementById('adminChangePasswordModal').style.display='flex';document.body.style.overflow='hidden';">
+                    <i class="bi bi-gear-fill"></i>
+                    <span>Settings</span>
+                </a>
             </nav>
 
             <div class="sidebar-action-stack">
@@ -1340,5 +1348,109 @@ else
             });
         })();
     </script>
+<!-- Change Password Modal -->
+<div id="adminChangePasswordModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:3000;align-items:center;justify-content:center;padding:16px;">
+    <div style="width:min(460px,100%);border-radius:16px;background:#fff;box-shadow:0 24px 48px rgba(15,23,42,0.25);overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#6c5ce7,#a855f7);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:12px;">
+                <div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:6px 10px;">
+                    <i class="bi bi-shield-lock-fill" style="color:#fff;"></i>
+                </div>
+                <div>
+                    <h5 style="color:#fff;margin:0;font-weight:700;">Change Password</h5>
+                    <p style="color:rgba(255,255,255,0.8);margin:0;font-size:12px;">Update your account password</p>
+                </div>
+            </div>
+            <button onclick="document.getElementById('adminChangePasswordModal').style.display='none';document.body.style.overflow='';" style="background:transparent;border:none;color:#fff;font-size:1.3rem;cursor:pointer;">&times;</button>
+        </div>
+        <div style="padding:24px;">
+            <div id="adminCpError" style="display:none;background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:0.85rem;"></div>
+            <div id="adminCpSuccess" style="display:none;background:#dcfce7;border:1px solid #86efac;color:#166534;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:0.85rem;"></div>
+            <div style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:0.88rem;display:block;margin-bottom:6px;">Current Password</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    <input type="password" id="adminCpCurrent" class="form-control" placeholder="Enter current password" />
+                </div>
+            </div>
+            <div style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:0.88rem;display:block;margin-bottom:6px;">New Password</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-key"></i></span>
+                    <input type="password" id="adminCpNew" class="form-control" placeholder="Enter new password (min 6 chars)" />
+                </div>
+            </div>
+            <div style="margin-bottom:6px;">
+                <label style="font-weight:600;font-size:0.88rem;display:block;margin-bottom:6px;">Confirm New Password</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-key-fill"></i></span>
+                    <input type="password" id="adminCpConfirm" class="form-control" placeholder="Confirm new password" />
+                </div>
+            </div>
+        </div>
+        <div style="padding:14px 24px;border-top:1px solid #f0f0f0;display:flex;justify-content:flex-end;gap:10px;">
+            <button onclick="document.getElementById('adminChangePasswordModal').style.display='none';document.body.style.overflow='';" class="btn btn-light">Cancel</button>
+            <button onclick="adminSubmitChangePassword()" class="btn text-white" style="background:linear-gradient(135deg,#6c5ce7,#a855f7);"><i class="bi bi-check2-circle me-1"></i> Update Password</button>
+        </div>
+    </div>
+</div>
+
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
+<script>
+    function adminSubmitChangePassword() {
+        const current = document.getElementById('adminCpCurrent').value;
+        const newPwd = document.getElementById('adminCpNew').value;
+        const confirm = document.getElementById('adminCpConfirm').value;
+        const errorEl = document.getElementById('adminCpError');
+        const successEl = document.getElementById('adminCpSuccess');
+
+        errorEl.style.display = 'none';
+        successEl.style.display = 'none';
+
+        if (!current || !newPwd || !confirm) {
+            errorEl.textContent = 'All fields are required.';
+            errorEl.style.display = 'block';
+            return;
+        }
+        if (newPwd.length < 6) {
+            errorEl.textContent = 'New password must be at least 6 characters.';
+            errorEl.style.display = 'block';
+            return;
+        }
+        if (newPwd !== confirm) {
+            errorEl.textContent = 'Passwords do not match.';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('currentPassword', current);
+        formData.append('newPassword', newPwd);
+        formData.append('confirmPassword', confirm);
+
+        fetch('/Account/ChangePassword', { method: 'POST', body: formData })
+            .then(r => r.json())
+            .then(result => {
+                if (result.success) {
+                    successEl.textContent = result.message;
+                    successEl.style.display = 'block';
+                    document.getElementById('adminCpCurrent').value = '';
+                    document.getElementById('adminCpNew').value = '';
+                    document.getElementById('adminCpConfirm').value = '';
+                    setTimeout(() => {
+                        document.getElementById('adminChangePasswordModal').style.display = 'none';
+                        document.body.style.overflow = '';
+                    }, 1500);
+                } else {
+                    errorEl.textContent = result.message;
+                    errorEl.style.display = 'block';
+                }
+            })
+            .catch(() => {
+                errorEl.textContent = 'An error occurred. Please try again.';
+                errorEl.style.display = 'block';
+            });
+    }
+</script>
 </body>
 </html>

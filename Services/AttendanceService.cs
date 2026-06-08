@@ -164,8 +164,12 @@ namespace AttendanceManagementSystem.Services
                 .AsNoTracking()
                 .Include(a => a.User)
                 .ThenInclude(u => u.Section)
+                .Include(a => a.User)
+                .ThenInclude(u => u.Role)
                 .Include(a => a.EditLogs)
-                .Where(a => a.User.SectionId == sectionId && a.AttendanceDate.Date == date.Date)
+                .Where(a => a.User.SectionId == sectionId &&
+                            a.AttendanceDate.Date == date.Date &&
+                            a.User.Role.Name == RoleNames.Worker)
                 .OrderBy(a => a.User.FirstName)
                 .ThenBy(a => a.User.LastName)
                 .ToListAsync();
@@ -177,8 +181,11 @@ namespace AttendanceManagementSystem.Services
                 .AsNoTracking()
                 .Include(a => a.User)
                 .ThenInclude(u => u.Section)
+                .Include(a => a.User)
+                .ThenInclude(u => u.Role)
                 .Include(a => a.EditLogs)
-                .Where(a => a.AttendanceDate.Date == date.Date)
+                .Where(a => a.AttendanceDate.Date == date.Date &&
+                            a.User.Role.Name == RoleNames.Admin)
                 .OrderBy(a => a.User.Section != null ? a.User.Section.Name : "")
                 .ThenBy(a => a.User.FirstName)
                 .ThenBy(a => a.User.LastName)
