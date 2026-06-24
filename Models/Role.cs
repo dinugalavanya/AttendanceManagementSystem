@@ -23,6 +23,9 @@ namespace AttendanceManagementSystem.Models
     {
         public const string SuperAdmin = "SuperAdmin";
         public const string Admin = "Admin";
+        public const string GM = "GM";
+        public const string DGM = "DGM";
+        public const string Engineer = "Engineer";
         public const string Worker = "Worker";
     }
 }

@@ -59,9 +59,13 @@ namespace AttendanceManagementSystem.Controllers
             var monthStart = new DateTime(today.Year, today.Month, 1);
             var monthEndExclusive = monthStart.AddMonths(1);
 
-            var isSuperAdmin = currentUser.Role.Name == RoleNames.SuperAdmin;
-            var isAdmin = currentUser.Role.Name == RoleNames.Admin;
-            var isWorker = currentUser.Role.Name == RoleNames.Worker;
+            var roleName = currentUser.Role.Name;
+            var isSuperAdmin = roleName == RoleNames.SuperAdmin;
+            var isAdmin = roleName == RoleNames.Admin;
+            var isGM = roleName == RoleNames.GM;
+            var isDGM = roleName == RoleNames.DGM;
+            var isEngineer = roleName == RoleNames.Engineer;
+            var isWorker = roleName == RoleNames.Worker;
 
             var userScope = _context.Users.AsNoTracking().Where(u => u.IsActive);
             var attendanceScope = _context.Attendances.AsNoTracking().AsQueryable();
@@ -71,7 +75,7 @@ namespace AttendanceManagementSystem.Controllers
                 userScope = userScope.Where(u => u.Id == currentUser.Id);
                 attendanceScope = attendanceScope.Where(a => a.UserId == currentUser.Id);
             }
-            else if (isAdmin)
+            else if (isAdmin || isEngineer)
             {
                 if (!currentUser.SectionId.HasValue)
                 {
@@ -91,7 +95,33 @@ namespace AttendanceManagementSystem.Controllers
                 };
 
                 var adminDashboardViewModel = await BuildAdminWorkerSearchViewModelAsync(currentUser, searchRequest);
+                adminDashboardViewModel.IsReadOnly = isEngineer; // Engineer: view+edit own section; handled in controller
                 return View("AdminDashboard", adminDashboardViewModel);
+            }
+            else if (isDGM)
+            {
+                if (!currentUser.SectionId.HasValue)
+                {
+                    return View("AdminDashboard", new AdminDashboardViewModel { HasSection = false });
+                }
+
+                var searchRequest = new WorkerOtSearchRequestViewModel
+                {
+                    ServiceId = serviceId,
+                    SelectedDate = selectedDate,
+                    SingleDate = singleDate,
+                    FromDate = fromDate,
+                    ToDate = toDate
+                };
+
+                var dgmViewModel = await BuildAdminWorkerSearchViewModelAsync(currentUser, searchRequest);
+                dgmViewModel.IsReadOnly = true;
+                return View("AdminDashboard", dgmViewModel);
+            }
+            else if (isGM)
+            {
+                // GM sees all sections — reuse the SuperAdmin-style Index view
+                // No early return; falls through to the full dashboard build below
             }
 
             if (isWorker)
@@ -436,10 +466,12 @@ namespace AttendanceManagementSystem.Controllers
                 AttendanceTargetPercent = attendanceTargetPercent,
                 ScopeTitle = isSuperAdmin
                     ? "Organization-wide attendance"
-                    : isAdmin
-                        ? $"{currentUser.Section?.Name ?? "Section"} attendance"
-                        : "My attendance overview",
-                IsSuperAdmin = isSuperAdmin,
+                    : isGM
+                        ? "All Sections (View Only)"
+                        : isAdmin
+                            ? $"{currentUser.Section?.Name ?? "Section"} attendance"
+                            : "My attendance overview",
+                IsSuperAdmin = isSuperAdmin || isGM,
                 IsAdmin = isAdmin,
                 IsWorker = isWorker,
                 TrendLabels = trendLabels,
@@ -502,7 +534,7 @@ namespace AttendanceManagementSystem.Controllers
                 return Unauthorized();
             }
 
-            if (currentUser.Role?.Name != RoleNames.Admin)
+            if (currentUser.Role?.Name != RoleNames.Admin && currentUser.Role?.Name != RoleNames.Engineer)
             {
                 return Forbid();
             }

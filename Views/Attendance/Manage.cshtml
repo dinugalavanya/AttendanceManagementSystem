@@ -36,6 +36,37 @@
     <partial name="_PageHeader" model="pageHeader" />
     <partial name="_FilterToolbar" model="toolbar" />
 
+    @if (Model.IsGM)
+    {
+        <article class="panel-card mb-3">
+            <div class="panel-body p-3">
+                <form method="get" asp-action="Manage" asp-controller="Attendance" class="d-flex align-items-end gap-3 flex-wrap">
+                    <input type="hidden" name="date" value="@Model.SelectedDate.ToString("yyyy-MM-dd")" />
+                    <div class="flex-grow-1">
+                        <label class="form-label fw-semibold">Select Section</label>
+                        <select name="sectionId" class="form-select">
+                            <option value="">-- All Sections --</option>
+                            @foreach (var s in Model.Sections)
+                            {
+                                if (s.Selected)
+                                {
+                                    <option value="@s.Value" selected>@s.Text</option>
+                                }
+                                else
+                                {
+                                    <option value="@s.Value">@s.Text</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-eye me-1"></i>View Section
+                    </button>
+                </form>
+            </div>
+        </article>
+    }
+
     <article class="panel-card manage-table-card">
         <header class="panel-header">
             <div>

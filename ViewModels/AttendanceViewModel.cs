@@ -59,6 +59,9 @@ namespace AttendanceManagementSystem.ViewModels
         public int OnLeaveCount { get; set; }
         public decimal TotalWorkedHours { get; set; }
         public decimal OvertimeHours { get; set; }
+        public bool IsGM { get; set; }
+        public int? SelectedSectionId { get; set; }
+        public List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> Sections { get; set; } = new();
     }
 
     public class AttendanceManageRowViewModel

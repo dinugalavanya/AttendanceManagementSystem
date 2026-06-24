@@ -61,31 +61,26 @@
                     </div>
 
                     <div class="mt-4">
-                        <h6>Change Password</h6>
+                        <h6><i class="bi bi-shield-lock me-2"></i>Change Password</h6>
                         <hr>
-                        @if (TempData["PasswordError"] != null)
-                        {
-                            <div class="alert alert-danger">@TempData["PasswordError"]</div>
-                        }
-                        @if (TempData["PasswordSuccess"] != null)
-                        {
-                            <div class="alert alert-success">@TempData["PasswordSuccess"]</div>
-                        }
-                        <form method="post" asp-action="ChangePassword" asp-controller="Account">
+                        <div id="passwordAlert"></div>
+                        <form id="changePasswordForm">
                             @Html.AntiForgeryToken()
                             <div class="mb-3">
                                 <label class="form-label">Current Password</label>
-                                <input type="password" name="currentPassword" class="form-control" required />
+                                <input type="password" id="currentPassword" class="form-control" placeholder="Enter current password" required />
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">New Password</label>
-                                <input type="password" name="newPassword" class="form-control" required />
+                                <input type="password" id="newPassword" class="form-control" placeholder="Enter new password (min 6 chars)" required />
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Confirm New Password</label>
-                                <input type="password" name="confirmPassword" class="form-control" required />
+                                <input type="password" id="confirmPassword" class="form-control" placeholder="Confirm new password" required />
                             </div>
-                            <button type="submit" class="btn btn-primary">Update Password</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle me-1"></i>Update Password
+                            </button>
                         </form>
                     </div>
                 </div>
@@ -93,3 +88,28 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+<script>
+    $('#changePasswordForm').submit(function(e) {
+        e.preventDefault();
+        $.post('@Url.Action("ChangePassword", "Account")', {
+            currentPassword: $('#currentPassword').val(),
+            newPassword: $('#newPassword').val(),
+            confirmPassword: $('#confirmPassword').val(),
+            __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val()
+        })
+        .done(function(res) {
+            if (res.success) {
+                $('#passwordAlert').html('<div class="alert alert-success"><i class="bi bi-check2-circle me-1"></i>' + res.message + '</div>');
+                $('#changePasswordForm')[0].reset();
+            } else {
+                $('#passwordAlert').html('<div class="alert alert-danger"><i class="bi bi-exclamation-circle me-1"></i>' + res.message + '</div>');
+            }
+        })
+        .fail(function() {
+            $('#passwordAlert').html('<div class="alert alert-danger">An error occurred. Please try again.</div>');
+        });
+    });
+</script>
+}

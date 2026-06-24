@@ -139,6 +139,13 @@ namespace AttendanceManagementSystem.Controllers
         }
 
         [Authorize]
+        [HttpGet]
+        public IActionResult ChangePassword()
+        {
+            return View();
+        }
+
+        [Authorize]
         [HttpPost]
         [IgnoreAntiforgeryToken]
         public async Task<IActionResult> ChangePassword(string currentPassword, string newPassword, string confirmPassword)

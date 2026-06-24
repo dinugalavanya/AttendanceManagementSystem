@@ -347,7 +347,7 @@ a {
 
 .sidebar-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 0.5rem;
 }
 
@@ -714,7 +714,7 @@ a {
 
 .dashboard-charts-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 0.95rem;
   margin-bottom: 0.95rem;
 }
@@ -2210,7 +2210,7 @@ a {
 .sidebar-profile-actions,
 .sidebar-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
   margin-top: 14px;
 }
@@ -2601,7 +2601,7 @@ a {
 
 .worker-date-details-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 0.7rem;
 }
 
@@ -2785,4 +2785,132 @@ a {
     min-width: 100%;
     max-width: 100%;
   }
+}
+
+/* ========== SIDEBAR CREATE/DELETE USER BUTTONS ========== */
+.sidebar-user-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.sidebar-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: none;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-decoration: none;
+}
+
+.sidebar-action-btn i {
+  width: 18px;
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+
+.sidebar-action-create {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(16, 185, 129, 0.35);
+}
+
+.sidebar-action-create:hover {
+  background: linear-gradient(135deg, #0ea572 0%, #047857 100%);
+  box-shadow: 0 8px 22px rgba(16, 185, 129, 0.45);
+  transform: translateY(-2px);
+  color: #fff;
+}
+
+.sidebar-action-delete {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(239, 68, 68, 0.35);
+}
+
+.sidebar-action-delete:hover {
+  background: linear-gradient(135deg, #e03b3b 0%, #c81f1f 100%);
+  box-shadow: 0 8px 22px rgba(239, 68, 68, 0.45);
+  transform: translateY(-2px);
+  color: #fff;
+}
+
+/* ========== SIDEBAR CREATE/DELETE BUTTONS (OVERRIDE) ========== */
+.sidebar-user-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.sidebar-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 54px;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: none;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  letter-spacing: 0.01em;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-action-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0);
+  transition: background 0.2s ease;
+}
+
+.sidebar-action-btn:hover::after {
+  background: rgba(255,255,255,0.1);
+}
+
+.sidebar-action-btn:hover {
+  transform: translateY(-2px);
+  color: #fff;
+}
+
+.sidebar-action-btn:active {
+  transform: translateY(0);
+}
+
+.sidebar-action-btn i {
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+
+.sidebar-action-create {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+
+.sidebar-action-create:hover {
+  box-shadow: 0 12px 28px rgba(16, 185, 129, 0.5);
+}
+
+.sidebar-action-delete {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+
+.sidebar-action-delete:hover {
+  box-shadow: 0 12px 28px rgba(239, 68, 68, 0.5);
 }

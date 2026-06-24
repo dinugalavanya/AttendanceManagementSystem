@@ -172,4 +172,12 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Account}/{action=Login}/{id?}");
 
+// Seed roles and default users on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AttendanceManagementSystem.Data.ApplicationDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    await AttendanceManagementSystem.Data.DatabaseInitializer.EnsureCoreDataAsync(db, logger);
+}
+
 app.Run();

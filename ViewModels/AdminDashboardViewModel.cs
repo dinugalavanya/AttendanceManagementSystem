@@ -81,6 +81,7 @@ namespace AttendanceManagementSystem.ViewModels
         public WorkerHistorySearchViewModel? WorkerHistorySearchResult { get; set; }
         public SelectedDateAttendanceViewModel? SelectedDateAttendance { get; set; }
         public List<WorkerOtRangeRowViewModel> DateRangeRows { get; set; } = new();
+        public bool IsReadOnly { get; set; }
         
         // Properties for Add Employee form
         public string FirstName { get; set; } = string.Empty;

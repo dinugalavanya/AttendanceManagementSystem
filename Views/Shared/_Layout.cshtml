@@ -8,6 +8,9 @@
     {
         RoleNames.SuperAdmin => "role-super",
         RoleNames.Admin => "role-admin",
+        RoleNames.GM => "role-admin",
+        RoleNames.DGM => "role-admin",
+        RoleNames.Engineer => "role-admin",
         RoleNames.Worker => "role-worker",
         _ => "role-neutral"
     };
@@ -86,17 +89,35 @@
                             </nav>
                         </div>
 
-                        <a class="app-nav-link sidebar-nav-link" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
-                            <i class="bi bi-gear-fill"></i>
-                            <span>Settings</span>
+                    }
+
+                    @if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Engineer))
+                    {
+                        <a class="app-nav-link sidebar-nav-link @NavClass("Attendance", "Manage")" asp-controller="Attendance" asp-action="Manage">
+                            <i class="bi bi-clipboard-data-fill"></i>
+                            <span>Manage Overtime</span>
                         </a>
                     }
 
                     @if (User.IsInRole(RoleNames.Admin))
                     {
+                        <div class="sidebar-user-actions mt-2">
+                            <button class="sidebar-action-btn sidebar-action-create" data-bs-toggle="modal" data-bs-target="#createWorkerModal">
+                                <i class="bi bi-person-plus-fill"></i>
+                                <span>Create User</span>
+                            </button>
+                            <button class="sidebar-action-btn sidebar-action-delete" data-bs-toggle="modal" data-bs-target="#deleteUserModal">
+                                <i class="bi bi-person-dash-fill"></i>
+                                <span>Delete User</span>
+                            </button>
+                        </div>
+                    }
+
+                    @if (User.IsInRole(RoleNames.GM) || User.IsInRole(RoleNames.DGM))
+                    {
                         <a class="app-nav-link sidebar-nav-link @NavClass("Attendance", "Manage")" asp-controller="Attendance" asp-action="Manage">
-                            <i class="bi bi-clipboard-data-fill"></i>
-                            <span>Manage Overtime</span>
+                            <i class="bi bi-eye-fill"></i>
+                            <span>View Overtime</span>
                         </a>
                     }
 
@@ -126,6 +147,9 @@
                     <div class="sidebar-actions sidebar-profile-actions">
                         <a class="btn btn-sm sidebar-profile-btn" asp-controller="Account" asp-action="Profile">
                             Profile
+                        </a>
+                        <a class="btn btn-sm sidebar-profile-btn" asp-controller="Account" asp-action="ChangePassword">
+                            Change Password
                         </a>
                         <a class="btn btn-sm sidebar-profile-btn" asp-controller="Account" asp-action="Logout">
                             Logout

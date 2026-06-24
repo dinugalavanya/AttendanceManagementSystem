@@ -25,6 +25,7 @@ namespace AttendanceManagementSystem.Data
             var marketingSectionId = await EnsureMarketingSectionAsync(context, cancellationToken);
             await EnsureSuperAdminAsync(context, logger, cancellationToken);
             await EnsureAdminAndWorkerAsync(context, logger, marketingSectionId, cancellationToken);
+            await EnsureNewRoleUsersAsync(context, logger, marketingSectionId, cancellationToken);
             await EnsureSriLankanWorkersAsync(context, logger, cancellationToken);
             await EnsureDummyAttendanceAsync(context, logger, cancellationToken);
         }
@@ -35,7 +36,10 @@ namespace AttendanceManagementSystem.Data
             {
                 new Role { Name = RoleNames.SuperAdmin, Description = "Super Administrator with full system access" },
                 new Role { Name = RoleNames.Admin, Description = "Section Administrator with limited access" },
-                new Role { Name = RoleNames.Worker, Description = "Regular worker who can mark attendance" }
+                new Role { Name = RoleNames.GM, Description = "General Manager - view all sections" },
+                new Role { Name = RoleNames.DGM, Description = "Deputy General Manager - view own section only" },
+                new Role { Name = RoleNames.Engineer, Description = "Engineer - view and edit own section" },
+                new Role { Name = RoleNames.Worker, Description = "Regular worker who can enter OT data" }
             };
 
             foreach (var role in requiredRoles)
@@ -723,6 +727,44 @@ namespace AttendanceManagementSystem.Data
         private static string BuildEmployeeServiceId(int number)
         {
             return $"EMP{number:D3}";
+        }
+
+        private static async Task EnsureNewRoleUsersAsync(
+            ApplicationDbContext context,
+            ILogger logger,
+            int sectionId,
+            CancellationToken cancellationToken)
+        {
+            var roleUsers = new[]
+            {
+                (RoleNames.GM,       "gm@attendance.com",      "GM@123",       "General",  "Manager",   "EMP910"),
+                (RoleNames.DGM,      "dgm@attendance.com",     "DGM@123",      "Deputy",   "Manager",   "EMP911"),
+                (RoleNames.Engineer, "engineer@attendance.com","Eng@123",      "Section",  "Engineer",  "EMP912"),
+            };
+
+            foreach (var (roleName, email, password, firstName, lastName, preferredServiceId) in roleUsers)
+            {
+                var roleId = await context.Roles
+                    .Where(r => r.Name == roleName)
+                    .Select(r => r.Id)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (roleId == 0) continue;
+
+                await EnsureUserAsync(
+                    context,
+                    email: email,
+                    password: password,
+                    firstName: firstName,
+                    lastName: lastName,
+                    phone: "0000000000",
+                    preferredServiceId: preferredServiceId,
+                    roleId: roleId,
+                    sectionId: sectionId,
+                    cancellationToken);
+            }
+
+            logger.LogInformation("GM, DGM, and Engineer seed users ensured.");
         }
     }
 }

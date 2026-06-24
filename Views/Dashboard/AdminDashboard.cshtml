@@ -198,7 +198,7 @@
 
         .sidebar-profile-actions {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: 1fr;
             gap: 8px;
             margin-top: 14px;
         }
@@ -210,41 +210,68 @@
         }
 
         .sidebar-profile-btn {
-            height: 46px;
-            border-radius: 12px;
+            height: 54px;
+            border-radius: 14px;
             border: 1px solid rgba(255, 255, 255, 0.16);
             background: rgba(255, 255, 255, 0.02);
-            color: rgba(255, 255, 255, 0.92);
+            color: #fff;
             font-weight: 700;
-            font-size: 0.82rem;
-            display: inline-flex;
+            font-size: 0.92rem;
+            display: flex;
             align-items: center;
             justify-content: center;
+            gap: 10px;
             text-decoration: none;
-            transition: all 0.2s ease;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            letter-spacing: 0.01em;
+        }
+
+        .sidebar-profile-btn::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0);
+            transition: background 0.2s ease;
+        }
+
+        .sidebar-profile-btn:hover::after {
+            background: rgba(255,255,255,0.1);
         }
 
         .sidebar-profile-btn:hover {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(255, 255, 255, 0.28);
+            transform: translateY(-2px);
             color: #fff;
         }
 
+        .sidebar-profile-btn:active {
+            transform: translateY(0);
+        }
+
+        .sidebar-profile-btn i {
+            font-size: 1.05rem;
+            flex-shrink: 0;
+        }
+
         .sidebar-profile-btn-primary {
-            background: linear-gradient(135deg, #7c8cff 0%, #8f5bd8 100%);
-            border-color: transparent;
-            box-shadow: 0 10px 22px rgba(119, 104, 236, 0.28);
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+
+        .sidebar-profile-btn-primary:hover {
+            box-shadow: 0 12px 28px rgba(16, 185, 129, 0.5);
         }
 
         .sidebar-profile-btn-danger {
-            background: rgba(239, 68, 68, 0.12);
-            border-color: rgba(239, 68, 68, 0.28);
-            color: #ffd6d6;
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+            color: #fff;
         }
 
         .sidebar-profile-btn-danger:hover {
-            background: rgba(239, 68, 68, 0.2);
-            border-color: rgba(239, 68, 68, 0.4);
+            box-shadow: 0 12px 28px rgba(239, 68, 68, 0.5);
             color: #fff;
         }
 
@@ -704,10 +731,6 @@ else
                     <i class="bi bi-clock-history"></i>
                     <span>Manage Overtime</span>
                 </a>
-                <a class="sidebar-nav-link" style="cursor:pointer;" onclick="document.getElementById('adminChangePasswordModal').style.display='flex';document.body.style.overflow='hidden';">
-                    <i class="bi bi-gear-fill"></i>
-                    <span>Settings</span>
-                </a>
             </nav>
 
             <div class="sidebar-action-stack">
@@ -731,6 +754,7 @@ else
                 </div>
                 <div class="sidebar-profile-actions">
                     <a class="sidebar-profile-btn" asp-controller="Account" asp-action="Profile">Profile</a>
+                    <a class="sidebar-profile-btn" asp-controller="Account" asp-action="ChangePassword">Change Password</a>
                     <a class="sidebar-profile-btn" asp-controller="Account" asp-action="Logout">Logout</a>
                 </div>
             </div>
