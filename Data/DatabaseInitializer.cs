@@ -354,7 +354,7 @@ namespace AttendanceManagementSystem.Data
                 .Select(r => r.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            var sections = await context.Sections.ToListAsync(cancellationToken);
+            var sections = await context.Sections.Where(s => s.Id > 0).ToListAsync(cancellationToken);
             var existingUsersByEmail = await context.Users
                 .ToDictionaryAsync(u => u.Email.ToLower(), cancellationToken);
 

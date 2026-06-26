@@ -10,9 +10,9 @@ namespace AttendanceManagementSystem.Services
         Task<Attendance> CheckOutAsync(int userId, string? notes = null);
         Task<Attendance> UpdateAttendanceAsync(int attendanceId, TimeSpan? inTime, TimeSpan? outTime, string status, int editedByUserId, string? editReason = null);
         Task<List<Attendance>> GetUserAttendancesAsync(int userId, DateTime startDate, DateTime endDate);
-        Task<List<Attendance>> GetSectionAttendancesAsync(int sectionId, DateTime date);
-        Task<List<Attendance>> GetAllAttendancesAsync(DateTime date);
+        Task<List<Attendance>> GetSectionAttendancesAsync(int sectionId, DateTime date, User? user = null);
+        Task<List<Attendance>> GetAllAttendancesAsync(DateTime date, User? user = null);
         Task CalculateWorkHours(Attendance attendance);
-        Task<Dictionary<string, int>> GetAttendanceStatisticsAsync(int? sectionId, DateTime startDate, DateTime endDate);
+        Task<Dictionary<string, int>> GetAttendanceStatisticsAsync(int? sectionId, DateTime startDate, DateTime endDate, User? user = null);
     }
 }

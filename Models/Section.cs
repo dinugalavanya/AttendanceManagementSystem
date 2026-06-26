@@ -21,4 +21,22 @@ namespace AttendanceManagementSystem.Models
         // Navigation properties
         public virtual ICollection<User> Users { get; set; } = new List<User>();
     }
+
+    public static class SectionIds
+    {
+        public const int AllSections = -1;
+        public const int AllSectionsLegacy = 0;
+
+        /// <summary>
+        /// Reserved section IDs (0, -1) are only valid for SuperAdmin and GM — not workers or section admins.
+        /// </summary>
+        public static bool IsReserved(int? sectionId) =>
+            sectionId.HasValue && sectionId.Value <= 0;
+
+        /// <summary>
+        /// A real department section that workers and section admins can be assigned to.
+        /// </summary>
+        public static bool IsAssignable(int? sectionId) =>
+            sectionId.HasValue && sectionId.Value > 0;
+    }
 }

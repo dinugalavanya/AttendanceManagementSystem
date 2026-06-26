@@ -11,6 +11,8 @@ namespace AttendanceManagementSystem.Services
         Task<User?> GetUserByIdAsync(int userId);
         Task<bool> IsUserInRoleAsync(int userId, string roleName);
         Task<bool> HasSectionAccessAsync(int userId, int sectionId);
+        bool IsSuperAdminOrGM(User? user);
+        Task<bool> IsSuperAdminOrGMAsync(int userId);
         void SignIn(User user, bool rememberMe = false);
         void SignOut();
         int? GetCurrentUserId();

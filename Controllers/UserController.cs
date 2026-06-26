@@ -31,6 +31,7 @@ namespace AttendanceManagementSystem.Controllers
             }
 
             ViewBag.IsSuperAdmin = currentUser.Role?.Name == RoleNames.SuperAdmin;
+            ViewBag.IsAdmin = currentUser.Role?.Name == RoleNames.Admin;
 
             // Load active sections for the Create Admin modal
             ViewBag.Sections = await _context.Sections
@@ -95,6 +96,12 @@ namespace AttendanceManagementSystem.Controllers
                 if (existingUser != null)
                 {
                     return Json(new { success = false, message = "Email already exists." });
+                }
+
+                // Validate SectionId - cannot be 0 or -1 ("All Sections")
+                if (request.SectionId.Value <= 0)
+                {
+                    return Json(new { success = false, message = "Cannot assign user to section 0 or 'All Sections'. Please select a valid section." });
                 }
 
                 // Validate SectionId exists and is active
@@ -210,6 +217,12 @@ namespace AttendanceManagementSystem.Controllers
                     requestSectionId = adminSectionId;
                 }
 
+                if (!SectionIds.IsAssignable(requestSectionId))
+                {
+                    ModelState.AddModelError("", "No valid section is assigned to your account. Workers cannot be added to section 0.");
+                    return View(model);
+                }
+
                 // Check if email already exists
                 var existingUser = await _context.Users
                     .FirstOrDefaultAsync(u => u.Email.ToLower() == model.Email.ToLower());
@@ -305,6 +318,12 @@ namespace AttendanceManagementSystem.Controllers
 
             if (admin == null)
                 return Json(new { success = false, message = "Admin not found." });
+
+            // Validate SectionId - cannot be 0 or -1 ("All Sections")
+            if (request.SectionId <= 0)
+            {
+                return Json(new { success = false, message = "Cannot assign user to section 0 or 'All Sections'. Please select a valid section." });
+            }
 
             var section = await _context.Sections.FirstOrDefaultAsync(s => s.Id == request.SectionId && s.IsActive);
             if (section == null)

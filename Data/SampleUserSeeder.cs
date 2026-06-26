@@ -34,7 +34,7 @@ namespace AttendanceManagementSystem.Data
 
             var sectionIds = await context.Sections
                 .AsNoTracking()
-                .Where(s => s.IsActive)
+                .Where(s => s.IsActive && s.Id > 0)
                 .Select(s => s.Id)
                 .ToListAsync(cancellationToken);
 

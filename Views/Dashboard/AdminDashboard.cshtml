@@ -1,1480 +1,2950 @@
 @model AttendanceManagementSystem.ViewModels.AdminDashboardViewModel
+
 @using System.Text.Json
+
 @{
+
     ViewData["Title"] = "Admin OT Dashboard";
+
     Layout = null;
 
+
+
     var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+
     var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+
     var isDashboardActive = string.Equals(currentController, "Dashboard", StringComparison.OrdinalIgnoreCase);
+
     var isManageOvertimeActive = string.Equals(currentController, "Attendance", StringComparison.OrdinalIgnoreCase)
+
         && string.Equals(currentAction, "Manage", StringComparison.OrdinalIgnoreCase);
 
+
+
     var sidebarDisplayName = User.FindFirst("FirstName")?.Value?.Trim() + " " + User.FindFirst("LastName")?.Value?.Trim();
+
     sidebarDisplayName = sidebarDisplayName.Trim();
+
     if (string.IsNullOrWhiteSpace(sidebarDisplayName)) sidebarDisplayName = User.Identity?.Name ?? "Admin";
+
     var sidebarRoleLabel = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Admin";
+
     var firstName = User.FindFirst("FirstName")?.Value?.Trim() ?? "A";
+
     var lastName = User.FindFirst("LastName")?.Value?.Trim() ?? "U";
+
     var sidebarInitials = $"{(firstName.Length > 0 ? char.ToUpperInvariant(firstName[0]) : 'A')}{(lastName.Length > 0 ? char.ToUpperInvariant(lastName[0]) : 'U')}";
 
+
+
     var adminBadgeText = string.IsNullOrWhiteSpace(Model.SectionName)
+
         ? "Admin"
+
         : $"{Model.SectionName} Admin";
+
 }
+
+
 
 @functions {
+
     public string GetInitials(string? fullName)
+
     {
+
         if (string.IsNullOrWhiteSpace(fullName))
+
         {
+
             return "AU";
+
         }
+
+
 
         var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
         if (parts.Length == 0)
+
         {
+
             return "AU";
+
         }
+
+
 
         if (parts.Length == 1)
+
         {
+
             return parts[0].Length >= 2
+
                 ? parts[0][..2].ToUpperInvariant()
+
                 : parts[0].ToUpperInvariant();
+
         }
+
+
 
         return string.Concat(char.ToUpperInvariant(parts[0][0]), char.ToUpperInvariant(parts[1][0]));
+
     }
+
 }
+
+
 
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
+
     <meta charset="utf-8" />
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
     <title>@ViewData["Title"]</title>
+
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
+
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
     <style>
+
         :root {
+
             --sidebar-width: 290px;
+
             --page-bg: #f5f7fc;
+
             --card-bg: #ffffff;
+
             --text-main: #0f172a;
+
             --text-soft: #64748b;
+
             --border: #e2e8f0;
+
             --purple: #7c3aed;
+
             --purple-soft: #f3e8ff;
+
             --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
         }
+
+
 
         * {
+
             box-sizing: border-box;
+
         }
+
+
 
         body {
+
             margin: 0;
+
             background: var(--page-bg);
+
             color: var(--text-main);
+
             font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+
         }
+
+
 
         .dashboard-wrapper {
+
             display: flex;
+
             min-height: 100vh;
+
         }
+
+
 
         .sidebar {
+
             width: var(--sidebar-width);
+
             min-width: var(--sidebar-width);
+
             background: linear-gradient(180deg, #25476f 0%, #17365d 100%);
+
             position: fixed;
+
             inset: 0 auto 0 0;
+
             padding: 18px 12px;
+
             display: flex;
+
             flex-direction: column;
+
             box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08), 10px 0 28px rgba(2, 10, 26, 0.32);
+
             z-index: 1000;
+
         }
+
+
 
         .sidebar-brand {
+
             padding: 4px 8px 14px;
+
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
             margin-bottom: 10px;
+
         }
+
+
 
         .sidebar-brand h1 {
+
             margin: 0;
+
             color: #fff;
+
             font-size: 1.7rem;
+
             font-weight: 800;
+
             letter-spacing: -0.03em;
+
             line-height: 1.08;
+
         }
+
+
 
         .sidebar-brand p {
+
             margin: 0.35rem 0 0;
+
             color: rgba(255, 255, 255, 0.65);
+
             font-size: 0.75rem;
+
             font-weight: 700;
+
             letter-spacing: 0.08em;
+
             text-transform: uppercase;
+
         }
+
+
 
         .sidebar-nav {
+
             flex: 1;
+
             margin-top: 8px;
+
             display: flex;
+
             flex-direction: column;
+
             gap: 8px;
+
         }
+
+
 
         .sidebar-nav-link {
+
             display: flex;
+
             align-items: center;
+
             gap: 14px;
+
             min-height: 60px;
+
             padding: 0 16px;
+
             border-radius: 15px;
+
             color: rgba(255, 255, 255, 0.72);
+
             font-weight: 700;
+
             font-size: 0.95rem;
+
             text-decoration: none;
+
             transition: all 0.25s ease;
+
         }
+
+
 
         .sidebar-nav-link:hover {
+
             color: #fff;
+
             background: rgba(255, 255, 255, 0.06);
+
             box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+
         }
+
+
 
         .sidebar-nav-link.active {
+
             color: #fff;
+
             background: linear-gradient(135deg, #7287ff 0%, #9854c9 100%);
+
             box-shadow: 0 12px 28px rgba(100, 90, 255, 0.28);
+
         }
+
+
 
         .sidebar-profile {
+
             margin-top: auto;
+
             background: rgba(255, 255, 255, 0.04);
+
             border: 1px solid rgba(255, 255, 255, 0.1);
+
             border-radius: 16px;
+
             padding: 16px;
+
         }
+
+
 
         .sidebar-profile-top {
+
             display: flex;
+
             align-items: center;
+
             gap: 12px;
+
         }
+
+
 
         .sidebar-avatar {
+
             width: 58px;
+
             height: 58px;
+
             border-radius: 14px;
+
             background: linear-gradient(135deg, #6f7cff 0%, #9654c9 100%);
+
             color: #fff;
+
             font-size: 1.35rem;
+
             font-weight: 800;
+
             display: flex;
+
             align-items: center;
+
             justify-content: center;
+
         }
+
+
 
         .sidebar-profile h4 {
+
             margin: 0;
+
             color: #fff;
+
             font-size: 0.95rem;
+
             font-weight: 800;
+
         }
+
+
 
         .sidebar-profile p {
+
             margin: 4px 0 0;
+
             color: rgba(255, 255, 255, 0.72);
+
             font-size: 0.82rem;
+
         }
+
+
 
         .sidebar-profile-actions {
+
             display: grid;
-            grid-template-columns: 1fr;
+
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+
             gap: 8px;
+
             margin-top: 14px;
+
         }
+
+
 
         .sidebar-action-stack {
+
             display: grid;
+
             gap: 10px;
+
             margin: 14px 0 8px;
+
         }
+
+
 
         .sidebar-profile-btn {
+
             height: 54px;
+
             border-radius: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            background: rgba(255, 255, 255, 0.02);
+
+            border: none;
+
             color: #fff;
+
             font-weight: 700;
+
             font-size: 0.92rem;
+
             display: flex;
+
             align-items: center;
+
             justify-content: center;
+
             gap: 10px;
+
             text-decoration: none;
+
             cursor: pointer;
+
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
             position: relative;
+
             overflow: hidden;
+
             letter-spacing: 0.01em;
+
         }
+
+
 
         .sidebar-profile-btn::after {
+
             content: '';
+
             position: absolute;
+
             inset: 0;
+
             background: rgba(255,255,255,0);
+
             transition: background 0.2s ease;
+
         }
+
+
 
         .sidebar-profile-btn:hover::after {
+
             background: rgba(255,255,255,0.1);
+
         }
+
+
 
         .sidebar-profile-btn:hover {
+
             transform: translateY(-2px);
+
             color: #fff;
+
         }
+
+
 
         .sidebar-profile-btn:active {
+
             transform: translateY(0);
+
         }
+
+
 
         .sidebar-profile-btn i {
+
             font-size: 1.05rem;
+
             flex-shrink: 0;
+
         }
+
+
 
         .sidebar-profile-btn-primary {
+
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+
             box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+
         }
+
+
 
         .sidebar-profile-btn-primary:hover {
+
             box-shadow: 0 12px 28px rgba(16, 185, 129, 0.5);
+
         }
+
+
 
         .sidebar-profile-btn-danger {
+
             background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+
             box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+
             color: #fff;
+
         }
+
+
 
         .sidebar-profile-btn-danger:hover {
+
             box-shadow: 0 12px 28px rgba(239, 68, 68, 0.5);
+
             color: #fff;
+
         }
+
+
 
         .main-content {
+
             margin-left: var(--sidebar-width);
+
             width: calc(100% - var(--sidebar-width));
+
             padding: 20px;
+
         }
+
+
 
         .hero-header {
+
             background: var(--gradient);
+
             border-radius: 16px;
+
             padding: 22px 24px;
+
             box-shadow: 0 10px 30px rgba(102, 126, 234, 0.35);
+
             color: #fff;
+
             display: flex;
+
             align-items: center;
+
             justify-content: space-between;
+
             gap: 16px;
+
             margin-bottom: 18px;
+
         }
+
+
 
         .hero-header h2 {
+
             margin: 0;
+
             font-size: 1.6rem;
+
             font-weight: 700;
+
         }
+
+
 
         .hero-header p {
+
             margin: 6px 0 0;
+
             color: rgba(255, 255, 255, 0.9);
+
             font-size: 0.95rem;
+
         }
+
+
 
         .hero-badge {
+
             white-space: nowrap;
+
             background: rgba(255, 255, 255, 0.18);
+
             border: 1px solid rgba(255, 255, 255, 0.35);
+
             color: #fff;
+
             border-radius: 999px;
+
             padding: 8px 12px;
+
             font-size: 0.82rem;
+
             font-weight: 600;
+
         }
+
+
 
         .card-shell {
+
             background: var(--card-bg);
+
             border: 1px solid var(--border);
+
             border-radius: 16px;
+
             box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+
             margin-bottom: 16px;
+
             overflow: hidden;
+
         }
+
+
 
         .card-header-clean {
+
             padding: 16px 18px;
+
             border-bottom: 1px solid var(--border);
+
             background: #f8fafc;
+
             display: flex;
+
             align-items: flex-start;
+
             justify-content: space-between;
+
             gap: 12px;
+
         }
+
+
 
         .card-header-clean h3 {
+
             margin: 0;
+
             font-size: 1.05rem;
+
             font-weight: 700;
+
         }
+
+
 
         .card-header-clean p {
+
             margin: 4px 0 0;
+
             color: var(--text-soft);
+
             font-size: 0.86rem;
+
         }
+
+
 
         .card-body-clean {
+
             padding: 18px;
+
         }
+
+
 
         .header-badge {
+
             white-space: nowrap;
+
             background: #e9edff;
+
             color: #3b4cca;
+
             border: 1px solid #d5dcff;
+
             border-radius: 999px;
+
             padding: 5px 10px;
+
             font-size: 0.76rem;
+
             font-weight: 700;
+
         }
+
+
 
         .search-row {
+
             display: grid;
+
             grid-template-columns: 1fr auto;
+
             gap: 10px;
+
         }
+
+
 
         .search-card-header {
+
             align-items: center;
+
         }
+
+
 
         .add-worker-btn {
+
             display: inline-flex;
+
             align-items: center;
+
             gap: 0.42rem;
+
             border: 0;
+
             border-radius: 10px;
+
             padding: 9px 14px;
+
             text-decoration: none;
+
             background: var(--gradient);
+
             color: #fff;
+
             font-weight: 600;
+
             font-size: 0.85rem;
+
             white-space: nowrap;
+
             box-shadow: 0 8px 20px rgba(102, 126, 234, 0.24);
+
             transition: all 0.2s ease;
+
         }
+
+
 
         .add-worker-btn:hover {
+
             color: #fff;
+
             transform: translateY(-1px);
+
             box-shadow: 0 10px 24px rgba(102, 126, 234, 0.3);
+
         }
+
+
 
         .add-worker-modal-overlay {
+
             display: none;
+
             position: fixed;
+
             inset: 0;
+
             background: rgba(15, 23, 42, 0.55);
+
             z-index: 2000;
+
             align-items: center;
+
             justify-content: center;
+
             padding: 16px;
+
         }
+
+
 
         .add-worker-modal {
+
             width: min(640px, 100%);
+
             max-height: 90vh;
+
             overflow: auto;
+
             border-radius: 16px;
+
             background: #fff;
+
             border: 1px solid #e2e8f0;
+
             box-shadow: 0 24px 48px rgba(15, 23, 42, 0.25);
+
         }
+
+
 
         .add-worker-modal-header {
+
             display: flex;
+
             align-items: center;
+
             justify-content: space-between;
+
             padding: 16px 18px;
+
             border-bottom: 1px solid #e2e8f0;
+
             background: #f8fafc;
+
         }
+
+
 
         .add-worker-modal-title {
+
             margin: 0;
+
             font-size: 1.05rem;
+
             font-weight: 700;
+
             color: #0f172a;
+
         }
+
+
 
         .add-worker-modal-close {
+
             border: 0;
+
             background: transparent;
+
             color: #64748b;
+
             font-size: 1.25rem;
+
             line-height: 1;
+
             cursor: pointer;
+
         }
+
+
 
         .add-worker-modal-body {
+
             padding: 16px 18px;
+
         }
+
+
 
         .add-worker-field-label {
+
             margin-bottom: 6px;
+
             color: #334155;
+
             font-size: 0.83rem;
+
             font-weight: 600;
+
         }
+
+
 
         .add-worker-grid {
+
             display: grid;
+
             grid-template-columns: 1fr;
+
             gap: 12px;
+
         }
+
+
 
         .add-worker-modal-footer {
+
             padding: 14px 18px;
+
             border-top: 1px solid #e2e8f0;
+
             display: flex;
+
             justify-content: flex-end;
+
             gap: 10px;
+
         }
+
+
 
         .add-worker-btn-cancel {
+
             border: 1px solid #d1d9e6;
+
             border-radius: 10px;
+
             padding: 9px 14px;
+
             background: #f8fafc;
+
             color: #334155;
+
             font-weight: 600;
+
         }
+
+
 
         .add-worker-btn-save {
+
             border: 0;
+
             border-radius: 10px;
+
             padding: 9px 14px;
+
             background: var(--gradient);
+
             color: #fff;
+
             font-weight: 600;
+
         }
+
+
 
         .add-worker-message {
+
             display: none;
+
             border-radius: 10px;
+
             padding: 10px 12px;
+
             margin-bottom: 12px;
+
             font-size: 0.84rem;
+
         }
+
+
 
         .add-worker-message.success {
+
             display: block;
+
             background: #dcfce7;
+
             border: 1px solid #86efac;
+
             color: #166534;
+
         }
+
+
 
         .add-worker-message.error {
+
             display: block;
+
             background: #fee2e2;
+
             border: 1px solid #fca5a5;
+
             color: #991b1b;
+
         }
+
+
 
         input[type="text"],
+
         input[type="date"] {
+
             border: 1px solid #d1d9e6;
+
             border-radius: 10px;
+
             padding: 10px 12px;
+
             font-size: 0.92rem;
+
             width: 100%;
+
         }
+
+
 
         input[type="text"]:focus,
+
         input[type="date"]:focus {
+
             outline: none;
+
             border-color: #8b5cf6;
+
             box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+
         }
+
+
 
         .search-btn {
+
             border: none;
+
             border-radius: 10px;
+
             padding: 10px 16px;
+
             background: var(--gradient);
+
             color: #fff;
+
             font-weight: 600;
+
             white-space: nowrap;
+
         }
+
+
 
         .filter-grid,
+
         .result-grid {
+
             display: grid;
+
             grid-template-columns: repeat(2, minmax(0, 1fr));
+
             gap: 16px;
+
         }
+
+
 
         .range-inputs {
+
             display: grid;
+
             grid-template-columns: repeat(2, minmax(0, 1fr));
+
             gap: 10px;
+
         }
+
+
 
         .field-label {
+
             color: var(--text-soft);
+
             font-size: 0.78rem;
+
             font-weight: 600;
+
             margin-bottom: 6px;
+
         }
+
+
 
         .warning-box {
+
             border: 1px solid #facc15;
+
             background: #fefce8;
+
             color: #854d0e;
+
             border-radius: 12px;
+
             padding: 12px 14px;
+
             margin-bottom: 16px;
+
         }
+
+
 
         .worker-profile {
+
             border: 1px solid var(--border);
+
             border-radius: 14px;
+
             padding: 14px;
+
             background: #fff;
+
             display: flex;
+
             align-items: center;
+
             gap: 12px;
+
             margin-bottom: 12px;
+
         }
+
+
 
         .worker-avatar {
+
             width: 52px;
+
             height: 52px;
+
             border-radius: 12px;
+
             background: var(--purple-soft);
+
             color: var(--purple);
+
             display: flex;
+
             align-items: center;
+
             justify-content: center;
+
             font-size: 1rem;
+
             font-weight: 800;
+
         }
+
+
 
         .worker-name {
+
             margin: 0;
+
             font-size: 1.03rem;
+
             font-weight: 700;
+
         }
+
+
 
         .worker-meta {
+
             margin-top: 3px;
+
             color: var(--text-soft);
+
             font-size: 0.85rem;
+
         }
+
+
 
         .metric-grid {
+
             display: grid;
+
             grid-template-columns: repeat(3, minmax(0, 1fr));
+
             gap: 10px;
+
         }
+
+
 
         .metric-grid-2 {
+
             grid-template-columns: repeat(2, minmax(0, 1fr));
+
         }
+
+
 
         .metric-box {
+
             border: 1px solid var(--border);
+
             border-radius: 12px;
+
             padding: 12px;
+
             background: #fff;
+
         }
+
+
 
         .metric-label {
+
             font-size: 0.72rem;
+
             text-transform: uppercase;
+
             letter-spacing: 0.06em;
+
             color: var(--text-soft);
+
             font-weight: 700;
+
             margin-bottom: 6px;
+
         }
+
+
 
         .metric-value {
+
             font-size: 1rem;
+
             font-weight: 700;
+
             color: var(--text-main);
+
         }
+
+
 
         .result-message {
+
             border: 1px dashed #cbd5e1;
+
             border-radius: 12px;
+
             background: #fff;
+
             color: #64748b;
+
             padding: 14px;
+
         }
+
+
 
         .date-range-chart-wrap {
+
             margin-top: 12px;
+
             border: 1px solid var(--border);
+
             border-radius: 12px;
+
             background: #fbfcff;
+
             padding: 10px 12px;
+
         }
+
+
 
         .date-range-chart-title {
+
             margin: 0 0 8px 0;
+
             font-size: 0.86rem;
+
             font-weight: 700;
+
             color: #4c3aa9;
+
         }
+
+
 
         .date-range-chart-container {
+
             position: relative;
+
             height: 180px;
+
         }
+
+
 
         .info-note {
+
             margin-top: 12px;
+
             color: #475569;
+
             font-size: 0.84rem;
+
         }
+
+
 
         @@media (max-width: 992px) {
+
             .main-content {
+
                 margin-left: 0;
+
                 width: 100%;
+
                 padding: 14px;
+
             }
+
+
 
             .sidebar {
+
                 position: static;
+
                 width: 100%;
+
                 min-width: 0;
+
                 height: auto;
+
                 min-height: auto;
+
             }
+
+
 
             .dashboard-wrapper {
+
                 flex-direction: column;
+
             }
+
+
 
             .hero-header {
+
                 flex-direction: column;
+
                 align-items: flex-start;
+
             }
+
+
 
             .filter-grid,
+
             .result-grid,
+
             .range-inputs,
+
             .metric-grid {
+
                 grid-template-columns: 1fr;
+
             }
+
+
 
             .search-row {
+
                 grid-template-columns: 1fr;
+
             }
+
+
 
             .search-card-header {
+
                 align-items: flex-start;
+
                 flex-direction: column;
+
             }
+
         }
+
     </style>
+
 </head>
+
 <body>
+
 @if (!Model.HasSection)
+
 {
+
     <div class="container py-5">
+
         <div class="warning-box">@Model.NoSectionMessage</div>
+
     </div>
+
 }
+
 else
+
 {
+
     <div class="dashboard-wrapper">
+
         <aside class="sidebar">
+
             <div class="sidebar-brand">
+
                 <h1>PulseHR</h1>
+
                 <p>Overtime Management</p>
+
             </div>
+
+
 
             <nav class="sidebar-nav">
+
                 <a class="sidebar-nav-link @(isDashboardActive ? "active" : string.Empty)" asp-controller="Dashboard" asp-action="Index">
+
                     <i class="bi bi-grid-1x2-fill"></i>
+
                     <span>Dashboard</span>
+
                 </a>
+
                 <a class="sidebar-nav-link @(isManageOvertimeActive ? "active" : string.Empty)" asp-controller="Attendance" asp-action="Manage">
+
                     <i class="bi bi-clock-history"></i>
+
                     <span>Manage Overtime</span>
+
                 </a>
+
             </nav>
 
+
+
             <div class="sidebar-action-stack">
+
                 <button type="button" id="openAddWorkerModal" class="sidebar-profile-btn sidebar-profile-btn-primary">
+
                     <i class="bi bi-person-plus-fill me-2"></i>
+
                     <span>Create User</span>
+
                 </button>
+
                 <button type="button" id="openDeleteUserModal" class="sidebar-profile-btn sidebar-profile-btn-danger">
+
                     <i class="bi bi-person-dash-fill me-2"></i>
+
                     <span>Delete User</span>
+
                 </button>
+
             </div>
+
+
 
             <div class="sidebar-profile">
+
                 <div class="sidebar-profile-top">
+
                     <div class="sidebar-avatar">@sidebarInitials</div>
+
                     <div>
+
                         <h4>@sidebarDisplayName</h4>
+
                         <p>@sidebarRoleLabel</p>
+
                     </div>
+
                 </div>
+
                 <div class="sidebar-profile-actions">
+
                     <a class="sidebar-profile-btn" asp-controller="Account" asp-action="Profile">Profile</a>
-                    <a class="sidebar-profile-btn" asp-controller="Account" asp-action="ChangePassword">Change Password</a>
+
                     <a class="sidebar-profile-btn" asp-controller="Account" asp-action="Logout">Logout</a>
+
                 </div>
+
             </div>
+
         </aside>
 
+
+
         <main class="main-content">
+
             <section class="hero-header">
+
                 <div>
+
                     <h2>Overtime Command Center</h2>
+
                     <p>Search a worker by Service ID to view overtime details.</p>
+
                 </div>
+
                 <div class="hero-badge">@adminBadgeText</div>
+
             </section>
 
+
+
             <form id="workerOtSearchForm" method="get" asp-controller="Dashboard" asp-action="Index">
+
                 <section class="card-shell">
+
                     <header class="card-header-clean search-card-header">
+
                         <div>
+
                             <h3>Search Worker OT History</h3>
+
                             <p>Search by Service ID / Service Number to view overtime history</p>
+
                         </div>
+
                     </header>
+
                     <div class="card-body-clean">
+
                         <div class="search-row">
+
                             <input
+
                                 type="text"
+
                                 id="serviceId"
+
                                 name="serviceId"
+
                                 value="@Model.SearchServiceId"
+
                                 placeholder="Enter Service ID / Service Number (e.g., EMP001)"
+
                                 autocomplete="off" />
+
                             <button type="submit" class="search-btn">Search</button>
+
                         </div>
+
                     </div>
+
                 </section>
+
+
 
                 <section class="filter-grid">
-                    <article class="card-shell">
-                        <header class="card-header-clean">
-                            <div>
-                                <h3>Select Date</h3>
-                                <p>Choose a single date to view overtime details</p>
-                            </div>
-                        </header>
-                        <div class="card-body-clean">
-                            <label class="field-label" for="singleDate">Single Date</label>
-                            <input type="date" id="singleDate" name="singleDate" value="@Model.SingleDate.ToString("yyyy-MM-dd")" />
-                        </div>
-                    </article>
 
                     <article class="card-shell">
+
                         <header class="card-header-clean">
+
                             <div>
-                                <h3>Select Date Range</h3>
-                                <p>Choose a date range to view overtime details</p>
+
+                                <h3>Select Date</h3>
+
+                                <p>Choose a single date to view overtime details</p>
+
                             </div>
+
                         </header>
+
                         <div class="card-body-clean">
-                            <div class="range-inputs">
-                                <div>
-                                    <label class="field-label" for="fromDate">From</label>
-                                    <input type="date" id="fromDate" name="fromDate" value="@Model.RangeFromDate.ToString("yyyy-MM-dd")" />
-                                </div>
-                                <div>
-                                    <label class="field-label" for="toDate">To</label>
-                                    <input type="date" id="toDate" name="toDate" value="@Model.RangeToDate.ToString("yyyy-MM-dd")" />
-                                </div>
-                            </div>
+
+                            <label class="field-label" for="singleDate">Single Date</label>
+
+                            <input type="date" id="singleDate" name="singleDate" value="@Model.SingleDate.ToString("yyyy-MM-dd")" />
+
                         </div>
+
                     </article>
+
+
+
+                    <article class="card-shell">
+
+                        <header class="card-header-clean">
+
+                            <div>
+
+                                <h3>Select Date Range</h3>
+
+                                <p>Choose a date range to view overtime details</p>
+
+                            </div>
+
+                        </header>
+
+                        <div class="card-body-clean">
+
+                            <div class="range-inputs">
+
+                                <div>
+
+                                    <label class="field-label" for="fromDate">From</label>
+
+                                    <input type="date" id="fromDate" name="fromDate" value="@Model.RangeFromDate.ToString("yyyy-MM-dd")" />
+
+                                </div>
+
+                                <div>
+
+                                    <label class="field-label" for="toDate">To</label>
+
+                                    <input type="date" id="toDate" name="toDate" value="@Model.RangeToDate.ToString("yyyy-MM-dd")" />
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </article>
+
                 </section>
+
             </form>
+
+
 
             @if (!string.IsNullOrWhiteSpace(Model.WorkerSearchMessage))
+
             {
+
                 <div class="warning-box">@Model.WorkerSearchMessage</div>
+
             }
+
+
 
             @if (Model.ShowWorkerResultCards && Model.WorkerProfile != null)
+
             {
+
                 <section class="result-grid">
+
                     <article class="card-shell">
+
                         <header class="card-header-clean">
+
                             <div>
+
                                 <h3>Worker OT Details - Single Date</h3>
+
                             </div>
+
                             <span class="header-badge">Date: @Model.SingleDate.ToString("dd/MM/yyyy")</span>
+
                         </header>
+
                         <div class="card-body-clean">
+
                             <div class="worker-profile">
+
                                 <div class="worker-avatar">@Model.WorkerProfile.Initials</div>
+
                                 <div>
+
                                     <h4 class="worker-name">@Model.WorkerProfile.FullName</h4>
+
                                     <div class="worker-meta">Service ID / Service Number: @Model.WorkerProfile.ServiceId | Section: @Model.WorkerProfile.SectionName</div>
+
                                 </div>
+
                             </div>
+
+
 
                             @if (Model.SingleDateOtDetails != null)
+
                             {
+
                                 <div class="metric-grid">
+
                                     <div class="metric-box">
+
                                         <div class="metric-label">OT In Time</div>
+
                                         <div class="metric-value">@Model.SingleDateOtDetails.OvertimeInTime</div>
+
                                     </div>
+
                                     <div class="metric-box">
+
                                         <div class="metric-label">OT Out Time</div>
+
                                         <div class="metric-value">@Model.SingleDateOtDetails.OvertimeOutTime</div>
+
                                     </div>
+
                                     <div class="metric-box">
+
                                         <div class="metric-label">OT Hours</div>
+
                                         <div class="metric-value">@Model.SingleDateOtDetails.OvertimeHours</div>
+
                                     </div>
+
                                 </div>
+
                             }
+
                             else
+
                             {
+
                                 <div class="result-message">@(Model.SingleDateMessage ?? "No overtime record found for this selected date.")</div>
+
                             }
+
+
 
                             <p class="info-note">Showing overtime details for @Model.SingleDate.ToString("dd/MM/yyyy")</p>
+
                         </div>
+
                     </article>
+
+
 
                     <article class="card-shell">
+
                         <header class="card-header-clean">
+
                             <div>
+
                                 <h3>Worker OT Details - Date Range</h3>
+
                             </div>
+
                             <span class="header-badge">From: @Model.RangeFromDate.ToString("dd/MM/yyyy") to @Model.RangeToDate.ToString("dd/MM/yyyy")</span>
+
                         </header>
+
                         <div class="card-body-clean">
+
                             <div class="worker-profile">
+
                                 <div class="worker-avatar">@Model.WorkerProfile.Initials</div>
+
                                 <div>
+
                                     <h4 class="worker-name">@Model.WorkerProfile.FullName</h4>
+
                                     <div class="worker-meta">Service ID / Service Number: @Model.WorkerProfile.ServiceId | Section: @Model.WorkerProfile.SectionName</div>
+
                                 </div>
+
                             </div>
+
+
 
                             @if (Model.DateRangeOtSummary != null)
+
                             {
+
                                 <div class="metric-grid metric-grid-2">
+
                                     <div class="metric-box">
+
                                         <div class="metric-label">Total Days</div>
+
                                         <div class="metric-value">@Model.DateRangeOtSummary.TotalDays</div>
+
                                     </div>
+
                                     <div class="metric-box">
+
                                         <div class="metric-label">Total OT Hours</div>
+
                                         <div class="metric-value">@Model.DateRangeOtSummary.TotalOvertimeDisplay</div>
+
                                     </div>
+
                                 </div>
 
+
+
                                 @if (Model.DateRangeChartData.Any())
+
                                 {
+
                                     <div class="date-range-chart-wrap">
+
                                         <h5 class="date-range-chart-title">Daily OT Trend</h5>
+
                                         <div class="date-range-chart-container">
+
                                             <canvas id="dateRangeOtTrendChart"></canvas>
+
                                         </div>
+
                                     </div>
+
                                 }
+
                             }
+
                             else
+
                             {
+
                                 <div class="result-message">@(Model.DateRangeMessage ?? "No overtime records found for this selected date range.")</div>
+
                             }
+
+
 
                             <p class="info-note">Showing overtime summary from @Model.RangeFromDate.ToString("dd/MM/yyyy") to @Model.RangeToDate.ToString("dd/MM/yyyy")</p>
+
                         </div>
+
                     </article>
+
                 </section>
+
             }
+
         </main>
+
     </div>
+
 }
+
 <div id="addWorkerModalOverlay" class="add-worker-modal-overlay">
+
     <div class="add-worker-modal">
+
         <div class="add-worker-modal-header">
+
             <h4 class="add-worker-modal-title">Create User</h4>
+
             <button type="button" id="closeAddWorkerModalX" class="add-worker-modal-close" aria-label="Close">&times;</button>
+
         </div>
+
         <div class="add-worker-modal-body">
+
             <div id="addWorkerMessage" class="add-worker-message"></div>
+
             <form id="addWorkerForm">
+
                 @Html.AntiForgeryToken()
+
                 <div class="add-worker-grid">
+
                     <div>
+
                         <label class="add-worker-field-label" for="workerName">Worker Name</label>
+
                         <input type="text" id="workerName" class="form-control" placeholder="Enter worker's full name" required />
+
                     </div>
+
                     <div>
+
                         <label class="add-worker-field-label" for="workerServiceId">Service ID / Service Number</label>
+
                         <input type="text" id="workerServiceId" class="form-control" placeholder="Enter Service ID (e.g., EMP001)" required />
+
                     </div>
+
                     <div>
+
                         <label class="add-worker-field-label" for="workerEmail">Email Address</label>
+
                         <input type="email" id="workerEmail" class="form-control" placeholder="Enter Email Address" required />
+
                     </div>
+
                     <div>
+
                         <label class="add-worker-field-label" for="workerPhone">Phone Number</label>
+
                         <input type="text" id="workerPhone" class="form-control" placeholder="Enter Phone Number" required />
+
                     </div>
+
                     <div>
+
                         <label class="add-worker-field-label" for="workerSectionName">Section</label>
+
                         <input type="text" id="workerSectionName" class="form-control" value="@(string.IsNullOrWhiteSpace(Model.SectionName) ? "No section assigned" : Model.SectionName)" disabled readonly />
+
                     </div>
+
                     <div class="result-message">A temporary password will be securely generated.</div>
+
                 </div>
+
             </form>
+
         </div>
+
         <div class="add-worker-modal-footer">
+
             <button type="button" id="cancelAddWorkerModal" class="add-worker-btn-cancel">Cancel</button>
+
             <button type="button" id="saveAddWorkerBtn" class="add-worker-btn-save">Create User</button>
+
         </div>
+
     </div>
+
 </div>
+
 <div id="deleteUserModalOverlay" class="add-worker-modal-overlay">
+
     <div class="add-worker-modal">
+
         <div class="add-worker-modal-header">
+
             <h4 class="add-worker-modal-title">Delete User</h4>
+
             <button type="button" id="closeDeleteUserModalX" class="add-worker-modal-close" aria-label="Close">&times;</button>
+
         </div>
+
         <div class="add-worker-modal-body">
+
             <div id="deleteUserMessage" class="add-worker-message"></div>
+
             <form id="deleteUserForm">
+
                 @Html.AntiForgeryToken()
+
                 <div class="add-worker-grid">
+
                     <div>
+
                         <label class="add-worker-field-label" for="deleteUserServiceId">Service ID / Service Number</label>
+
                         <input type="text" id="deleteUserServiceId" class="form-control" placeholder="Enter Service ID to delete" required />
+
                     </div>
+
                     <div class="result-message text-danger">This will deactivate the user in your section.</div>
+
                 </div>
+
             </form>
+
         </div>
+
         <div class="add-worker-modal-footer">
+
             <button type="button" id="cancelDeleteUserModal" class="add-worker-btn-cancel">Cancel</button>
+
             <button type="button" id="confirmDeleteUserBtn" class="add-worker-btn-save">Delete User</button>
+
         </div>
+
     </div>
+
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
     <script>
+
         document.addEventListener("DOMContentLoaded", function () {
+
             const hasSection = @Model.HasSection.ToString().ToLowerInvariant();
+
             const form = document.getElementById("workerOtSearchForm");
+
             const serviceInput = document.getElementById("serviceId");
+
             const singleDateInput = document.getElementById("singleDate");
+
             const fromDateInput = document.getElementById("fromDate");
+
             const toDateInput = document.getElementById("toDate");
 
+
+
             if (!form || !serviceInput) {
+
                 return;
+
             }
+
+
 
             function submitIfServiceIdExists() {
+
                 if (serviceInput.value.trim() !== "") {
+
                     form.submit();
+
                 }
+
             }
+
+
 
             if (singleDateInput) {
+
                 singleDateInput.addEventListener("change", submitIfServiceIdExists);
+
             }
+
+
 
             if (fromDateInput) {
+
                 fromDateInput.addEventListener("change", function () {
+
                     if (toDateInput && toDateInput.value) {
+
                         submitIfServiceIdExists();
+
                     }
+
                 });
+
             }
+
+
 
             if (toDateInput) {
+
                 toDateInput.addEventListener("change", function () {
+
                     if (fromDateInput && fromDateInput.value) {
+
                         submitIfServiceIdExists();
+
                     }
+
                 });
+
             }
+
+
 
             const openAddWorkerModalBtn = document.getElementById("openAddWorkerModal");
+
             const addWorkerModalOverlay = document.getElementById("addWorkerModalOverlay");
+
             const closeAddWorkerModalX = document.getElementById("closeAddWorkerModalX");
+
             const cancelAddWorkerModal = document.getElementById("cancelAddWorkerModal");
+
             const saveAddWorkerBtn = document.getElementById("saveAddWorkerBtn");
+
             const addWorkerForm = document.getElementById("addWorkerForm");
+
             const addWorkerMessage = document.getElementById("addWorkerMessage");
+
             const workerNameInput = document.getElementById("workerName");
+
             const deleteUserModalOverlay = document.getElementById("deleteUserModalOverlay");
+
             const openDeleteUserModalBtn = document.getElementById("openDeleteUserModal");
+
             const closeDeleteUserModalX = document.getElementById("closeDeleteUserModalX");
+
             const cancelDeleteUserModal = document.getElementById("cancelDeleteUserModal");
+
             const confirmDeleteUserBtn = document.getElementById("confirmDeleteUserBtn");
+
             const deleteUserForm = document.getElementById("deleteUserForm");
+
             const deleteUserMessage = document.getElementById("deleteUserMessage");
 
+
+
             function showAddWorkerMessage(type, message) {
+
                 if (!addWorkerMessage) {
+
                     return;
+
                 }
+
                 addWorkerMessage.className = "add-worker-message " + type;
+
                 addWorkerMessage.textContent = message;
+
                 addWorkerMessage.style.display = "block";
+
             }
+
+
 
             function showDeleteUserMessage(type, message) {
+
                 if (!deleteUserMessage) {
+
                     return;
+
                 }
+
                 deleteUserMessage.className = "add-worker-message " + type;
+
                 deleteUserMessage.textContent = message;
+
                 deleteUserMessage.style.display = "block";
+
             }
+
+
 
             function clearDeleteUserMessage() {
+
                 if (!deleteUserMessage) {
+
                     return;
+
                 }
+
                 deleteUserMessage.className = "add-worker-message";
+
                 deleteUserMessage.textContent = "";
+
                 deleteUserMessage.style.display = "none";
+
             }
+
+
 
             function openDeleteUserModal() {
+
                 if (!deleteUserModalOverlay) {
+
                     return;
+
                 }
+
                 clearDeleteUserMessage();
+
                 deleteUserModalOverlay.style.display = "flex";
+
                 document.body.style.overflow = "hidden";
+
             }
+
+
 
             function closeDeleteUserModal() {
+
                 if (!deleteUserModalOverlay) {
+
                     return;
+
                 }
+
                 deleteUserModalOverlay.style.display = "none";
+
                 document.body.style.overflow = "";
+
                 clearDeleteUserMessage();
+
                 if (deleteUserForm) {
+
                     deleteUserForm.reset();
+
                 }
+
             }
+
+
 
             function clearAddWorkerMessage() {
+
                 if (!addWorkerMessage) {
+
                     return;
+
                 }
+
                 addWorkerMessage.className = "add-worker-message";
+
                 addWorkerMessage.textContent = "";
+
                 addWorkerMessage.style.display = "none";
+
             }
+
+
 
             async function openAddWorkerModal() {
+
                 if (!addWorkerModalOverlay) {
+
                     return;
+
                 }
+
                 clearAddWorkerMessage();
+
                 addWorkerModalOverlay.style.display = "flex";
+
                 document.body.style.overflow = "hidden";
 
+
+
                 const serviceIdInput = document.getElementById("workerServiceId");
+
                 if (serviceIdInput) {
+
                     serviceIdInput.value = "";
+
                 }
 
+
+
                 try {
+
                     const response = await fetch("@Url.Action("GetNextServiceId", "Dashboard")");
+
                     const result = await response.json();
 
+
+
                     if (result.success && serviceIdInput) {
+
                         serviceIdInput.value = result.serviceId || "";
+
                     } else if (result.message) {
+
                         showAddWorkerMessage("error", result.message);
+
                     }
+
                 } catch (error) {
+
                     showAddWorkerMessage("error", "An error occurred while generating the Service ID.");
+
                 }
+
             }
+
+
 
             function closeAddWorkerModal() {
+
                 if (!addWorkerModalOverlay) {
+
                     return;
+
                 }
+
                 addWorkerModalOverlay.style.display = "none";
+
                 document.body.style.overflow = "";
+
                 clearAddWorkerMessage();
+
                 if (addWorkerForm) {
+
                     addWorkerForm.reset();
+
                 }
+
             }
 
-            async function saveWorker() {
-                            async function deleteUser() {
-                                const serviceIdValue = document.getElementById("deleteUserServiceId")?.value?.trim() ?? "";
 
-                                if (!hasSection) {
-                                    showDeleteUserMessage("error", "No section is assigned to your account.");
-                                    return;
-                                }
 
-                                if (!serviceIdValue) {
-                                    showDeleteUserMessage("error", "Please enter a Service ID.");
-                                    return;
-                                }
+            async function deleteUser() {
 
-                                const token = document.querySelector('#deleteUserForm input[name="__RequestVerificationToken"]')?.value ?? "";
-
-                                try {
-                                    const response = await fetch("@Url.Action("DeleteUser", "Dashboard")", {
-                                        method: "POST",
-                                        headers: {
-                                            "Content-Type": "application/json",
-                                            "RequestVerificationToken": token
-                                        },
-                                        body: JSON.stringify({ serviceId: serviceIdValue })
-                                    });
-
-                                    const result = await response.json();
-                                    if (result.success) {
-                                        showDeleteUserMessage("success", result.message || "User deleted successfully.");
-                                        setTimeout(function () {
-                                            closeDeleteUserModal();
-                                            window.location.reload();
-                                        }, 900);
-                                    } else {
-                                        let errorMessage = result.message || "Failed to delete user.";
-                                        if (result.errors) {
-                                            const allErrors = Object.values(result.errors).flat();
-                                            if (allErrors.length > 0) {
-                                                errorMessage = allErrors.join(" ");
-                                            }
-                                        }
-                                        showDeleteUserMessage("error", errorMessage);
-                                    }
-                                } catch (error) {
-                                    showDeleteUserMessage("error", "An error occurred while deleting the user.");
-                                }
-                            }
-                const workerName = workerNameInput?.value?.trim() ?? "";
-                const serviceIdValue = document.getElementById("workerServiceId")?.value?.trim() ?? "";
-                const email = document.getElementById("workerEmail")?.value?.trim() ?? "";
-                const phone = document.getElementById("workerPhone")?.value?.trim() ?? "";
+                const serviceIdValue = document.getElementById("deleteUserServiceId")?.value?.trim() ?? "";
 
                 if (!hasSection) {
-                    showAddWorkerMessage("error", "No section is assigned to your account.");
+
+                    showDeleteUserMessage("error", "No section is assigned to your account.");
+
                     return;
+
                 }
 
-                if (!workerName || !serviceIdValue || !email || !phone) {
-                    showAddWorkerMessage("error", "Please fill all required fields.");
+                if (!serviceIdValue) {
+
+                    showDeleteUserMessage("error", "Please enter a Service ID.");
+
                     return;
+
                 }
 
-                const token = document.querySelector('#addWorkerForm input[name="__RequestVerificationToken"]')?.value ?? "";
+                const token = document.querySelector('#deleteUserForm input[name="__RequestVerificationToken"]')?.value ?? "";
 
                 try {
-                    const response = await fetch("@Url.Action("CreateWorker", "Dashboard")", {
+
+                    const formData = new FormData();
+                    formData.append('serviceId', serviceIdValue);
+                    if (token) {
+                        formData.append('__RequestVerificationToken', token);
+                    }
+
+                    const response = await fetch("@Url.Action("DeleteUser", "Dashboard")", {
+
                         method: "POST",
+
                         headers: {
-                            "Content-Type": "application/json",
-                            "RequestVerificationToken": token
+                            "X-Requested-With": "XMLHttpRequest"
                         },
-                        body: JSON.stringify({
-                            workerName: workerName,
-                            serviceId: serviceIdValue,
-                            email: email,
-                            phone: phone
-                        })
+
+                        body: formData
+
                     });
 
                     const result = await response.json();
+
                     if (result.success) {
-                        showAddWorkerMessage("success", result.message || "Worker created successfully.");
+
+                        showDeleteUserMessage("success", result.message || "User deleted successfully.");
+
                         setTimeout(function () {
-                            closeAddWorkerModal();
+
+                            closeDeleteUserModal();
+
                             window.location.reload();
-                        }, 800);
+
+                        }, 900);
+
                     } else {
-                        let errorMessage = result.message || "Failed to create worker.";
+
+                        let errorMessage = result.message || "Failed to delete user.";
+
                         if (result.errors) {
+
                             const allErrors = Object.values(result.errors).flat();
+
                             if (allErrors.length > 0) {
+
                                 errorMessage = allErrors.join(" ");
+
                             }
+
                         }
-                        showAddWorkerMessage("error", errorMessage);
+
+                        showDeleteUserMessage("error", errorMessage);
+
                     }
+
                 } catch (error) {
-                    showAddWorkerMessage("error", "An error occurred while creating the worker.");
+
+                    showDeleteUserMessage("error", "An error occurred while deleting the user.");
+
                 }
+
             }
+
+
+
+            async function saveWorker() {
+
+                const workerName = workerNameInput?.value?.trim() ?? "";
+
+                const serviceIdValue = document.getElementById("workerServiceId")?.value?.trim() ?? "";
+
+                const email = document.getElementById("workerEmail")?.value?.trim() ?? "";
+
+                const phone = document.getElementById("workerPhone")?.value?.trim() ?? "";
+
+
+
+                if (!hasSection) {
+
+                    showAddWorkerMessage("error", "No section is assigned to your account.");
+
+                    return;
+
+                }
+
+
+
+                if (!workerName || !serviceIdValue || !email || !phone) {
+
+                    showAddWorkerMessage("error", "Please fill all required fields.");
+
+                    return;
+
+                }
+
+
+
+                const token = document.querySelector('#addWorkerForm input[name="__RequestVerificationToken"]')?.value ?? "";
+
+
+
+                try {
+
+                    const response = await fetch("@Url.Action("CreateWorker", "Dashboard")", {
+
+                        method: "POST",
+
+                        headers: {
+
+                            "Content-Type": "application/json",
+
+                            "RequestVerificationToken": token
+
+                        },
+
+                        body: JSON.stringify({
+
+                            workerName: workerName,
+
+                            serviceId: serviceIdValue,
+
+                            email: email,
+
+                            phone: phone
+
+                        })
+
+                    });
+
+
+
+                    const result = await response.json();
+
+                    if (result.success) {
+
+                        showAddWorkerMessage("success", result.message || "Worker created successfully.");
+
+                        setTimeout(function () {
+
+                            closeAddWorkerModal();
+
+                            window.location.reload();
+
+                        }, 800);
+
+                    } else {
+
+                        let errorMessage = result.message || "Failed to create worker.";
+
+                        if (result.errors) {
+
+                            const allErrors = Object.values(result.errors).flat();
+
+                            if (allErrors.length > 0) {
+
+                                errorMessage = allErrors.join(" ");
+
+                            }
+
+                        }
+
+                        showAddWorkerMessage("error", errorMessage);
+
+                    }
+
+                } catch (error) {
+
+                    showAddWorkerMessage("error", "An error occurred while creating the worker.");
+
+                }
+
+            }
+
+
 
             if (openAddWorkerModalBtn) {
+
                 openAddWorkerModalBtn.addEventListener("click", openAddWorkerModal);
+
             }
+
             if (closeAddWorkerModalX) {
+
                 closeAddWorkerModalX.addEventListener("click", closeAddWorkerModal);
+
             }
+
             if (cancelAddWorkerModal) {
+
                 cancelAddWorkerModal.addEventListener("click", closeAddWorkerModal);
+
             }
+
             if (saveAddWorkerBtn) {
+
                 saveAddWorkerBtn.addEventListener("click", saveWorker);
+
             }
+
             if (openDeleteUserModalBtn) {
+
                 openDeleteUserModalBtn.addEventListener("click", openDeleteUserModal);
+
             }
+
             if (closeDeleteUserModalX) {
+
                 closeDeleteUserModalX.addEventListener("click", closeDeleteUserModal);
+
             }
+
             if (cancelDeleteUserModal) {
+
                 cancelDeleteUserModal.addEventListener("click", closeDeleteUserModal);
+
             }
+
             if (confirmDeleteUserBtn) {
+
                 confirmDeleteUserBtn.addEventListener("click", deleteUser);
+
             }
+
             if (addWorkerModalOverlay) {
+
                 addWorkerModalOverlay.addEventListener("click", function (event) {
+
                     if (event.target === addWorkerModalOverlay) {
+
                         closeAddWorkerModal();
+
                     }
+
                 });
+
             }
+
             if (deleteUserModalOverlay) {
+
                 deleteUserModalOverlay.addEventListener("click", function (event) {
+
                     if (event.target === deleteUserModalOverlay) {
+
                         closeDeleteUserModal();
+
                     }
+
                 });
+
             }
+
+
 
             document.addEventListener("keydown", function (event) {
+
                 if (event.key === "Escape" && addWorkerModalOverlay && addWorkerModalOverlay.style.display === "flex") {
+
                     closeAddWorkerModal();
+
                 }
+
             });
+
         });
 
+
+
         (function () {
+
             const chartElement = document.getElementById("dateRangeOtTrendChart");
+
             if (!chartElement) {
+
                 return;
+
             }
+
+
 
             const labels = @Html.Raw(JsonSerializer.Serialize(Model.DateRangeChartData.Select(x => x.DateLabel).ToList()));
+
             const values = @Html.Raw(JsonSerializer.Serialize(Model.DateRangeChartData.Select(x => x.OTHours).ToList()));
 
+
+
             if (!labels.length || !values.length) {
+
                 return;
+
             }
 
+
+
             new Chart(chartElement, {
+
                 type: "line",
+
                 data: {
+
                     labels,
+
                     datasets: [
+
                         {
+
                             label: "OT Hours",
+
                             data: values,
+
                             borderColor: "#7c3aed",
+
                             backgroundColor: "rgba(124, 58, 237, 0.10)",
+
                             pointBackgroundColor: "#7c3aed",
+
                             pointBorderColor: "#ffffff",
+
                             pointBorderWidth: 1.5,
+
                             pointRadius: 3,
+
                             pointHoverRadius: 4,
+
                             borderWidth: 2,
+
                             tension: 0.32,
+
                             fill: true
+
                         }
+
                     ]
+
                 },
+
                 options: {
+
                     responsive: true,
+
                     maintainAspectRatio: false,
+
                     plugins: {
+
                         legend: {
+
                             display: false
+
                         },
+
                         tooltip: {
+
                             callbacks: {
+
                                 label(context) {
+
                                     return `OT Hours: ${context.parsed.y}h`;
+
                                 }
+
                             }
+
                         }
+
                     },
+
                     scales: {
+
                         x: {
+
                             grid: {
+
                                 color: "rgba(148, 163, 184, 0.15)"
+
                             },
+
                             ticks: {
+
                                 color: "#5f6f87",
+
                                 maxRotation: 0,
+
                                 autoSkipPadding: 14
+
                             }
+
                         },
+
                         y: {
+
                             beginAtZero: true,
+
                             grid: {
+
                                 color: "rgba(148, 163, 184, 0.22)"
+
                             },
+
                             ticks: {
+
                                 color: "#5f6f87",
+
                                 callback(value) {
+
                                     return `${value}h`;
+
                                 }
+
                             }
+
                         }
+
                     }
+
                 }
+
             });
+
         })();
+
     </script>
+
 <!-- Change Password Modal -->
+
 <div id="adminChangePasswordModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:3000;align-items:center;justify-content:center;padding:16px;">
+
     <div style="width:min(460px,100%);border-radius:16px;background:#fff;box-shadow:0 24px 48px rgba(15,23,42,0.25);overflow:hidden;">
+
         <div style="background:linear-gradient(135deg,#6c5ce7,#a855f7);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
+
             <div style="display:flex;align-items:center;gap:12px;">
+
                 <div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:6px 10px;">
+
                     <i class="bi bi-shield-lock-fill" style="color:#fff;"></i>
+
                 </div>
+
                 <div>
+
                     <h5 style="color:#fff;margin:0;font-weight:700;">Change Password</h5>
+
                     <p style="color:rgba(255,255,255,0.8);margin:0;font-size:12px;">Update your account password</p>
+
                 </div>
+
             </div>
+
             <button onclick="document.getElementById('adminChangePasswordModal').style.display='none';document.body.style.overflow='';" style="background:transparent;border:none;color:#fff;font-size:1.3rem;cursor:pointer;">&times;</button>
+
         </div>
+
         <div style="padding:24px;">
+
             <div id="adminCpError" style="display:none;background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:0.85rem;"></div>
+
             <div id="adminCpSuccess" style="display:none;background:#dcfce7;border:1px solid #86efac;color:#166534;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:0.85rem;"></div>
+
             <div style="margin-bottom:14px;">
+
                 <label style="font-weight:600;font-size:0.88rem;display:block;margin-bottom:6px;">Current Password</label>
+
                 <div class="input-group">
+
                     <span class="input-group-text"><i class="bi bi-lock"></i></span>
+
                     <input type="password" id="adminCpCurrent" class="form-control" placeholder="Enter current password" />
+
                 </div>
+
             </div>
+
             <div style="margin-bottom:14px;">
+
                 <label style="font-weight:600;font-size:0.88rem;display:block;margin-bottom:6px;">New Password</label>
+
                 <div class="input-group">
+
                     <span class="input-group-text"><i class="bi bi-key"></i></span>
+
                     <input type="password" id="adminCpNew" class="form-control" placeholder="Enter new password (min 6 chars)" />
+
                 </div>
+
             </div>
+
             <div style="margin-bottom:6px;">
+
                 <label style="font-weight:600;font-size:0.88rem;display:block;margin-bottom:6px;">Confirm New Password</label>
+
                 <div class="input-group">
+
                     <span class="input-group-text"><i class="bi bi-key-fill"></i></span>
+
                     <input type="password" id="adminCpConfirm" class="form-control" placeholder="Confirm new password" />
+
                 </div>
+
             </div>
+
         </div>
+
         <div style="padding:14px 24px;border-top:1px solid #f0f0f0;display:flex;justify-content:flex-end;gap:10px;">
+
             <button onclick="document.getElementById('adminChangePasswordModal').style.display='none';document.body.style.overflow='';" class="btn btn-light">Cancel</button>
+
             <button onclick="adminSubmitChangePassword()" class="btn text-white" style="background:linear-gradient(135deg,#6c5ce7,#a855f7);"><i class="bi bi-check2-circle me-1"></i> Update Password</button>
+
         </div>
+
     </div>
+
 </div>
 
+
+
 <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
+
 <script>
+
     function adminSubmitChangePassword() {
+
         const current = document.getElementById('adminCpCurrent').value;
+
         const newPwd = document.getElementById('adminCpNew').value;
+
         const confirm = document.getElementById('adminCpConfirm').value;
+
         const errorEl = document.getElementById('adminCpError');
+
         const successEl = document.getElementById('adminCpSuccess');
 
+
+
         errorEl.style.display = 'none';
+
         successEl.style.display = 'none';
 
+
+
         if (!current || !newPwd || !confirm) {
+
             errorEl.textContent = 'All fields are required.';
+
             errorEl.style.display = 'block';
+
             return;
+
         }
+
         if (newPwd.length < 6) {
+
             errorEl.textContent = 'New password must be at least 6 characters.';
+
             errorEl.style.display = 'block';
+
             return;
+
         }
+
         if (newPwd !== confirm) {
+
             errorEl.textContent = 'Passwords do not match.';
+
             errorEl.style.display = 'block';
+
             return;
+
         }
+
+
 
         const formData = new FormData();
+
         formData.append('currentPassword', current);
+
         formData.append('newPassword', newPwd);
+
         formData.append('confirmPassword', confirm);
 
+
+
         fetch('/Account/ChangePassword', { method: 'POST', body: formData })
+
             .then(r => r.json())
+
             .then(result => {
+
                 if (result.success) {
+
                     successEl.textContent = result.message;
+
                     successEl.style.display = 'block';
+
                     document.getElementById('adminCpCurrent').value = '';
+
                     document.getElementById('adminCpNew').value = '';
+
                     document.getElementById('adminCpConfirm').value = '';
+
                     setTimeout(() => {
+
                         document.getElementById('adminChangePasswordModal').style.display = 'none';
+
                         document.body.style.overflow = '';
+
                     }, 1500);
+
                 } else {
+
                     errorEl.textContent = result.message;
+
                     errorEl.style.display = 'block';
+
                 }
+
             })
+
             .catch(() => {
+
                 errorEl.textContent = 'An error occurred. Please try again.';
+
                 errorEl.style.display = 'block';
+
             });
+
     }
+
 </script>
+
 </body>
+
 </html>
+

@@ -8,6 +8,7 @@ namespace AttendanceManagementSystem.Data
         private static readonly DateTime SeedRoleCreatedAt = new DateTime(2026, 5, 13, 5, 55, 3, 354, DateTimeKind.Utc).AddTicks(4489);
         private static readonly DateTime SeedRoleCreatedAt2 = new DateTime(2026, 5, 13, 5, 55, 3, 354, DateTimeKind.Utc).AddTicks(4650);
         private static readonly DateTime SeedRoleCreatedAt3 = new DateTime(2026, 5, 13, 5, 55, 3, 354, DateTimeKind.Utc).AddTicks(4651);
+        private static readonly DateTime SeedSectionCreatedAt0 = new DateTime(2026, 5, 13, 5, 55, 3, 355, DateTimeKind.Utc).AddTicks(390);
         private static readonly DateTime SeedSectionCreatedAt1 = new DateTime(2026, 5, 13, 5, 55, 3, 355, DateTimeKind.Utc).AddTicks(391);
         private static readonly DateTime SeedSectionCreatedAt2 = new DateTime(2026, 5, 13, 5, 55, 3, 355, DateTimeKind.Utc).AddTicks(665);
         private static readonly DateTime SeedSectionCreatedAt3 = new DateTime(2026, 5, 13, 5, 55, 3, 355, DateTimeKind.Utc).AddTicks(666);
@@ -136,6 +137,7 @@ namespace AttendanceManagementSystem.Data
             // Seed Sections
             var sections = new[]
             {
+                new Section { Id = -1, Name = "All Sections", Description = "All Departments", CreatedAt = SeedSectionCreatedAt0, IsActive = true },
                 new Section { Id = 1, Name = "Information Technology", Description = "IT Department", CreatedAt = SeedSectionCreatedAt1, IsActive = true },
                 new Section { Id = 2, Name = "Human Resources", Description = "HR Department", CreatedAt = SeedSectionCreatedAt2, IsActive = true },
                 new Section { Id = 3, Name = "Finance", Description = "Finance and Accounting", CreatedAt = SeedSectionCreatedAt3, IsActive = true },

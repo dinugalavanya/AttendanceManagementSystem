@@ -108,6 +108,27 @@ namespace AttendanceManagementSystem.Services
             return false;
         }
 
+        /// <summary>
+        /// Checks if the current user has full system access (SuperAdmin or GM)
+        /// </summary>
+        public bool IsSuperAdminOrGM(User? user)
+        {
+            if (user == null || user.Role == null) return false;
+            return user.Role.Name == RoleNames.SuperAdmin || user.Role.Name == RoleNames.GM;
+        }
+
+        /// <summary>
+        /// Checks if the current user has full system access (SuperAdmin or GM) - async version
+        /// </summary>
+        public async Task<bool> IsSuperAdminOrGMAsync(int userId)
+        {
+            var user = await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+
+            return IsSuperAdminOrGM(user);
+        }
+
         public void SignIn(User user, bool rememberMe = false)
         {
             var claims = new[]

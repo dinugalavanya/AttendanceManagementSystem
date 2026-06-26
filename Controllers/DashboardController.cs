@@ -18,13 +18,15 @@ namespace AttendanceManagementSystem.Controllers
         private readonly AttendanceCalculationService _calculationService;
         private readonly ILogger<DashboardController> _logger;
         private readonly IEmailService _emailService;
+        private readonly IAuthService _authService;
 
-        public DashboardController(ApplicationDbContext context, AttendanceCalculationService calculationService, ILogger<DashboardController> logger, IEmailService emailService)
+        public DashboardController(ApplicationDbContext context, AttendanceCalculationService calculationService, ILogger<DashboardController> logger, IEmailService emailService, IAuthService authService)
         {
             _context = context;
             _calculationService = calculationService;
             _logger = logger;
             _emailService = emailService;
+            _authService = authService;
         }
 
         public async Task<IActionResult> Index(string? serviceId, DateTime? selectedDate, DateTime? singleDate, DateTime? fromDate, DateTime? toDate)
@@ -77,11 +79,12 @@ namespace AttendanceManagementSystem.Controllers
             }
             else if (isAdmin || isEngineer)
             {
-                if (!currentUser.SectionId.HasValue)
+                if (!SectionIds.IsAssignable(currentUser.SectionId))
                 {
                     return View("AdminDashboard", new AdminDashboardViewModel
                     {
-                        HasSection = false
+                        HasSection = false,
+                        NoSectionMessage = "No valid section assigned to this account. Section 0 is reserved for SuperAdmin and GM only."
                     });
                 }
 
@@ -100,7 +103,7 @@ namespace AttendanceManagementSystem.Controllers
             }
             else if (isDGM)
             {
-                if (!currentUser.SectionId.HasValue)
+                if (!SectionIds.IsAssignable(currentUser.SectionId))
                 {
                     return View("AdminDashboard", new AdminDashboardViewModel { HasSection = false });
                 }
@@ -555,35 +558,78 @@ namespace AttendanceManagementSystem.Controllers
                 RangeToDate = (request.ToDate ?? DateTime.Today).Date
             };
 
-            adminDashboardViewModel.Sections = await _context.Sections
-                .AsNoTracking()
-                .Where(s => s.IsActive)
-                .OrderBy(s => s.Name)
-                .Select(s => new SelectListItem
-                {
-                    Value = s.Id.ToString(),
-                    Text = s.Name
-                })
-                .ToListAsync();
+            var isSuperAdminOrGM = _authService.IsSuperAdminOrGM(currentUser);
 
-            var sectionId = currentUser.SectionId;
-            if (!sectionId.HasValue)
+            // Build sections dropdown based on role
+            if (isSuperAdminOrGM)
             {
-                adminDashboardViewModel.HasSection = false;
-                adminDashboardViewModel.NoSectionMessage = "No section assigned to this Admin. Contact SuperAdmin.";
-                return adminDashboardViewModel;
-            }
-
-            adminDashboardViewModel.WorkerServiceOptions = await _context.Users
-                .AsNoTracking()
-                .Where(u => u.IsActive && u.SectionId == sectionId && !string.IsNullOrWhiteSpace(u.ServiceId))
-                .OrderBy(u => u.ServiceId)
-                .Select(u => new SelectListItem
+                // SuperAdmin/GM: show all sections including "All Sections" (Id=-1)
+                var sections = new List<SelectListItem>
                 {
-                    Value = u.ServiceId!,
-                    Text = u.ServiceId! + " - " + u.FirstName + " " + u.LastName
-                })
-                .ToListAsync();
+                    new SelectListItem { Value = "-1", Text = "All Sections" }
+                };
+
+                var dbSections = await _context.Sections
+                    .AsNoTracking()
+                    .Where(s => s.IsActive && s.Id != -1)
+                    .OrderBy(s => s.Name)
+                    .Select(s => new SelectListItem
+                    {
+                        Value = s.Id.ToString(),
+                        Text = s.Name
+                    })
+                    .ToListAsync();
+
+                sections.AddRange(dbSections);
+                adminDashboardViewModel.Sections = sections;
+
+                // SuperAdmin/GM: show all workers across all sections
+                adminDashboardViewModel.WorkerServiceOptions = await _context.Users
+                    .AsNoTracking()
+                    .Where(u => u.IsActive && !string.IsNullOrWhiteSpace(u.ServiceId))
+                    .OrderBy(u => u.ServiceId)
+                    .Select(u => new SelectListItem
+                    {
+                        Value = u.ServiceId!,
+                        Text = u.ServiceId! + " - " + u.FirstName + " " + u.LastName
+                    })
+                    .ToListAsync();
+            }
+            else
+            {
+                // Normal users: show only their assigned section
+                var sectionId = currentUser.SectionId;
+                if (!SectionIds.IsAssignable(sectionId))
+                {
+                    adminDashboardViewModel.HasSection = false;
+                    adminDashboardViewModel.NoSectionMessage = "No valid section assigned to this Admin. Section 0 is reserved for SuperAdmin and GM only.";
+                    return adminDashboardViewModel;
+                }
+
+                var userSection = await _context.Sections
+                    .AsNoTracking()
+                    .Where(s => s.Id == sectionId!.Value)
+                    .Select(s => new SelectListItem
+                    {
+                        Value = s.Id.ToString(),
+                        Text = s.Name
+                    })
+                    .FirstOrDefaultAsync();
+
+                adminDashboardViewModel.Sections = userSection != null ? new List<SelectListItem> { userSection } : new List<SelectListItem>();
+
+                // Normal users: show only workers from their section
+                adminDashboardViewModel.WorkerServiceOptions = await _context.Users
+                    .AsNoTracking()
+                    .Where(u => u.IsActive && u.SectionId == sectionId && !string.IsNullOrWhiteSpace(u.ServiceId))
+                    .OrderBy(u => u.ServiceId)
+                    .Select(u => new SelectListItem
+                    {
+                        Value = u.ServiceId!,
+                        Text = u.ServiceId! + " - " + u.FirstName + " " + u.LastName
+                    })
+                    .ToListAsync();
+            }
 
             if (adminDashboardViewModel.RangeFromDate > adminDashboardViewModel.RangeToDate)
             {
@@ -597,14 +643,38 @@ namespace AttendanceManagementSystem.Controllers
                 return adminDashboardViewModel;
             }
 
-            var worker = await _context.Users
-                .AsNoTracking()
-                .Include(u => u.Section)
-                .FirstOrDefaultAsync(u =>
-                    u.IsActive &&
-                    u.SectionId == sectionId &&
-                    u.ServiceId != null &&
-                    u.ServiceId.ToUpper() == request.NormalizedServiceId);
+            // Search worker based on role
+            User? worker;
+            if (isSuperAdminOrGM)
+            {
+                // SuperAdmin/GM: search across all sections
+                worker = await _context.Users
+                    .AsNoTracking()
+                    .Include(u => u.Section)
+                    .FirstOrDefaultAsync(u =>
+                        u.IsActive &&
+                        u.ServiceId != null &&
+                        u.ServiceId.ToUpper() == request.NormalizedServiceId);
+            }
+            else
+            {
+                // Normal users: search only in their section
+                var sectionId = currentUser.SectionId;
+                if (!SectionIds.IsAssignable(sectionId))
+                {
+                    adminDashboardViewModel.WorkerSearchMessage = "No valid section assigned to your account.";
+                    return adminDashboardViewModel;
+                }
+
+                worker = await _context.Users
+                    .AsNoTracking()
+                    .Include(u => u.Section)
+                    .FirstOrDefaultAsync(u =>
+                        u.IsActive &&
+                        u.SectionId == sectionId &&
+                        u.ServiceId != null &&
+                        u.ServiceId.ToUpper() == request.NormalizedServiceId);
+            }
 
             if (worker == null)
             {
@@ -888,16 +958,16 @@ namespace AttendanceManagementSystem.Controllers
                     return Json(new { success = false, errors = new { WorkerName = new[] { "Worker name is required." } } });
                 }
 
-                if (!currentUser.SectionId.HasValue)
+                if (!SectionIds.IsAssignable(currentUser.SectionId))
                 {
-                    return Json(new { success = false, message = "No section is assigned to your account." });
+                    return Json(new { success = false, message = "No valid section is assigned to your account. Workers cannot be added to section 0." });
                 }
 
-                var sectionId = currentUser.SectionId.Value;
+                var sectionId = currentUser.SectionId!.Value;
 
                 var section = await _context.Sections
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(s => s.Id == sectionId && s.IsActive);
+                    .FirstOrDefaultAsync(s => s.Id == sectionId && s.IsActive && s.Id > 0);
 
                 if (section == null)
                 {
@@ -994,7 +1064,7 @@ namespace AttendanceManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteUser([FromBody] DeleteUserViewModel model)
+        public async Task<IActionResult> DeleteUser([FromForm] DeleteUserViewModel model)
         {
             try
             {
@@ -1026,9 +1096,12 @@ namespace AttendanceManagementSystem.Controllers
                     return Json(new { success = false, message = "You don't have permission to delete users." });
                 }
 
-                if (!currentUser.SectionId.HasValue)
+                var isSuperAdminOrGM = _authService.IsSuperAdminOrGM(currentUser);
+
+                // Regular Admin must have a real section assigned (not 0 or -1)
+                if (!isSuperAdminOrGM && !SectionIds.IsAssignable(currentUser.SectionId))
                 {
-                    return Json(new { success = false, message = "No section is assigned to your account." });
+                    return Json(new { success = false, message = "No valid section is assigned to your account." });
                 }
 
                 if (string.IsNullOrWhiteSpace(model.ServiceId))
@@ -1037,12 +1110,28 @@ namespace AttendanceManagementSystem.Controllers
                 }
 
                 var normalizedServiceId = model.ServiceId.ToUpperInvariant();
-                var userToDelete = await _context.Users
-                    .Include(u => u.Role)
-                    .FirstOrDefaultAsync(u =>
-                        u.IsActive &&
-                        u.ServiceId.ToUpper() == normalizedServiceId &&
-                        u.SectionId == currentUser.SectionId.Value);
+                
+                // Search user based on role
+                User? userToDelete;
+                if (isSuperAdminOrGM)
+                {
+                    // SuperAdmin/GM: can delete from any section
+                    userToDelete = await _context.Users
+                        .Include(u => u.Role)
+                        .FirstOrDefaultAsync(u =>
+                            u.IsActive &&
+                            u.ServiceId.ToUpper() == normalizedServiceId);
+                }
+                else
+                {
+                    // Regular Admin: can only delete from their section
+                    userToDelete = await _context.Users
+                        .Include(u => u.Role)
+                        .FirstOrDefaultAsync(u =>
+                            u.IsActive &&
+                            u.ServiceId.ToUpper() == normalizedServiceId &&
+                            u.SectionId == currentUser.SectionId!.Value);
+                }
 
                 if (userToDelete == null)
                 {
@@ -1096,9 +1185,9 @@ namespace AttendanceManagementSystem.Controllers
                 return Json(new { success = false, message = "You don't have permission to generate a Service ID." });
             }
 
-            if (!currentUser.SectionId.HasValue)
+            if (!SectionIds.IsAssignable(currentUser.SectionId))
             {
-                return Json(new { success = false, message = "No section is assigned to your account." });
+                return Json(new { success = false, message = "No valid section is assigned to your account." });
             }
 
             var nextServiceId = await GetNextAvailableEmployeeServiceIdAsync(HttpContext.RequestAborted);

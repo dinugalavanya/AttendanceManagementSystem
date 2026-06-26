@@ -472,54 +472,93 @@ namespace AttendanceManagementSystem.Controllers
 
             var selectedDate = date ?? DateTime.Today;
             var roleName = currentUser.Role.Name;
-            var isGM = roleName == RoleNames.GM;
+            var isSuperAdminOrGM = _authService.IsSuperAdminOrGM(currentUser);
 
-            List<Attendance> attendances;
-
-            if (roleName == RoleNames.SuperAdmin || (isGM && !sectionId.HasValue))
+            // Check if user has a section assigned (required for non-SuperAdmin/GM)
+            if (!isSuperAdminOrGM && currentUser.SectionId == null)
             {
-                // SuperAdmin or GM with no section selected: show all
-                attendances = await _attendanceService.GetAllAttendancesAsync(selectedDate);
+                TempData["Error"] = "You are not assigned to any section.";
+                return RedirectToAction("Index", "Dashboard");
             }
-            else if (isGM && sectionId.HasValue)
+
+            // Use role-based filtering in service layer
+            // SuperAdmin/GM: sectionId filters by specific section, null/0 shows all
+            // Normal users: always filtered to their assigned section
+            List<Attendance> attendances;
+            if (isSuperAdminOrGM)
             {
-                // GM filtered by selected section
-                attendances = await _attendanceService.GetSectionAttendancesAsync(sectionId.Value, selectedDate);
+                if (sectionId.HasValue && sectionId > 0)
+                {
+                    attendances = await _attendanceService.GetSectionAttendancesAsync(sectionId.Value, selectedDate, currentUser);
+                }
+                else
+                {
+                    // sectionId == -1 or null means "All Sections"
+                    attendances = await _attendanceService.GetAllAttendancesAsync(selectedDate, currentUser);
+                }
             }
             else
             {
-                // Admin, DGM, Engineer — own section only
-                if (currentUser.SectionId == null)
-                {
-                    TempData["Error"] = "You are not assigned to any section.";
-                    return RedirectToAction("Index", "Dashboard");
-                }
-                attendances = await _attendanceService.GetSectionAttendancesAsync(currentUser.SectionId.Value, selectedDate);
+                // Normal users - filtered to their section by service layer
+                attendances = await _attendanceService.GetSectionAttendancesAsync(currentUser.SectionId!.Value, selectedDate, currentUser);
             }
 
             var canEdit = roleName == RoleNames.SuperAdmin || roleName == RoleNames.Admin || roleName == RoleNames.Engineer;
 
-            // Build section list for GM dropdown
+            // Build section list for dropdown
+            // SuperAdmin and GM see all sections including "All Sections" (Id=-1)
+            // Normal users see only their assigned section
             var sections = new List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>();
-            if (isGM)
+            if (isSuperAdminOrGM)
             {
-                sections = await _context.Sections
-                    .Where(s => s.IsActive)
+                // Add "All Sections" option at the top
+                sections.Add(new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem
+                {
+                    Value = "-1",
+                    Text = "All Sections",
+                    Selected = !sectionId.HasValue || sectionId == -1
+                });
+
+                var dbSections = await _context.Sections
+                    .Where(s => s.IsActive && s.Id != -1) // Exclude "All Sections" from regular list
                     .OrderBy(s => s.Name)
                     .Select(s => new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem
                     {
                         Value = s.Id.ToString(),
                         Text = s.Name,
-                        Selected = s.Id == sectionId
+                        Selected = sectionId.HasValue && s.Id == sectionId.Value
                     })
                     .ToListAsync();
+
+                sections.AddRange(dbSections);
+            }
+            else
+            {
+                // Normal users - show only their assigned section
+                if (currentUser.SectionId != null)
+                {
+                    var userSection = await _context.Sections
+                        .Where(s => s.Id == currentUser.SectionId.Value)
+                        .Select(s => new Microsoft.AspNetCore.Mvc.Rendering.SelectListItem
+                        {
+                            Value = s.Id.ToString(),
+                            Text = s.Name,
+                            Selected = true
+                        })
+                        .FirstOrDefaultAsync();
+                    
+                    if (userSection != null)
+                    {
+                        sections.Add(userSection);
+                    }
+                }
             }
 
-            var scopeLabel = isGM
-                ? (sectionId.HasValue
+            var scopeLabel = isSuperAdminOrGM
+                ? (sectionId.HasValue && sectionId > 0
                     ? (sections.FirstOrDefault(s => s.Value == sectionId.ToString())?.Text ?? "Selected Section")
                     : "All Sections")
-                : (roleName == RoleNames.SuperAdmin ? "All Sections" : currentUser.Section?.Name ?? "My Section");
+                : (currentUser.Section?.Name ?? "My Section");
 
             var model = new AttendanceManageViewModel
             {
@@ -539,7 +578,7 @@ namespace AttendanceManagementSystem.Controllers
                 SelectedDate = selectedDate,
                 CanEdit = canEdit,
                 ScopeLabel = scopeLabel,
-                IsGM = isGM,
+                IsGM = isSuperAdminOrGM && roleName == RoleNames.GM,
                 SelectedSectionId = sectionId,
                 Sections = sections,
                 TotalRecords = attendances.Count,
