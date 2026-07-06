@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using AttendanceManagementSystem.Data;
 using AttendanceManagementSystem.Models;
@@ -11,11 +12,13 @@ namespace AttendanceManagementSystem.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ILogger<AuthService> _logger;
 
-        public AuthService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor)
+        public AuthService(ApplicationDbContext context, IHttpContextAccessor httpContextAccessor, ILogger<AuthService> logger)
         {
             _context = context;
             _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
         }
 
         public async Task<User?> AuthenticateAsync(string email, string password)
@@ -86,6 +89,58 @@ namespace AttendanceManagementSystem.Services
                 .Include(u => u.Role)
                 .Include(u => u.Section)
                 .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+        }
+
+        public async Task<bool> ChangePasswordAsync(int userId, string currentPassword, string newPassword)
+        {
+            _logger.LogInformation("ChangePasswordAsync started for UserId {UserId}", userId);
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+
+            if (user == null)
+            {
+                _logger.LogWarning("ChangePasswordAsync could not load an active user for UserId {UserId}", userId);
+                return false;
+            }
+
+            _logger.LogInformation("ChangePasswordAsync loaded UserId {UserId} with stored hash {PasswordHash}", user.Id, user.PasswordHash);
+
+            if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+            {
+                _logger.LogWarning("ChangePasswordAsync current password verification failed for UserId {UserId}", user.Id);
+                return false;
+            }
+
+            var newPasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            _logger.LogInformation("ChangePasswordAsync hashed new password for UserId {UserId}: {PasswordHash}", user.Id, newPasswordHash);
+
+            user.PasswordHash = newPasswordHash;
+            user.UpdatedAt = DateTime.UtcNow;
+
+            var entry = _context.Entry(user);
+            _logger.LogInformation("ChangePasswordAsync entity state for UserId {UserId} before save: {State}", user.Id, entry.State);
+            entry.Property(x => x.PasswordHash).IsModified = true;
+            entry.Property(x => x.UpdatedAt).IsModified = true;
+
+            _logger.LogInformation("ChangePasswordAsync calling SaveChangesAsync for UserId {UserId}", user.Id);
+            var affectedRows = await _context.SaveChangesAsync();
+            _logger.LogInformation("ChangePasswordAsync SaveChangesAsync affected {AffectedRows} rows for UserId {UserId}", affectedRows, user.Id);
+
+            if (affectedRows <= 0)
+            {
+                _logger.LogError("ChangePasswordAsync did not persist any rows for UserId {UserId}", user.Id);
+                return false;
+            }
+
+            var persistedHash = await _context.Users
+                .Where(u => u.Id == user.Id)
+                .Select(u => u.PasswordHash)
+                .FirstOrDefaultAsync();
+
+            _logger.LogInformation("ChangePasswordAsync persisted hash for UserId {UserId}: {PasswordHash}", user.Id, persistedHash);
+
+            return string.Equals(persistedHash, newPasswordHash, StringComparison.Ordinal);
         }
 
         public async Task<bool> IsUserInRoleAsync(int userId, string roleName)
