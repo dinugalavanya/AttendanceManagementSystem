@@ -4,6 +4,7 @@
 - SuperAdmin
 - Admin
 - Worker
+- Role agent
 
 ## Access Matrix
 - `AccountController`
@@ -13,9 +14,9 @@
   - `Index`: authenticated users (role-specific data)
 - `AttendanceController`
   - `Index`, `CheckIn`, `CheckOut`, `History`: Worker/Admin/SuperAdmin as authenticated users
-  - `Manage`, `Edit`: Admin and SuperAdmin only
+  - `Manage`, `Edit`: Admin, Engineer, and Role agent
 - `AdminController`
-  - `Index`: Admin and SuperAdmin only
+  - `Index`: Admin, Engineer, and Role agent
 - `SectionController`
   - `Index`: Admin and SuperAdmin only
 - `UserController`

@@ -39,6 +39,8 @@ namespace AttendanceManagementSystem.Data
                 new Role { Name = RoleNames.GM, Description = "General Manager - view all sections" },
                 new Role { Name = RoleNames.DGM, Description = "Deputy General Manager - view own section only" },
                 new Role { Name = RoleNames.Engineer, Description = "Engineer - view and edit own section" },
+                new Role { Name = RoleNames.RoleAgent, Description = "Role Agent - view and edit own section" },
+                new Role { Name = RoleNames.LeaveAgent, Description = "Leave Agent - view and edit own section" },
                 new Role { Name = RoleNames.Worker, Description = "Regular worker who can enter OT data" }
             };
 
@@ -740,6 +742,8 @@ namespace AttendanceManagementSystem.Data
                 (RoleNames.GM,       "gm@attendance.com",      "GM@123",       "General",  "Manager",   "EMP910"),
                 (RoleNames.DGM,      "dgm@attendance.com",     "DGM@123",      "Deputy",   "Manager",   "EMP911"),
                 (RoleNames.Engineer, "engineer@attendance.com","Eng@123",      "Section",  "Engineer",  "EMP912"),
+                (RoleNames.RoleAgent,"roleagent@attendance.com","Role@123",    "Role",     "Agent",     "EMP913"),
+                (RoleNames.LeaveAgent,"leaveagent@attendance.com","Leave@123",  "Leave",    "Agent",     "EMP914"),
             };
 
             foreach (var (roleName, email, password, firstName, lastName, preferredServiceId) in roleUsers)
@@ -764,7 +768,7 @@ namespace AttendanceManagementSystem.Data
                     cancellationToken);
             }
 
-            logger.LogInformation("GM, DGM, and Engineer seed users ensured.");
+            logger.LogInformation("GM, DGM, Engineer, Role Agent, and Leave Agent seed users ensured.");
         }
     }
 }

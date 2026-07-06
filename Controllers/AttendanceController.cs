@@ -461,7 +461,7 @@ namespace AttendanceManagementSystem.Controllers
             return View(model);
         }
 
-        [Authorize(Roles = $"{RoleNames.SuperAdmin},{RoleNames.Admin},{RoleNames.GM},{RoleNames.DGM},{RoleNames.Engineer}")]
+        [Authorize(Roles = RoleNames.EngineerAccessRoles)]
         public async Task<IActionResult> Manage(DateTime? date, int? sectionId)
         {
             var currentUser = _authService.GetCurrentUser();
@@ -503,7 +503,7 @@ namespace AttendanceManagementSystem.Controllers
                 attendances = await _attendanceService.GetSectionAttendancesAsync(currentUser.SectionId!.Value, selectedDate, currentUser);
             }
 
-            var canEdit = roleName == RoleNames.SuperAdmin || roleName == RoleNames.Admin || roleName == RoleNames.Engineer;
+            var canEdit = roleName == RoleNames.SuperAdmin || roleName == RoleNames.Admin || RoleNames.HasEngineerPrivileges(roleName);
 
             // Build section list for dropdown
             // SuperAdmin and GM see all sections including "All Sections" (Id=-1)
@@ -593,7 +593,7 @@ namespace AttendanceManagementSystem.Controllers
             return View(model);
         }
 
-        [Authorize(Roles = $"{RoleNames.SuperAdmin},{RoleNames.Admin},{RoleNames.Engineer}")]
+        [Authorize(Roles = RoleNames.EngineerAccessRoles)]
         public async Task<IActionResult> Edit(int id)
         {
             var currentUser = _authService.GetCurrentUser();
@@ -609,7 +609,7 @@ namespace AttendanceManagementSystem.Controllers
             }
 
             // Check if user has permission to edit this attendance
-            if (currentUser.Role.Name == RoleNames.Admin || currentUser.Role.Name == RoleNames.Engineer)
+            if (currentUser.Role.Name == RoleNames.Admin || RoleNames.HasEngineerPrivileges(currentUser.Role.Name))
             {
                 if (currentUser.SectionId != attendance.User.SectionId)
                 {
@@ -633,7 +633,7 @@ namespace AttendanceManagementSystem.Controllers
         }
 
         [HttpPost]
-        [Authorize(Roles = $"{RoleNames.SuperAdmin},{RoleNames.Admin},{RoleNames.Engineer}")]
+        [Authorize(Roles = RoleNames.EngineerAccessRoles)]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(EditAttendanceViewModel model)
         {
@@ -675,7 +675,7 @@ namespace AttendanceManagementSystem.Controllers
 
         // AJAX GET: Get attendance data for edit modal
         [HttpGet]
-        [Authorize(Roles = $"{RoleNames.SuperAdmin},{RoleNames.Admin},{RoleNames.GM},{RoleNames.DGM},{RoleNames.Engineer}")]
+        [Authorize(Roles = RoleNames.EngineerAccessRoles)]
         public async Task<IActionResult> GetAttendanceForEdit(int id)
         {
             try
@@ -718,7 +718,7 @@ namespace AttendanceManagementSystem.Controllers
                 Console.WriteLine($"[DEBUG] Found attendance: UserId={attendance.UserId}, UserName={attendance.User.FullName}, Section={attendance.User.Section?.Name}");
 
                 // Check if user has permission to edit this attendance
-                if (currentUser.Role.Name == RoleNames.Admin || currentUser.Role.Name == RoleNames.Engineer)
+                if (currentUser.Role.Name == RoleNames.Admin || RoleNames.HasEngineerPrivileges(currentUser.Role.Name))
                 {
                     if (currentUser.SectionId != attendance.User.SectionId)
                     {
@@ -767,7 +767,7 @@ namespace AttendanceManagementSystem.Controllers
 
         // AJAX GET: Get attendance by user and date (used when changing OT Date in modal)
         [HttpGet]
-        [Authorize(Roles = $"{RoleNames.SuperAdmin},{RoleNames.Admin},{RoleNames.GM},{RoleNames.DGM},{RoleNames.Engineer}")]
+        [Authorize(Roles = RoleNames.EngineerAccessRoles)]
         public async Task<IActionResult> GetAttendanceByUserAndDate(int userId, string date)
         {
             try
@@ -801,7 +801,7 @@ namespace AttendanceManagementSystem.Controllers
                 }
 
                 // Permission check for Admins and Engineers
-                if ((currentUser.Role.Name == RoleNames.Admin || currentUser.Role.Name == RoleNames.Engineer) && currentUser.SectionId != attendance.User.SectionId)
+                if ((currentUser.Role.Name == RoleNames.Admin || RoleNames.HasEngineerPrivileges(currentUser.Role.Name)) && currentUser.SectionId != attendance.User.SectionId)
                 {
                     return Json(new { success = false, message = "You don't have permission to view this record" });
                 }
@@ -824,7 +824,7 @@ namespace AttendanceManagementSystem.Controllers
 
         // AJAX POST: Update attendance record
         [HttpPost]
-        [Authorize(Roles = $"{RoleNames.SuperAdmin},{RoleNames.Admin},{RoleNames.Engineer}")]
+        [Authorize(Roles = RoleNames.EngineerAccessRoles)]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateAttendance([FromBody] AttendanceUpdateDTO dto)
         {
@@ -947,7 +947,7 @@ namespace AttendanceManagementSystem.Controllers
                 Console.WriteLine($"[DEBUG] Found attendance: UserId={attendance.UserId}, UserName={attendance.User.FullName}, Section={attendance.User.Section?.Name}");
 
                 // Check permissions
-                if (currentUser.Role.Name == RoleNames.Admin || currentUser.Role.Name == RoleNames.Engineer)
+                if (currentUser.Role.Name == RoleNames.Admin || RoleNames.HasEngineerPrivileges(currentUser.Role.Name))
                 {
                     if (currentUser.SectionId != attendance.User.SectionId)
                     {

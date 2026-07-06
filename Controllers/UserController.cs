@@ -32,8 +32,9 @@ namespace AttendanceManagementSystem.Controllers
 
             ViewBag.IsSuperAdmin = currentUser.Role?.Name == RoleNames.SuperAdmin;
             ViewBag.IsAdmin = currentUser.Role?.Name == RoleNames.Admin;
+            ViewBag.IsLeaveAgent = currentUser.Role?.Name == RoleNames.LeaveAgent;
 
-            // Load active sections for the Create Admin modal
+            // Load active sections for the create-role modals
             ViewBag.Sections = await _context.Sections
                 .Where(s => s.IsActive)
                 .OrderBy(s => s.Name)
@@ -47,7 +48,7 @@ namespace AttendanceManagementSystem.Controllers
                 .AsQueryable();
 
             if (isSuperAdmin)
-                usersQuery = usersQuery.Where(u => u.Role.Name == RoleNames.Admin);
+                usersQuery = usersQuery.Where(u => u.Role.Name == RoleNames.Admin || u.Role.Name == RoleNames.LeaveAgent);
 
             var users = await usersQuery
                 .OrderBy(u => u.FirstName)
@@ -72,98 +73,14 @@ namespace AttendanceManagementSystem.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateAdmin([FromBody] CreateAdminRequest request)
         {
-            try
-            {
-                var currentUser = _authService.GetCurrentUser();
-                if (currentUser == null || currentUser.Role?.Name != RoleNames.SuperAdmin)
-                {
-                    return Json(new { success = false, message = "Unauthorized. Only SuperAdmin can create Admin users." });
-                }
+            return await CreatePrivilegedUserAsync(request, RoleNames.Admin, "Admin");
+        }
 
-                // Validate required fields
-                if (string.IsNullOrWhiteSpace(request.FirstName) ||
-                    string.IsNullOrWhiteSpace(request.LastName) ||
-                    string.IsNullOrWhiteSpace(request.Email) ||
-                    !request.SectionId.HasValue)
-                {
-                    return Json(new { success = false, message = "All required fields must be filled." });
-                }
-
-                // Check if email already exists
-                var existingUser = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
-                
-                if (existingUser != null)
-                {
-                    return Json(new { success = false, message = "Email already exists." });
-                }
-
-                // Validate SectionId - cannot be 0 or -1 ("All Sections")
-                if (request.SectionId.Value <= 0)
-                {
-                    return Json(new { success = false, message = "Cannot assign user to section 0 or 'All Sections'. Please select a valid section." });
-                }
-
-                // Validate SectionId exists and is active
-                var selectedSection = await _context.Sections
-                    .FirstOrDefaultAsync(s => s.Id == request.SectionId.Value && s.IsActive);
-                
-                if (selectedSection == null)
-                {
-                    return Json(new { success = false, message = "Invalid section selected." });
-                }
-
-                // Get Admin role (RoleId = 2)
-                var adminRole = await _context.Roles
-                    .FirstOrDefaultAsync(r => r.Id == 2);
-                
-                if (adminRole == null)
-                {
-                    return Json(new { success = false, message = "Admin role not found." });
-                }
-
-                // Auto-generate a secure temporary password
-                string tempPassword = GenerateSecurePassword();
-                string hashedPassword = BCrypt.Net.BCrypt.HashPassword(tempPassword);
-
-                // Create new admin user
-                var newAdmin = new User
-                {
-                    FirstName = request.FirstName.Trim(),
-                    LastName = request.LastName.Trim(),
-                    Email = request.Email.Trim().ToLower(),
-                    PasswordHash = hashedPassword,
-                    Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
-                    Address = string.IsNullOrWhiteSpace(request.Address) ? null : request.Address.Trim(),
-                    ServiceId = await GenerateNextEmployeeServiceIdAsync(),
-                    RoleId = 2, // Admin role
-                    IsActive = true,
-                    SectionId = request.SectionId.Value, // Assign selected section
-                    UpdatedAt = DateTime.UtcNow
-                };
-
-                _context.Users.Add(newAdmin);
-                await _context.SaveChangesAsync();
-
-                // Send login credentials to admin's email
-                try
-                {
-                    await _emailService.SendLoginCredentialsAsync(newAdmin.Email, newAdmin.FullName, newAdmin.ServiceId, tempPassword, "Admin");
-                }
-                catch (Exception emailEx)
-                {
-                    Console.WriteLine($"[EMAIL ERROR] Failed to send email to {newAdmin.Email}: {emailEx.Message}");
-                }
-
-                return Json(new { 
-                    success = true, 
-                    message = "Admin created successfully. Login credentials have been sent to their email."
-                });
-            }
-            catch (Exception ex)
-            {
-                return Json(new { success = false, message = $"Error creating admin: {ex.Message}" });
-            }
+        // POST: User/CreateLeaveAgent
+        [HttpPost]
+        public async Task<IActionResult> CreateLeaveAgent([FromBody] CreateAdminRequest request)
+        {
+            return await CreatePrivilegedUserAsync(request, RoleNames.LeaveAgent, "Leave Agent");
         }
 
         // POST: User/CreateEmployee
@@ -390,6 +307,95 @@ namespace AttendanceManagementSystem.Controllers
             }
 
             return int.TryParse(digitsOnly, out var parsed) ? parsed : null;
+        }
+
+        private async Task<IActionResult> CreatePrivilegedUserAsync(CreateAdminRequest request, string roleName, string displayRoleName)
+        {
+            try
+            {
+                var currentUser = _authService.GetCurrentUser();
+                if (currentUser == null || currentUser.Role?.Name != RoleNames.SuperAdmin)
+                {
+                    return Json(new { success = false, message = $"Unauthorized. Only SuperAdmin can create {displayRoleName} users." });
+                }
+
+                if (string.IsNullOrWhiteSpace(request.FirstName) ||
+                    string.IsNullOrWhiteSpace(request.LastName) ||
+                    string.IsNullOrWhiteSpace(request.Email) ||
+                    !request.SectionId.HasValue)
+                {
+                    return Json(new { success = false, message = "All required fields must be filled." });
+                }
+
+                var existingUser = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
+
+                if (existingUser != null)
+                {
+                    return Json(new { success = false, message = "Email already exists." });
+                }
+
+                if (request.SectionId.Value <= 0)
+                {
+                    return Json(new { success = false, message = "Cannot assign user to section 0 or 'All Sections'. Please select a valid section." });
+                }
+
+                var selectedSection = await _context.Sections
+                    .FirstOrDefaultAsync(s => s.Id == request.SectionId.Value && s.IsActive);
+
+                if (selectedSection == null)
+                {
+                    return Json(new { success = false, message = "Invalid section selected." });
+                }
+
+                var role = await _context.Roles
+                    .FirstOrDefaultAsync(r => r.Name == roleName);
+
+                if (role == null)
+                {
+                    return Json(new { success = false, message = $"{displayRoleName} role not found." });
+                }
+
+                string tempPassword = GenerateSecurePassword();
+                string hashedPassword = BCrypt.Net.BCrypt.HashPassword(tempPassword);
+
+                var newUser = new User
+                {
+                    FirstName = request.FirstName.Trim(),
+                    LastName = request.LastName.Trim(),
+                    Email = request.Email.Trim().ToLower(),
+                    PasswordHash = hashedPassword,
+                    Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
+                    Address = string.IsNullOrWhiteSpace(request.Address) ? null : request.Address.Trim(),
+                    ServiceId = await GenerateNextEmployeeServiceIdAsync(),
+                    RoleId = role.Id,
+                    IsActive = true,
+                    SectionId = request.SectionId.Value,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _context.Users.Add(newUser);
+                await _context.SaveChangesAsync();
+
+                try
+                {
+                    await _emailService.SendLoginCredentialsAsync(newUser.Email, newUser.FullName, newUser.ServiceId, tempPassword, displayRoleName);
+                }
+                catch (Exception emailEx)
+                {
+                    Console.WriteLine($"[EMAIL ERROR] Failed to send email to {newUser.Email}: {emailEx.Message}");
+                }
+
+                return Json(new
+                {
+                    success = true,
+                    message = $"{displayRoleName} created successfully. Login credentials have been sent to their email."
+                });
+            }
+            catch (Exception ex)
+            {
+                return Json(new { success = false, message = $"Error creating {displayRoleName.ToLowerInvariant()}: {ex.Message}" });
+            }
         }
 
     }

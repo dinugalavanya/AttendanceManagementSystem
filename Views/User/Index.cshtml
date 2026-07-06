@@ -30,6 +30,11 @@
                                     data-bs-toggle="modal" data-bs-target="#createAdminModal">
                                 <i class="bi bi-plus-circle"></i> ADD Admin
                             </button>
+
+                            <button type="button" class="btn btn-success"
+                                    data-bs-toggle="modal" data-bs-target="#createLeaveAgentModal">
+                                <i class="bi bi-plus-circle"></i> ADD Leave Agent
+                            </button>
                         </div>
                     }
                 </div>
@@ -37,7 +42,7 @@
                 <div class="card-body">
 
                     <p class="text-muted mb-3">
-                        @(ViewBag.IsSuperAdmin == true ? "Showing all Admin users." : "Showing live data from Users table.")
+                        @(ViewBag.IsSuperAdmin == true ? "Showing all Admin and Leave Agent users." : "Showing live data from Users table.")
                     </p>
 
                     @if (Model != null && Model.Any())
@@ -102,6 +107,156 @@
     </div>
 </div>
 
+<!-- Change Section Modal -->
+<div class="modal fade" id="changeSectionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Change Admin Section</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="changeSectionForm">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3">
+                        <label for="changeServiceId" class="form-label">Admin Service ID</label>
+                        <input type="text" class="form-control" id="changeServiceId" placeholder="e.g., EMP001" required>
+                        <div id="changeAdminInfo" class="mt-2 text-muted small"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="changeSectionSelect" class="form-label">New Section</label>
+                        <select class="form-select" id="changeSectionSelect" required>
+                            <option value="">Select a section</option>
+                            @if (ViewBag.Sections != null)
+                            {
+                                @foreach (var sec in ViewBag.Sections)
+                                {
+                                    <option value="@sec.Id">@sec.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div id="changeError" class="text-danger small d-none"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" onclick="changeAdminSection()">Change Section</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Admin Modal -->
+<div class="modal fade" id="createAdminModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Admin</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createAdminForm">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3">
+                        <label for="adminFirstName" class="form-label">First Name</label>
+                        <input type="text" class="form-control" id="adminFirstName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="adminLastName" class="form-label">Last Name</label>
+                        <input type="text" class="form-control" id="adminLastName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="adminEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="adminEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="adminPhone" class="form-label">Phone (optional)</label>
+                        <input type="text" class="form-control" id="adminPhone">
+                    </div>
+                    <div class="mb-3">
+                        <label for="adminAddress" class="form-label">Address (optional)</label>
+                        <input type="text" class="form-control" id="adminAddress">
+                    </div>
+                    <div class="mb-3">
+                        <label for="adminSection" class="form-label">Section</label>
+                        <select class="form-select" id="adminSection" required>
+                            <option value="">Select a section</option>
+                            @if (ViewBag.Sections != null)
+                            {
+                                @foreach (var sec in ViewBag.Sections)
+                                {
+                                    <option value="@sec.Id">@sec.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div id="errorMessage" class="text-danger small d-none"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="createAdmin()">Create Admin</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Leave Agent Modal -->
+<div class="modal fade" id="createLeaveAgentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Leave Agent</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createLeaveAgentForm">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3">
+                        <label for="leaveAgentFirstName" class="form-label">First Name</label>
+                        <input type="text" class="form-control" id="leaveAgentFirstName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="leaveAgentLastName" class="form-label">Last Name</label>
+                        <input type="text" class="form-control" id="leaveAgentLastName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="leaveAgentEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="leaveAgentEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="leaveAgentPhone" class="form-label">Phone (optional)</label>
+                        <input type="text" class="form-control" id="leaveAgentPhone">
+                    </div>
+                    <div class="mb-3">
+                        <label for="leaveAgentAddress" class="form-label">Address (optional)</label>
+                        <input type="text" class="form-control" id="leaveAgentAddress">
+                    </div>
+                    <div class="mb-3">
+                        <label for="leaveAgentSection" class="form-label">Section</label>
+                        <select class="form-select" id="leaveAgentSection" required>
+                            <option value="">Select a section</option>
+                            @if (ViewBag.Sections != null)
+                            {
+                                @foreach (var sec in ViewBag.Sections)
+                                {
+                                    <option value="@sec.Id">@sec.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div id="leaveAgentErrorMessage" class="text-danger small d-none"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="createLeaveAgent()">Create Leave Agent</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script>
 window.deleteUser = function(serviceId) {
@@ -154,6 +309,173 @@ window.deleteUser = function(serviceId) {
     .catch(err => {
         console.error("Error:", err);
         alert("Error: " + err.message);
+    });
+};
+
+// Lookup admin by Service ID
+document.getElementById('changeServiceId')?.addEventListener('blur', function() {
+    const serviceId = this.value.trim();
+    if (serviceId) {
+        fetch(`/User/LookupAdmin?serviceId=${encodeURIComponent(serviceId)}`)
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    document.getElementById('changeAdminInfo').innerHTML = 
+                        `<strong>Found:</strong> ${result.fullName} (${result.serviceId}) - Current: ${result.sectionName}`;
+                } else {
+                    document.getElementById('changeAdminInfo').innerHTML = 
+                        `<span class="text-danger">${result.message}</span>`;
+                }
+            })
+            .catch(err => {
+                document.getElementById('changeAdminInfo').innerHTML = 
+                    `<span class="text-danger">Error looking up admin</span>`;
+            });
+    }
+});
+
+// Change Admin Section
+window.changeAdminSection = function() {
+    const serviceId = document.getElementById('changeServiceId').value.trim();
+    const sectionId = document.getElementById('changeSectionSelect').value;
+    const errorDiv = document.getElementById('changeError');
+
+    if (!serviceId) {
+        errorDiv.textContent = 'Please enter a Service ID';
+        errorDiv.classList.remove('d-none');
+        return;
+    }
+
+    if (!sectionId) {
+        errorDiv.textContent = 'Please select a section';
+        errorDiv.classList.remove('d-none');
+        return;
+    }
+
+    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+    fetch('/User/ChangeAdminSection', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'RequestVerificationToken': token || ''
+        },
+        body: JSON.stringify({ serviceId: serviceId, sectionId: parseInt(sectionId) })
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert(result.message);
+            bootstrap.Modal.getInstance(document.getElementById('changeSectionModal')).hide();
+            location.reload();
+        } else {
+            errorDiv.textContent = result.message;
+            errorDiv.classList.remove('d-none');
+        }
+    })
+    .catch(err => {
+        errorDiv.textContent = 'Error: ' + err.message;
+        errorDiv.classList.remove('d-none');
+    });
+};
+
+// Create Admin
+window.createAdmin = function() {
+    const firstName = document.getElementById('adminFirstName').value.trim();
+    const lastName = document.getElementById('adminLastName').value.trim();
+    const email = document.getElementById('adminEmail').value.trim();
+    const phone = document.getElementById('adminPhone').value.trim();
+    const address = document.getElementById('adminAddress').value.trim();
+    const sectionId = document.getElementById('adminSection').value;
+    const errorDiv = document.getElementById('errorMessage');
+
+    if (!firstName || !lastName || !email || !sectionId) {
+        errorDiv.textContent = 'Please fill in all required fields';
+        errorDiv.classList.remove('d-none');
+        return;
+    }
+
+    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+    fetch('/User/CreateAdmin', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'RequestVerificationToken': token || ''
+        },
+        body: JSON.stringify({
+            firstName: firstName,
+            lastName: lastName,
+            email: email,
+            phone: phone || null,
+            address: address || null,
+            sectionId: parseInt(sectionId)
+        })
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert(result.message);
+            bootstrap.Modal.getInstance(document.getElementById('createAdminModal')).hide();
+            location.reload();
+        } else {
+            errorDiv.textContent = result.message;
+            errorDiv.classList.remove('d-none');
+        }
+    })
+    .catch(err => {
+        errorDiv.textContent = 'Error: ' + err.message;
+        errorDiv.classList.remove('d-none');
+    });
+};
+
+// Create Leave Agent
+window.createLeaveAgent = function() {
+    const firstName = document.getElementById('leaveAgentFirstName').value.trim();
+    const lastName = document.getElementById('leaveAgentLastName').value.trim();
+    const email = document.getElementById('leaveAgentEmail').value.trim();
+    const phone = document.getElementById('leaveAgentPhone').value.trim();
+    const address = document.getElementById('leaveAgentAddress').value.trim();
+    const sectionId = document.getElementById('leaveAgentSection').value;
+    const errorDiv = document.getElementById('leaveAgentErrorMessage');
+
+    if (!firstName || !lastName || !email || !sectionId) {
+        errorDiv.textContent = 'Please fill in all required fields';
+        errorDiv.classList.remove('d-none');
+        return;
+    }
+
+    const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+
+    fetch('/User/CreateLeaveAgent', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'RequestVerificationToken': token || ''
+        },
+        body: JSON.stringify({
+            firstName: firstName,
+            lastName: lastName,
+            email: email,
+            phone: phone || null,
+            address: address || null,
+            sectionId: parseInt(sectionId)
+        })
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert(result.message);
+            bootstrap.Modal.getInstance(document.getElementById('createLeaveAgentModal')).hide();
+            location.reload();
+        } else {
+            errorDiv.textContent = result.message;
+            errorDiv.classList.remove('d-none');
+        }
+    })
+    .catch(err => {
+        errorDiv.textContent = 'Error: ' + err.message;
+        errorDiv.classList.remove('d-none');
     });
 };
 </script>

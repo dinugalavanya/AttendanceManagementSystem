@@ -24,6 +24,8 @@
 
         RoleNames.Engineer => "role-admin",
 
+        RoleNames.RoleAgent => "role-admin",
+
         RoleNames.Worker => "role-worker",
 
         _ => "role-neutral"
@@ -184,7 +186,7 @@
 
 
 
-                    @if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Engineer))
+                    @if (User.IsInRole(RoleNames.Admin) || User.IsInRole(RoleNames.Engineer) || User.IsInRole(RoleNames.RoleAgent))
 
                     {
 

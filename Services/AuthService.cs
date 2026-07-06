@@ -20,6 +20,13 @@ namespace AttendanceManagementSystem.Services
 
         public async Task<User?> AuthenticateAsync(string email, string password)
         {
+            email = email?.Trim() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+            {
+                return null;
+            }
+
             var user = await _context.Users
                 .Include(u => u.Role)
                 .Include(u => u.Section)

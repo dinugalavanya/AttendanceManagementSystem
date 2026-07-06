@@ -66,7 +66,7 @@ namespace AttendanceManagementSystem.Controllers
             var isAdmin = roleName == RoleNames.Admin;
             var isGM = roleName == RoleNames.GM;
             var isDGM = roleName == RoleNames.DGM;
-            var isEngineer = roleName == RoleNames.Engineer;
+            var isEngineer = RoleNames.HasEngineerPrivileges(roleName);
             var isWorker = roleName == RoleNames.Worker;
 
             var userScope = _context.Users.AsNoTracking().Where(u => u.IsActive);
@@ -537,7 +537,7 @@ namespace AttendanceManagementSystem.Controllers
                 return Unauthorized();
             }
 
-            if (currentUser.Role?.Name != RoleNames.Admin && currentUser.Role?.Name != RoleNames.Engineer)
+            if (currentUser.Role?.Name != RoleNames.Admin && !RoleNames.HasEngineerPrivileges(currentUser.Role?.Name))
             {
                 return Forbid();
             }
@@ -1064,7 +1064,7 @@ namespace AttendanceManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeleteUser([FromForm] DeleteUserViewModel model)
+        public async Task<IActionResult> DeleteUser([FromBody] DeleteUserViewModel model)
         {
             try
             {

@@ -23,7 +23,7 @@
                 <span class="input-group-text">
                     <i class="bi bi-envelope"></i>
                 </span>
-                <input asp-for="Email" class="form-control" placeholder="Enter your email" />
+                <input asp-for="Email" class="form-control" placeholder="Enter your email" autocomplete="username" />
             </div>
             <span asp-validation-for="Email" class="text-danger"></span>
         </div>
@@ -34,7 +34,7 @@
                 <span class="input-group-text">
                     <i class="bi bi-lock"></i>
                 </span>
-                <input asp-for="Password" type="password" class="form-control" placeholder="Enter your password" />
+                <input asp-for="Password" type="password" class="form-control" placeholder="Enter your password" autocomplete="current-password" />
             </div>
             <span asp-validation-for="Password" class="text-danger"></span>
         </div>
@@ -60,7 +60,8 @@
         <small class="text-muted">
             Default Credentials:<br>
             Super Admin: superadmin@attendance.com / Admin@123<br>
-            Admin: tvvithana@gmail.com / Din@yak!23
+            Admin: tvvithana@gmail.com / Din@yak!23<br>
+            Role Agent: roleagent@attendance.com / Role@123
         </small>
     </div>
 </div>
