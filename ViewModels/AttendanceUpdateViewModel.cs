@@ -30,6 +30,10 @@ namespace AttendanceManagementSystem.ViewModels
         [Display(Name = "Attendance Date")]
         public DateTime AttendanceDate { get; set; }
 
+        [Required]
+        [Display(Name = "OT Date")]
+        public DateTime? OtDate { get; set; }
+
         // Calculated property (not editable)
         [Display(Name = "Worked Hours")]
         public decimal WorkedHours { get; set; }
@@ -44,5 +48,8 @@ namespace AttendanceManagementSystem.ViewModels
 
         [NotMapped]
         public string? OutTimeString { get; set; }
+
+        [NotMapped]
+        public string? OtDateString { get; set; }
     }
 }

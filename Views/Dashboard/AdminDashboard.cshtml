@@ -1,2601 +1,2950 @@
 @model AttendanceManagementSystem.ViewModels.AdminDashboardViewModel
-@using AttendanceManagementSystem.Models
+
 @using System.Text.Json
+
 @{
-    ViewData["Title"] = "Admin Dashboard";
-    var isWorkerSearchMode = Model.WorkerHistorySearchResult != null;
+
+    ViewData["Title"] = "Admin OT Dashboard";
+
+    Layout = null;
+
+
+
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+
+    var isDashboardActive = string.Equals(currentController, "Dashboard", StringComparison.OrdinalIgnoreCase);
+
+    var isManageOvertimeActive = string.Equals(currentController, "Attendance", StringComparison.OrdinalIgnoreCase)
+
+        && string.Equals(currentAction, "Manage", StringComparison.OrdinalIgnoreCase);
+
+
+
+    var sidebarDisplayName = User.FindFirst("FirstName")?.Value?.Trim() + " " + User.FindFirst("LastName")?.Value?.Trim();
+
+    sidebarDisplayName = sidebarDisplayName.Trim();
+
+    if (string.IsNullOrWhiteSpace(sidebarDisplayName)) sidebarDisplayName = User.Identity?.Name ?? "Admin";
+
+    var sidebarRoleLabel = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "Admin";
+
+    var firstName = User.FindFirst("FirstName")?.Value?.Trim() ?? "A";
+
+    var lastName = User.FindFirst("LastName")?.Value?.Trim() ?? "U";
+
+    var sidebarInitials = $"{(firstName.Length > 0 ? char.ToUpperInvariant(firstName[0]) : 'A')}{(lastName.Length > 0 ? char.ToUpperInvariant(lastName[0]) : 'U')}";
+
+
+
+    var adminBadgeText = string.IsNullOrWhiteSpace(Model.SectionName)
+
+        ? "Admin"
+
+        : $"{Model.SectionName} Admin";
+
 }
+
+
 
 @functions {
-    public string GetStatusBadgeClass(string status)
+
+    public string GetInitials(string? fullName)
+
     {
-        return status switch
+
+        if (string.IsNullOrWhiteSpace(fullName))
+
         {
-            "Present" => "status-badge success",
-            "On Time" => "status-badge success",
-            "Late" => "status-badge warning",
-            "Leave" => "status-badge danger",
-            "Absent" => "status-badge secondary",
-            _ => "status-badge info"
-        };
-    }
 
-    public string GetStateBadgeClass(string state)
-    {
-        return state switch
+            return "AU";
+
+        }
+
+
+
+        var parts = fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 0)
+
         {
-            "Completed" => "bg-info",
-            "Working" => "bg-success",
-            "Working OT" => "bg-purple",
-            "On Leave" => "bg-danger",
-            "Absent" => "bg-secondary",
-            _ => "bg-secondary"
-        };
-    }
 
-    public string GetStatusIcon(string status)
-    {
-        return status switch
+            return "AU";
+
+        }
+
+
+
+        if (parts.Length == 1)
+
         {
-            "Present" => "<i class=\"bi bi-check-circle\"></i>",
-            "Late" => "<i class=\"bi bi-clock\"></i>",
-            "Leave" => "<i class=\"bi bi-calendar-x\"></i>",
-            "Absent" => "<i class=\"bi bi-x-circle\"></i>",
-            _ => "<i class=\"bi bi-question-circle\"></i>"
-        };
+
+            return parts[0].Length >= 2
+
+                ? parts[0][..2].ToUpperInvariant()
+
+                : parts[0].ToUpperInvariant();
+
+        }
+
+
+
+        return string.Concat(char.ToUpperInvariant(parts[0][0]), char.ToUpperInvariant(parts[1][0]));
+
     }
+
 }
 
-<style>
-/* Modern Dashboard Layout */
-.dashboard-content {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 2rem;
-    background: #f8fafc;
-    min-height: 100vh;
-}
 
-/* Page Header */
-.page-header {
-    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
-    border-radius: 16px;
-    padding: 2rem;
-    margin-bottom: 2rem;
-    box-shadow: 0 10px 30px rgba(30, 58, 138, 0.2);
-    color: white;
-}
 
-.page-header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
+<!DOCTYPE html>
 
-.page-title-section h1 {
-    font-size: 2rem;
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-    color: white;
-}
+<html lang="en">
 
-.page-title-section p {
-    opacity: 0.9;
-    margin: 0;
-    font-size: 1rem;
-}
+<head>
 
-.page-header-actions {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
+    <meta charset="utf-8" />
 
-.section-badge {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-    font-weight: 600;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-/* KPI Cards Grid */
-.kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 2rem;
-}
+    <title>@ViewData["Title"]</title>
 
-.kpi-card {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e2e8f0;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
-}
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
 
-.kpi-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #3b82f6, #60a5fa);
-}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
 
-.kpi-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
-}
+    <style>
 
-.kpi-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.25rem;
-    margin-bottom: 1rem;
-}
+        :root {
 
-.kpi-icon.success { background: #dcfce7; color: #16a34a; }
-.kpi-icon.warning { background: #fef3c7; color: #d97706; }
-.kpi-icon.danger { background: #fee2e2; color: #dc2626; }
-.kpi-icon.info { background: #dbeafe; color: #2563eb; }
-.kpi-icon.purple { background: #f3e8ff; color: #9333ea; }
+            --sidebar-width: 290px;
 
-.kpi-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #1e293b;
-    margin-bottom: 0.25rem;
-    line-height: 1;
-}
+            --page-bg: #f5f7fc;
 
-.kpi-label {
-    color: #64748b;
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
+            --card-bg: #ffffff;
 
-/* Dashboard Sections */
-.dashboard-section {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e2e8f0;
-}
+            --text-main: #0f172a;
 
-.section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #e2e8f0;
-}
+            --text-soft: #64748b;
 
-.section-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #1e293b;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
+            --border: #e2e8f0;
 
-.section-subtitle {
-    color: #64748b;
-    font-size: 0.875rem;
-    margin: 0.25rem 0 0 0;
-}
+            --purple: #7c3aed;
 
-/* Two Column Layout */
-.two-column-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-    margin-bottom: 1.5rem;
-}
+            --purple-soft: #f3e8ff;
 
-/* Full Width Sections */
-.full-width-section {
-    grid-column: 1 / -1;
-}
+            --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 
-/* Search Section */
-.search-section {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e2e8f0;
-}
+        }
 
-.search-container {
-    display: flex;
-    gap: 1rem;
-    align-items: end;
-    flex-wrap: wrap;
-}
 
-.search-input {
-    flex: 1;
-    min-width: 250px;
-    height: 48px;
-    padding: 0.75rem 1rem;
-    border: 2px solid #e2e8f0;
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: all 0.3s ease;
-}
 
-.search-input:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
+        * {
 
-.search-button {
-    height: 48px;
-    padding: 0 1.5rem;
-    border-radius: 8px;
-    font-weight: 600;
-    transition: all 0.3s ease;
-}
+            box-sizing: border-box;
 
-/* Charts */
-.chart-container {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e2e8f0;
-    height: 400px;
-    display: flex;
-    flex-direction: column;
-}
+        }
 
-.chart-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid #e2e8f0;
-}
 
-.chart-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: #1e293b;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
 
-.chart-body {
-    flex: 1;
-    position: relative;
-    min-height: 300px;
-}
+        body {
 
-/* Tables */
-.data-table {
-    background: white;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e2e8f0;
-}
+            margin: 0;
 
-.data-table table {
-    margin: 0;
-    border-collapse: collapse;
-    width: 100%;
-}
+            background: var(--page-bg);
 
-.data-table th {
-    background: #f8fafc;
-    padding: 1rem;
-    text-align: left;
-    font-weight: 600;
-    color: #475569;
-    font-size: 0.875rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border-bottom: 1px solid #e2e8f0;
-}
+            color: var(--text-main);
 
-.data-table td {
-    padding: 1rem;
-    border-bottom: 1px solid #f1f5f9;
-    vertical-align: middle;
-}
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 
-.data-table tbody tr:hover {
-    background: #f8fafc;
-}
+        }
 
-/* Legacy Status Badges - Removed to avoid conflicts with new badge system */
 
-/* Empty States */
-.empty-state {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: #64748b;
-}
 
-.empty-state-icon {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-    opacity: 0.5;
-}
+        .dashboard-wrapper {
 
-.empty-state-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: #475569;
-}
+            display: flex;
 
-.empty-state-description {
-    font-size: 0.875rem;
-    max-width: 400px;
-    margin: 0 auto;
-}
+            min-height: 100vh;
 
-/* Responsive Design */
-@@media (max-width: 1200px) {
-    .dashboard-content {
-        padding: 1.5rem;
-    }
-    
-    .two-column-grid {
-        grid-template-columns: 1fr;
-    }
-}
+        }
 
-@@media (max-width: 768px) {
-    .dashboard-content {
-        padding: 1rem;
-    }
-    
-    .page-header {
-        padding: 1.5rem;
-    }
-    
-    .page-header-content {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .page-title-section h1 {
-        font-size: 1.5rem;
-    }
-    
-    .kpi-grid {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        gap: 1rem;
-    }
-    
-    .kpi-card {
-        padding: 1rem;
-    }
-    
-    .kpi-value {
-        font-size: 1.5rem;
-    }
-    
-    .search-container {
-        flex-direction: column;
-    }
-    
-    .search-input {
-        width: 100%;
-    }
-    
-    .search-button {
-        width: 100%;
-    }
-}
 
-@@media (max-width: 480px) {
-    .kpi-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .page-header-actions {
-        flex-direction: column;
-        width: 100%;
-    }
-    
-    .section-badge {
-        width: 100%;
-        text-align: center;
-    }
-}
 
-/* Legacy styles for compatibility */
-.dashboard-card {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e2e8f0;
-}
+        .sidebar {
 
-.summary-card {
-    padding: 1rem;
-    border-radius: 10px;
-    background: #f8f9fb;
-    text-align: center;
-    border: 1px solid #e9ecef;
-}
+            width: var(--sidebar-width);
 
-.worker-chart-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.5rem;
-    margin: 1.5rem 0;
-}
+            min-width: var(--sidebar-width);
 
-.worker-chart-card {
-    background: #fff;
-    border-radius: 16px;
-    border: 1px solid #e5e7eb;
-    padding: 1.5rem;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-}
+            background: linear-gradient(180deg, #25476f 0%, #17365d 100%);
 
-.worker-chart-box {
-    position: relative;
-    height: 280px;
-}
+            position: fixed;
 
-.chart-card-header {
-    padding: 1rem 1.25rem;
-    font-size: 1rem;
-    font-weight: 700;
-    color: #0f172a;
-    border-bottom: 1px solid #e5e7eb;
-    background: #ffffff;
-}
+            inset: 0 auto 0 0;
 
-.chart-box {
-    position: relative;
-    height: 300px;
-    padding: 1.25rem;
-}
+            padding: 18px 12px;
 
-.worker-history-table-wrap {
-    max-height: 420px;
-    overflow-y: auto;
-}
+            display: flex;
 
-.worker-profile-info {
-    background: #f8f9fb;
-    padding: 1.25rem;
-    border-radius: 10px;
-    border: 1px solid #e9ecef;
-}
+            flex-direction: column;
 
-.profile-item label {
-    margin-bottom: 0.25rem;
-    font-weight: 500;
-}
+            box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08), 10px 0 28px rgba(2, 10, 26, 0.32);
 
-.profile-item div {
-    margin-bottom: 0.5rem;
-}
-</style>
+            z-index: 1000;
+
+        }
+
+
+
+        .sidebar-brand {
+
+            padding: 4px 8px 14px;
+
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+            margin-bottom: 10px;
+
+        }
+
+
+
+        .sidebar-brand h1 {
+
+            margin: 0;
+
+            color: #fff;
+
+            font-size: 1.7rem;
+
+            font-weight: 800;
+
+            letter-spacing: -0.03em;
+
+            line-height: 1.08;
+
+        }
+
+
+
+        .sidebar-brand p {
+
+            margin: 0.35rem 0 0;
+
+            color: rgba(255, 255, 255, 0.65);
+
+            font-size: 0.75rem;
+
+            font-weight: 700;
+
+            letter-spacing: 0.08em;
+
+            text-transform: uppercase;
+
+        }
+
+
+
+        .sidebar-nav {
+
+            flex: 1;
+
+            margin-top: 8px;
+
+            display: flex;
+
+            flex-direction: column;
+
+            gap: 8px;
+
+        }
+
+
+
+        .sidebar-nav-link {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 14px;
+
+            min-height: 60px;
+
+            padding: 0 16px;
+
+            border-radius: 15px;
+
+            color: rgba(255, 255, 255, 0.72);
+
+            font-weight: 700;
+
+            font-size: 0.95rem;
+
+            text-decoration: none;
+
+            transition: all 0.25s ease;
+
+        }
+
+
+
+        .sidebar-nav-link:hover {
+
+            color: #fff;
+
+            background: rgba(255, 255, 255, 0.06);
+
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+
+        }
+
+
+
+        .sidebar-nav-link.active {
+
+            color: #fff;
+
+            background: linear-gradient(135deg, #7287ff 0%, #9854c9 100%);
+
+            box-shadow: 0 12px 28px rgba(100, 90, 255, 0.28);
+
+        }
+
+
+
+        .sidebar-profile {
+
+            margin-top: auto;
+
+            background: rgba(255, 255, 255, 0.04);
+
+            border: 1px solid rgba(255, 255, 255, 0.1);
+
+            border-radius: 16px;
+
+            padding: 16px;
+
+        }
+
+
+
+        .sidebar-profile-top {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 12px;
+
+        }
+
+
+
+        .sidebar-avatar {
+
+            width: 58px;
+
+            height: 58px;
+
+            border-radius: 14px;
+
+            background: linear-gradient(135deg, #6f7cff 0%, #9654c9 100%);
+
+            color: #fff;
+
+            font-size: 1.35rem;
+
+            font-weight: 800;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+        }
+
+
+
+        .sidebar-profile h4 {
+
+            margin: 0;
+
+            color: #fff;
+
+            font-size: 0.95rem;
+
+            font-weight: 800;
+
+        }
+
+
+
+        .sidebar-profile p {
+
+            margin: 4px 0 0;
+
+            color: rgba(255, 255, 255, 0.72);
+
+            font-size: 0.82rem;
+
+        }
+
+
+
+        .sidebar-profile-actions {
+
+            display: grid;
+
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+
+            gap: 8px;
+
+            margin-top: 14px;
+
+        }
+
+
+
+        .sidebar-action-stack {
+
+            display: grid;
+
+            gap: 10px;
+
+            margin: 14px 0 8px;
+
+        }
+
+
+
+        .sidebar-profile-btn {
+
+            height: 54px;
+
+            border-radius: 14px;
+
+            border: none;
+
+            color: #fff;
+
+            font-weight: 700;
+
+            font-size: 0.92rem;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            gap: 10px;
+
+            text-decoration: none;
+
+            cursor: pointer;
+
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+            position: relative;
+
+            overflow: hidden;
+
+            letter-spacing: 0.01em;
+
+        }
+
+
+
+        .sidebar-profile-btn::after {
+
+            content: '';
+
+            position: absolute;
+
+            inset: 0;
+
+            background: rgba(255,255,255,0);
+
+            transition: background 0.2s ease;
+
+        }
+
+
+
+        .sidebar-profile-btn:hover::after {
+
+            background: rgba(255,255,255,0.1);
+
+        }
+
+
+
+        .sidebar-profile-btn:hover {
+
+            transform: translateY(-2px);
+
+            color: #fff;
+
+        }
+
+
+
+        .sidebar-profile-btn:active {
+
+            transform: translateY(0);
+
+        }
+
+
+
+        .sidebar-profile-btn i {
+
+            font-size: 1.05rem;
+
+            flex-shrink: 0;
+
+        }
+
+
+
+        .sidebar-profile-btn-primary {
+
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+
+        }
+
+
+
+        .sidebar-profile-btn-primary:hover {
+
+            box-shadow: 0 12px 28px rgba(16, 185, 129, 0.5);
+
+        }
+
+
+
+        .sidebar-profile-btn-danger {
+
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+
+            color: #fff;
+
+        }
+
+
+
+        .sidebar-profile-btn-danger:hover {
+
+            box-shadow: 0 12px 28px rgba(239, 68, 68, 0.5);
+
+            color: #fff;
+
+        }
+
+
+
+        .main-content {
+
+            margin-left: var(--sidebar-width);
+
+            width: calc(100% - var(--sidebar-width));
+
+            padding: 20px;
+
+        }
+
+
+
+        .hero-header {
+
+            background: var(--gradient);
+
+            border-radius: 16px;
+
+            padding: 22px 24px;
+
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.35);
+
+            color: #fff;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: space-between;
+
+            gap: 16px;
+
+            margin-bottom: 18px;
+
+        }
+
+
+
+        .hero-header h2 {
+
+            margin: 0;
+
+            font-size: 1.6rem;
+
+            font-weight: 700;
+
+        }
+
+
+
+        .hero-header p {
+
+            margin: 6px 0 0;
+
+            color: rgba(255, 255, 255, 0.9);
+
+            font-size: 0.95rem;
+
+        }
+
+
+
+        .hero-badge {
+
+            white-space: nowrap;
+
+            background: rgba(255, 255, 255, 0.18);
+
+            border: 1px solid rgba(255, 255, 255, 0.35);
+
+            color: #fff;
+
+            border-radius: 999px;
+
+            padding: 8px 12px;
+
+            font-size: 0.82rem;
+
+            font-weight: 600;
+
+        }
+
+
+
+        .card-shell {
+
+            background: var(--card-bg);
+
+            border: 1px solid var(--border);
+
+            border-radius: 16px;
+
+            box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+
+            margin-bottom: 16px;
+
+            overflow: hidden;
+
+        }
+
+
+
+        .card-header-clean {
+
+            padding: 16px 18px;
+
+            border-bottom: 1px solid var(--border);
+
+            background: #f8fafc;
+
+            display: flex;
+
+            align-items: flex-start;
+
+            justify-content: space-between;
+
+            gap: 12px;
+
+        }
+
+
+
+        .card-header-clean h3 {
+
+            margin: 0;
+
+            font-size: 1.05rem;
+
+            font-weight: 700;
+
+        }
+
+
+
+        .card-header-clean p {
+
+            margin: 4px 0 0;
+
+            color: var(--text-soft);
+
+            font-size: 0.86rem;
+
+        }
+
+
+
+        .card-body-clean {
+
+            padding: 18px;
+
+        }
+
+
+
+        .header-badge {
+
+            white-space: nowrap;
+
+            background: #e9edff;
+
+            color: #3b4cca;
+
+            border: 1px solid #d5dcff;
+
+            border-radius: 999px;
+
+            padding: 5px 10px;
+
+            font-size: 0.76rem;
+
+            font-weight: 700;
+
+        }
+
+
+
+        .search-row {
+
+            display: grid;
+
+            grid-template-columns: 1fr auto;
+
+            gap: 10px;
+
+        }
+
+
+
+        .search-card-header {
+
+            align-items: center;
+
+        }
+
+
+
+        .add-worker-btn {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 0.42rem;
+
+            border: 0;
+
+            border-radius: 10px;
+
+            padding: 9px 14px;
+
+            text-decoration: none;
+
+            background: var(--gradient);
+
+            color: #fff;
+
+            font-weight: 600;
+
+            font-size: 0.85rem;
+
+            white-space: nowrap;
+
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.24);
+
+            transition: all 0.2s ease;
+
+        }
+
+
+
+        .add-worker-btn:hover {
+
+            color: #fff;
+
+            transform: translateY(-1px);
+
+            box-shadow: 0 10px 24px rgba(102, 126, 234, 0.3);
+
+        }
+
+
+
+        .add-worker-modal-overlay {
+
+            display: none;
+
+            position: fixed;
+
+            inset: 0;
+
+            background: rgba(15, 23, 42, 0.55);
+
+            z-index: 2000;
+
+            align-items: center;
+
+            justify-content: center;
+
+            padding: 16px;
+
+        }
+
+
+
+        .add-worker-modal {
+
+            width: min(640px, 100%);
+
+            max-height: 90vh;
+
+            overflow: auto;
+
+            border-radius: 16px;
+
+            background: #fff;
+
+            border: 1px solid #e2e8f0;
+
+            box-shadow: 0 24px 48px rgba(15, 23, 42, 0.25);
+
+        }
+
+
+
+        .add-worker-modal-header {
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: space-between;
+
+            padding: 16px 18px;
+
+            border-bottom: 1px solid #e2e8f0;
+
+            background: #f8fafc;
+
+        }
+
+
+
+        .add-worker-modal-title {
+
+            margin: 0;
+
+            font-size: 1.05rem;
+
+            font-weight: 700;
+
+            color: #0f172a;
+
+        }
+
+
+
+        .add-worker-modal-close {
+
+            border: 0;
+
+            background: transparent;
+
+            color: #64748b;
+
+            font-size: 1.25rem;
+
+            line-height: 1;
+
+            cursor: pointer;
+
+        }
+
+
+
+        .add-worker-modal-body {
+
+            padding: 16px 18px;
+
+        }
+
+
+
+        .add-worker-field-label {
+
+            margin-bottom: 6px;
+
+            color: #334155;
+
+            font-size: 0.83rem;
+
+            font-weight: 600;
+
+        }
+
+
+
+        .add-worker-grid {
+
+            display: grid;
+
+            grid-template-columns: 1fr;
+
+            gap: 12px;
+
+        }
+
+
+
+        .add-worker-modal-footer {
+
+            padding: 14px 18px;
+
+            border-top: 1px solid #e2e8f0;
+
+            display: flex;
+
+            justify-content: flex-end;
+
+            gap: 10px;
+
+        }
+
+
+
+        .add-worker-btn-cancel {
+
+            border: 1px solid #d1d9e6;
+
+            border-radius: 10px;
+
+            padding: 9px 14px;
+
+            background: #f8fafc;
+
+            color: #334155;
+
+            font-weight: 600;
+
+        }
+
+
+
+        .add-worker-btn-save {
+
+            border: 0;
+
+            border-radius: 10px;
+
+            padding: 9px 14px;
+
+            background: var(--gradient);
+
+            color: #fff;
+
+            font-weight: 600;
+
+        }
+
+
+
+        .add-worker-message {
+
+            display: none;
+
+            border-radius: 10px;
+
+            padding: 10px 12px;
+
+            margin-bottom: 12px;
+
+            font-size: 0.84rem;
+
+        }
+
+
+
+        .add-worker-message.success {
+
+            display: block;
+
+            background: #dcfce7;
+
+            border: 1px solid #86efac;
+
+            color: #166534;
+
+        }
+
+
+
+        .add-worker-message.error {
+
+            display: block;
+
+            background: #fee2e2;
+
+            border: 1px solid #fca5a5;
+
+            color: #991b1b;
+
+        }
+
+
+
+        input[type="text"],
+
+        input[type="date"] {
+
+            border: 1px solid #d1d9e6;
+
+            border-radius: 10px;
+
+            padding: 10px 12px;
+
+            font-size: 0.92rem;
+
+            width: 100%;
+
+        }
+
+
+
+        input[type="text"]:focus,
+
+        input[type="date"]:focus {
+
+            outline: none;
+
+            border-color: #8b5cf6;
+
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+
+        }
+
+
+
+        .search-btn {
+
+            border: none;
+
+            border-radius: 10px;
+
+            padding: 10px 16px;
+
+            background: var(--gradient);
+
+            color: #fff;
+
+            font-weight: 600;
+
+            white-space: nowrap;
+
+        }
+
+
+
+        .filter-grid,
+
+        .result-grid {
+
+            display: grid;
+
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+
+            gap: 16px;
+
+        }
+
+
+
+        .range-inputs {
+
+            display: grid;
+
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+
+            gap: 10px;
+
+        }
+
+
+
+        .field-label {
+
+            color: var(--text-soft);
+
+            font-size: 0.78rem;
+
+            font-weight: 600;
+
+            margin-bottom: 6px;
+
+        }
+
+
+
+        .warning-box {
+
+            border: 1px solid #facc15;
+
+            background: #fefce8;
+
+            color: #854d0e;
+
+            border-radius: 12px;
+
+            padding: 12px 14px;
+
+            margin-bottom: 16px;
+
+        }
+
+
+
+        .worker-profile {
+
+            border: 1px solid var(--border);
+
+            border-radius: 14px;
+
+            padding: 14px;
+
+            background: #fff;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 12px;
+
+            margin-bottom: 12px;
+
+        }
+
+
+
+        .worker-avatar {
+
+            width: 52px;
+
+            height: 52px;
+
+            border-radius: 12px;
+
+            background: var(--purple-soft);
+
+            color: var(--purple);
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            font-size: 1rem;
+
+            font-weight: 800;
+
+        }
+
+
+
+        .worker-name {
+
+            margin: 0;
+
+            font-size: 1.03rem;
+
+            font-weight: 700;
+
+        }
+
+
+
+        .worker-meta {
+
+            margin-top: 3px;
+
+            color: var(--text-soft);
+
+            font-size: 0.85rem;
+
+        }
+
+
+
+        .metric-grid {
+
+            display: grid;
+
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+
+            gap: 10px;
+
+        }
+
+
+
+        .metric-grid-2 {
+
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+
+        }
+
+
+
+        .metric-box {
+
+            border: 1px solid var(--border);
+
+            border-radius: 12px;
+
+            padding: 12px;
+
+            background: #fff;
+
+        }
+
+
+
+        .metric-label {
+
+            font-size: 0.72rem;
+
+            text-transform: uppercase;
+
+            letter-spacing: 0.06em;
+
+            color: var(--text-soft);
+
+            font-weight: 700;
+
+            margin-bottom: 6px;
+
+        }
+
+
+
+        .metric-value {
+
+            font-size: 1rem;
+
+            font-weight: 700;
+
+            color: var(--text-main);
+
+        }
+
+
+
+        .result-message {
+
+            border: 1px dashed #cbd5e1;
+
+            border-radius: 12px;
+
+            background: #fff;
+
+            color: #64748b;
+
+            padding: 14px;
+
+        }
+
+
+
+        .date-range-chart-wrap {
+
+            margin-top: 12px;
+
+            border: 1px solid var(--border);
+
+            border-radius: 12px;
+
+            background: #fbfcff;
+
+            padding: 10px 12px;
+
+        }
+
+
+
+        .date-range-chart-title {
+
+            margin: 0 0 8px 0;
+
+            font-size: 0.86rem;
+
+            font-weight: 700;
+
+            color: #4c3aa9;
+
+        }
+
+
+
+        .date-range-chart-container {
+
+            position: relative;
+
+            height: 180px;
+
+        }
+
+
+
+        .info-note {
+
+            margin-top: 12px;
+
+            color: #475569;
+
+            font-size: 0.84rem;
+
+        }
+
+
+
+        @@media (max-width: 992px) {
+
+            .main-content {
+
+                margin-left: 0;
+
+                width: 100%;
+
+                padding: 14px;
+
+            }
+
+
+
+            .sidebar {
+
+                position: static;
+
+                width: 100%;
+
+                min-width: 0;
+
+                height: auto;
+
+                min-height: auto;
+
+            }
+
+
+
+            .dashboard-wrapper {
+
+                flex-direction: column;
+
+            }
+
+
+
+            .hero-header {
+
+                flex-direction: column;
+
+                align-items: flex-start;
+
+            }
+
+
+
+            .filter-grid,
+
+            .result-grid,
+
+            .range-inputs,
+
+            .metric-grid {
+
+                grid-template-columns: 1fr;
+
+            }
+
+
+
+            .search-row {
+
+                grid-template-columns: 1fr;
+
+            }
+
+
+
+            .search-card-header {
+
+                align-items: flex-start;
+
+                flex-direction: column;
+
+            }
+
+        }
+
+    </style>
+
+</head>
+
+<body>
 
 @if (!Model.HasSection)
+
 {
-    <div class="container-fluid px-4">
-        <div class="row justify-content-center">
-            <div class="col-md-6">
-                <div class="card border-danger">
-                    <div class="card-body text-center">
-                        <i class="bi bi-exclamation-triangle text-danger" style="font-size: 3rem;"></i>
-                        <h4 class="text-danger mt-3">@Model.NoSectionMessage</h4>
-                        <a href="/Account/Logout" class="btn btn-primary mt-3">Contact SuperAdmin</a>
-                    </div>
-                </div>
-            </div>
-        </div>
+
+    <div class="container py-5">
+
+        <div class="warning-box">@Model.NoSectionMessage</div>
+
     </div>
+
 }
+
 else
+
 {
-    <div class="dashboard-content">
-        <!-- Modern Page Header -->
-        <div class="page-header">
-            <div class="page-header-content">
-                <div class="page-title-section">
-                    <h1>@Model.SectionName Section Command Center</h1>
-                    <p>Today's attendance, late arrivals, overtime, and worker status</p>
-                </div>
-                <div class="page-header-actions">
-                    <span class="section-badge">
-                        <i class="bi bi-building me-1"></i>@Model.SectionName
-                    </span>
-                    @if (User.IsInRole("Admin"))
-                    {
-                        <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#addEmployeeModal">
-                            <i class="bi bi-person-plus me-1"></i>Add Employees
-                        </button>
-                    }
-                </div>
-            </div>
-        </div>
 
-        <!-- Service ID Search -->
-        <div class="search-section">
-            <div class="section-header">
+    <div class="dashboard-wrapper">
+
+        <aside class="sidebar">
+
+            <div class="sidebar-brand">
+
+                <h1>PulseHR</h1>
+
+                <p>Overtime Management</p>
+
+            </div>
+
+
+
+            <nav class="sidebar-nav">
+
+                <a class="sidebar-nav-link @(isDashboardActive ? "active" : string.Empty)" asp-controller="Dashboard" asp-action="Index">
+
+                    <i class="bi bi-grid-1x2-fill"></i>
+
+                    <span>Dashboard</span>
+
+                </a>
+
+                <a class="sidebar-nav-link @(isManageOvertimeActive ? "active" : string.Empty)" asp-controller="Attendance" asp-action="Manage">
+
+                    <i class="bi bi-clock-history"></i>
+
+                    <span>Manage Overtime</span>
+
+                </a>
+
+            </nav>
+
+
+
+            <div class="sidebar-action-stack">
+
+                <button type="button" id="openAddWorkerModal" class="sidebar-profile-btn sidebar-profile-btn-primary">
+
+                    <i class="bi bi-person-plus-fill me-2"></i>
+
+                    <span>Create User</span>
+
+                </button>
+
+                <button type="button" id="openDeleteUserModal" class="sidebar-profile-btn sidebar-profile-btn-danger">
+
+                    <i class="bi bi-person-dash-fill me-2"></i>
+
+                    <span>Delete User</span>
+
+                </button>
+
+            </div>
+
+
+
+            <div class="sidebar-profile">
+
+                <div class="sidebar-profile-top">
+
+                    <div class="sidebar-avatar">@sidebarInitials</div>
+
+                    <div>
+
+                        <h4>@sidebarDisplayName</h4>
+
+                        <p>@sidebarRoleLabel</p>
+
+                    </div>
+
+                </div>
+
+                <div class="sidebar-profile-actions">
+
+                    <a class="sidebar-profile-btn" asp-controller="Account" asp-action="Profile">Profile</a>
+
+                    <a class="sidebar-profile-btn" asp-controller="Account" asp-action="Logout">Logout</a>
+
+                </div>
+
+            </div>
+
+        </aside>
+
+
+
+        <main class="main-content">
+
+            <section class="hero-header">
+
                 <div>
-                    <h2 class="section-title">
-                        <i class="bi bi-search me-2"></i>Search Worker
-                    </h2>
-                    <p class="section-subtitle">Search worker by Service ID for attendance history</p>
+
+                    <h2>Overtime Command Center</h2>
+
+                    <p>Search a worker by Service ID to view overtime details.</p>
+
                 </div>
-            </div>
-            
-            <form method="get" asp-controller="Dashboard" asp-action="Index">
-                <div class="search-container">
-                    <input type="text" 
-                           class="form-control search-input" 
-                           id="serviceId" 
-                           name="serviceId" 
-                           placeholder="Enter Service ID..."
-                           value="@Model.SearchServiceId">
-                    <button type="submit" class="btn btn-primary search-button">
-                        <i class="bi bi-search me-2"></i>Search
-                    </button>
-                    @if (!string.IsNullOrEmpty(Model.SearchServiceId))
-                    {
-                        <a href="/Dashboard/Index" class="btn btn-outline-secondary search-button">
-                            <i class="bi bi-x-lg me-2"></i>Clear
-                        </a>
-                    }
-                </div>
+
+                <div class="hero-badge">@adminBadgeText</div>
+
+            </section>
+
+
+
+            <form id="workerOtSearchForm" method="get" asp-controller="Dashboard" asp-action="Index">
+
+                <section class="card-shell">
+
+                    <header class="card-header-clean search-card-header">
+
+                        <div>
+
+                            <h3>Search Worker OT History</h3>
+
+                            <p>Search by Service ID / Service Number to view overtime history</p>
+
+                        </div>
+
+                    </header>
+
+                    <div class="card-body-clean">
+
+                        <div class="search-row">
+
+                            <input
+
+                                type="text"
+
+                                id="serviceId"
+
+                                name="serviceId"
+
+                                value="@Model.SearchServiceId"
+
+                                placeholder="Enter Service ID / Service Number (e.g., EMP001)"
+
+                                autocomplete="off" />
+
+                            <button type="submit" class="search-btn">Search</button>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+
+                <section class="filter-grid">
+
+                    <article class="card-shell">
+
+                        <header class="card-header-clean">
+
+                            <div>
+
+                                <h3>Select Date</h3>
+
+                                <p>Choose a single date to view overtime details</p>
+
+                            </div>
+
+                        </header>
+
+                        <div class="card-body-clean">
+
+                            <label class="field-label" for="singleDate">Single Date</label>
+
+                            <input type="date" id="singleDate" name="singleDate" value="@Model.SingleDate.ToString("yyyy-MM-dd")" />
+
+                        </div>
+
+                    </article>
+
+
+
+                    <article class="card-shell">
+
+                        <header class="card-header-clean">
+
+                            <div>
+
+                                <h3>Select Date Range</h3>
+
+                                <p>Choose a date range to view overtime details</p>
+
+                            </div>
+
+                        </header>
+
+                        <div class="card-body-clean">
+
+                            <div class="range-inputs">
+
+                                <div>
+
+                                    <label class="field-label" for="fromDate">From</label>
+
+                                    <input type="date" id="fromDate" name="fromDate" value="@Model.RangeFromDate.ToString("yyyy-MM-dd")" />
+
+                                </div>
+
+                                <div>
+
+                                    <label class="field-label" for="toDate">To</label>
+
+                                    <input type="date" id="toDate" name="toDate" value="@Model.RangeToDate.ToString("yyyy-MM-dd")" />
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </article>
+
+                </section>
+
             </form>
-        </div>
 
-        @if (!string.IsNullOrWhiteSpace(Model.WorkerSearchMessage))
-        {
-            <div class="dashboard-card">
-                <div class="alert alert-info">
-                    @Model.WorkerSearchMessage
-                </div>
-            </div>
-        }
-        
-        @if (!string.IsNullOrEmpty(TempData["SuccessMessage"]?.ToString()))
-        {
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <strong>Success!</strong> @TempData["SuccessMessage"]
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        }
 
-        @if (Model.WorkerHistorySearchResult != null)
-        {
-            var worker = Model.WorkerHistorySearchResult;
 
-            <div class="alert alert-info">
-                <i class="bi bi-search me-2"></i>Showing results for Service ID: @worker.ServiceId
-            </div>
+            @if (!string.IsNullOrWhiteSpace(Model.WorkerSearchMessage))
 
-            <!-- Worker Profile Header Card -->
-            <div class="dashboard-card">
-                <h5 class="section-title">
-                    <i class="bi bi-person-badge me-2"></i>Worker Details
-                </h5>
-                <div class="worker-details-grid">
-                    <!-- Left Column: Worker Info Card -->
-                    <div class="worker-info-card">
-                        <div class="card-header">
-                            <h6 class="card-title">
-                                <i class="bi bi-person-circle me-2"></i>Worker Profile
-                            </h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="profile-item">
-                                <label class="profile-label">Full Name</label>
-                                <div class="profile-value">@worker.FullName</div>
-                            </div>
-                            <div class="profile-item">
-                                <label class="profile-label">Service ID</label>
-                                <div class="profile-value">@worker.ServiceId</div>
-                            </div>
-                            <div class="profile-item">
-                                <label class="profile-label">Email</label>
-                                <div class="profile-value">@worker.Email</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Right Column: Section Status and OT Counter -->
-                    <div class="worker-side-column">
-                        <!-- Section & Status Card -->
-                        <div class="section-status-card">
-                            <div class="card-header">
-                                <h6 class="card-title">
-                                    <i class="bi bi-building me-2"></i>Section & Status
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="profile-item">
-                                    <label class="profile-label">Section</label>
-                                    <div class="profile-value">@worker.SectionName</div>
-                                </div>
-                                <div class="profile-item">
-                                    <label class="profile-label">Current Status</label>
-                                    <div class="profile-value">
-                                        <span class="status-badge @(worker.LatestStatus == "Present" ? "success" : worker.LatestStatus == "Late" ? "warning" : worker.LatestStatus == "Leave" ? "danger" : "secondary")">
-                                            @worker.LatestStatus
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- OT Counter Card -->
-                        <div class="ot-counter-card">
-                            <div class="card-header">
-                                <h6 class="card-title">
-                                    <i class="bi bi-clock-history me-2"></i>OT Counter
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="ot-stats-grid">
-                                    <div class="ot-stat-item">
-                                        <div class="ot-stat-label">Total OT Hours</div>
-                                        <div class="ot-stat-value text-purple">
-                                            @{
-                                                var totalOTMinutes = (int)(worker.TotalOTHours * 60);
-                                                var totalOTHours = totalOTMinutes / 60;
-                                                var totalOTMinutesRemainder = totalOTMinutes % 60;
-                                            }
-                                            @(totalOTHours)h @(totalOTMinutesRemainder)m
-                                        </div>
-                                    </div>
-                                    <div class="ot-stat-item">
-                                        <div class="ot-stat-label">OT Days</div>
-                                        <div class="ot-stat-value text-dark">@worker.OTDaysCount</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Date Filter Section -->
-            <div class="dashboard-card">
-                <h5 class="section-title">
-                    <i class="bi bi-calendar-date me-2"></i>Select Attendance Date
-                </h5>
-                <div class="row g-3 align-items-end">
-                    <div class="col-md-8">
-                        <label for="attendanceDate" class="form-label">Select Attendance Date</label>
-                        <input type="date" id="attendanceDate" class="form-control" 
-                               value="@DateTime.Today.ToString("yyyy-MM-dd")" />
-                    </div>
-                    <div class="col-md-2">
-                        <button type="button" id="applyDateFilter" class="btn btn-primary w-100">
-                            <i class="bi bi-check-circle me-2"></i>Apply Date
-                        </button>
-                    </div>
-                    <div class="col-md-2">
-                        <a href="@Url.Action("Index", "Dashboard", new { serviceId = Model.SearchServiceId })" class="btn btn-secondary w-100">
-                            <i class="bi bi-x-circle me-2"></i>Clear
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            
-            <!-- Main Worker Stats Cards -->
-            <div class="dashboard-card">
-                <h5 class="section-title">
-                    <i class="bi bi-bar-chart me-2"></i>Worker Statistics
-                </h5>
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <div class="summary-card">
-                            <div class="d-flex align-items-center justify-content-center mb-2">
-                                <div class="rounded-circle bg-primary bg-opacity-10 p-2">
-                                    <i class="bi bi-briefcase text-primary"></i>
-                                </div>
-                            </div>
-                            <h6 class="text-muted mb-1">Total Worked Hours</h6>
-                            <h4 class="mb-0">@worker.TotalWorkedHours h</h4>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="summary-card">
-                            <div class="d-flex align-items-center justify-content-center mb-2">
-                                <div class="rounded-circle bg-purple bg-opacity-10 p-2">
-                                    <i class="bi bi-clock text-purple"></i>
-                                </div>
-                            </div>
-                            <h6 class="text-muted mb-1">Total OT Hours</h6>
-                            <h4 class="mb-0 text-purple">@worker.TotalOTHours h</h4>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="summary-card">
-                            <div class="d-flex align-items-center justify-content-center mb-2">
-                                <div class="rounded-circle bg-info bg-opacity-10 p-2">
-                                    <i class="bi bi-calendar-check text-info"></i>
-                                </div>
-                            </div>
-                            <h6 class="text-muted mb-1">OT Days</h6>
-                            <h4 class="mb-0 text-info">@worker.OTDaysCount</h4>
-                        </div>
-                    </div>
-                </div>
-                <div class="row g-3 mt-2">
-                    <div class="col-md-4">
-                        <div class="summary-card">
-                            <div class="d-flex align-items-center justify-content-center mb-2">
-                                <div class="rounded-circle bg-danger bg-opacity-10 p-2">
-                                    <i class="bi bi-calendar-x text-danger"></i>
-                                </div>
-                            </div>
-                            <h6 class="text-muted mb-1">Leave Days</h6>
-                            <h4 class="mb-0 text-danger">@worker.LeaveDaysCount</h4>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="summary-card">
-                            <div class="d-flex align-items-center justify-content-center mb-2">
-                                <div class="rounded-circle bg-warning bg-opacity-10 p-2">
-                                    <i class="bi bi-alarm text-warning"></i>
-                                </div>
-                            </div>
-                            <h6 class="text-muted mb-1">Late Days</h6>
-                            <h4 class="mb-0 text-warning">@worker.LateDaysCount</h4>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="summary-card">
-                            <div class="d-flex align-items-center justify-content-center mb-2">
-                                <div class="rounded-circle bg-success bg-opacity-10 p-2">
-                                    <i class="bi bi-check-circle text-success"></i>
-                                </div>
-                            </div>
-                            <h6 class="text-muted mb-1">On Time Days</h6>
-                            <h4 class="mb-0 text-success">@worker.OnTimeDaysCount</h4>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Latest Attendance Card -->
-            @if (worker.LatestAttendance != null)
             {
-                <div class="dashboard-card">
-                    <h5 class="section-title">
-                        <i class="bi bi-clock-history me-2"></i>Latest Attendance
-                    </h5>
-                    <div class="row g-3">
-                        <div class="col-md-2">
-                            <strong>Date</strong>
-                            <div>@worker.LatestAttendance.Date.ToString("dd MMM yyyy")</div>
-                        </div>
-                        <div class="col-md-2">
-                            <strong>In Time</strong>
-                            <div>@worker.LatestAttendance.InTime</div>
-                        </div>
-                        <div class="col-md-2">
-                            <strong>Out Time</strong>
-                            <div>@worker.LatestAttendance.OutTime</div>
-                        </div>
-                        <div class="col-md-2">
-                            <strong>Worked Hours</strong>
-                            <div>@worker.LatestAttendance.WorkedHours</div>
-                        </div>
-                        <div class="col-md-2">
-                            <strong>OT Hours</strong>
-                            <div>@worker.LatestAttendance.OTHours</div>
-                        </div>
-                        <div class="col-md-2">
-                            <strong>Status</strong>
-                            <div>@worker.LatestAttendance.Status</div>
-                        </div>
-                    </div>
-                </div>
+
+                <div class="warning-box">@Model.WorkerSearchMessage</div>
+
             }
 
-            
-            <!-- OT Focus Table -->
-            <div class="dashboard-card">
-                <h5 class="section-title">
-                    <i class="bi bi-clock-fill me-2"></i>Overtime History
-                </h5>
-                @if (worker.OTHistory.Any())
-                {
-                    <div class="worker-history-table-wrap">
-                        <table class="table table-sm table-striped align-middle">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>In Time</th>
-                                    <th>Out Time</th>
-                                    <th>Worked Hours</th>
-                                    <th>OT Hours</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var row in worker.OTHistory)
-                                {
-                                    <tr>
-                                        <td>@row.Date.ToString("dd MMM yyyy")</td>
-                                        <td>@row.InTime</td>
-                                        <td>@row.OutTime</td>
-                                        <td>@row.WorkedHours</td>
-                                        <td class="fw-bold text-purple">@row.OTHours</td>
-                                        <td>@row.Status</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
-                else
-                {
-                    <div class="text-center py-4">
-                        <i class="bi bi-clock text-muted" style="font-size: 2rem;"></i>
-                        <p class="text-muted mt-2">No overtime records found for this worker.</p>
-                    </div>
-                }
-            </div>
 
-            <!-- Full Attendance History Table -->
-            <div class="dashboard-card">
-                <h5 class="section-title">
-                    <i class="bi bi-calendar3 me-2"></i>Full Attendance History (Last 30 Records)
-                </h5>
-                @if (worker.History.Any())
-                {
-                    <div class="worker-history-table-wrap">
-                        <table class="table table-sm table-striped align-middle">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>In Time</th>
-                                    <th>Out Time</th>
-                                    <th>Worked Hours</th>
-                                    <th>OT Hours</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var row in worker.History)
-                                {
-                                    <tr>
-                                        <td>@row.Date.ToString("dd MMM yyyy")</td>
-                                        <td>@row.InTime</td>
-                                        <td>@row.OutTime</td>
-                                        <td>@row.WorkedHours</td>
-                                        <td>@row.OTHours</td>
-                                        <td>@row.Status</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
-                else
-                {
-                    <div class="text-center py-4">
-                        <i class="bi bi-calendar3 text-muted" style="font-size: 2rem;"></i>
-                        <p class="text-muted mt-2">No attendance history found for this worker.</p>
-                    </div>
-                }
-            </div>
-        }
 
-        <!-- Modern KPI Cards Grid -->
-        @if (!Model.IsWorkerSearchMode)
-        {
-            <div class="kpi-grid">
-                <div class="kpi-card">
-                    <div class="kpi-icon success">
-                        <i class="bi bi-check-circle"></i>
-                    </div>
-                    <div class="kpi-value">@Model.PresentToday</div>
-                    <div class="kpi-label">Checked In Today</div>
-                </div>
-                
-                <div class="kpi-card">
-                    <div class="kpi-icon warning">
-                        <i class="bi bi-alarm"></i>
-                    </div>
-                    <div class="kpi-value">@Model.LateToday</div>
-                    <div class="kpi-label">Late After 8:30</div>
-                </div>
-                
-                <div class="kpi-card">
-                    <div class="kpi-icon danger">
-                        <i class="bi bi-person-dash"></i>
-                    </div>
-                    <div class="kpi-value">@Model.LeaveToday</div>
-                    <div class="kpi-label">On Leave / No Login</div>
-                </div>
-                
-                <div class="kpi-card">
-                    <div class="kpi-icon info">
-                        <i class="bi bi-clock"></i>
-                    </div>
-                    <div class="kpi-value">@Model.WorkingOtToday</div>
-                    <div class="kpi-label">Working OT After 4:30</div>
-                </div>
-                
-                <div class="kpi-card">
-                    <div class="kpi-icon purple">
-                        <i class="bi bi-hourglass-split"></i>
-                    </div>
-                    <div class="kpi-value">@Model.TotalOtHoursThisMonth.ToString("F1")</div>
-                    <div class="kpi-label">Total OT Hours Today</div>
-                </div>
-            </div>
-        }
-        else
-        {
-            <!-- Show only worker-specific card -->
-            <div class="dashboard-card">
-                <h5 class="section-title">Worker Search Results</h5>
-                <div class="summary-cards">
-                    <div class="summary-card">
-                        <div class="d-flex align-items-center justify-content-center mb-2">
-                            <div class="rounded-circle bg-primary bg-opacity-10 p-2">
-                                <i class="bi bi-person-fill text-primary"></i>
+            @if (Model.ShowWorkerResultCards && Model.WorkerProfile != null)
+
+            {
+
+                <section class="result-grid">
+
+                    <article class="card-shell">
+
+                        <header class="card-header-clean">
+
+                            <div>
+
+                                <h3>Worker OT Details - Single Date</h3>
+
                             </div>
-                        </div>
-                        <h6 class="text-muted mb-1">Searched Worker</h6>
-                        <h3 class="mb-0">1</h3>
-                    </div>
-                </div>
-            </div>
-        }
 
-        <!-- General Dashboard Sections (Only show when NOT in worker search mode) -->
-        @if (!Model.IsWorkerSearchMode)
-        {
-            <!-- Two Column Grid for Charts -->
-            <div class="two-column-grid">
-                <!-- Today Status Breakdown Chart -->
-                <div class="chart-container">
-                    <div class="chart-header">
-                        <h3 class="chart-title">
-                            <i class="bi bi-pie-chart me-2"></i>Today Status Breakdown
-                        </h3>
-                    </div>
-                    <div class="chart-body">
-                        @if (Model.OnTimeCount == 0 && Model.LateCount == 0 && Model.LeaveCount == 0 && Model.OtCount == 0)
-                        {
-                            <div class="empty-state">
-                                <div class="empty-state-icon">
-                                    <i class="bi bi-pie-chart"></i>
+                            <span class="header-badge">Date: @Model.SingleDate.ToString("dd/MM/yyyy")</span>
+
+                        </header>
+
+                        <div class="card-body-clean">
+
+                            <div class="worker-profile">
+
+                                <div class="worker-avatar">@Model.WorkerProfile.Initials</div>
+
+                                <div>
+
+                                    <h4 class="worker-name">@Model.WorkerProfile.FullName</h4>
+
+                                    <div class="worker-meta">Service ID / Service Number: @Model.WorkerProfile.ServiceId | Section: @Model.WorkerProfile.SectionName</div>
+
                                 </div>
-                                <div class="empty-state-title">No status data available today</div>
-                                <div class="empty-state-description">There are no attendance records for today.</div>
-                            </div>
-                        }
-                        else
-                        {
-                            <canvas id="statusBreakdownChart"></canvas>
-                        }
-                    </div>
-                </div>
 
-                <!-- Work Hours Distribution Chart -->
-                <div class="chart-container">
-                    <div class="chart-header">
-                        <h3 class="chart-title">
-                            <i class="bi bi-clock-history me-2"></i>Work Hours Distribution
-                        </h3>
-                    </div>
-                    <div class="chart-body">
-                        @if (Model.WorkHoursPieChart.Any())
-                        {
-                            <canvas id="workHoursPieChart"></canvas>
-                        }
-                        else
-                        {
-                            <div class="empty-state">
-                                <div class="empty-state-icon">
-                                    <i class="bi bi-clock-history"></i>
+                            </div>
+
+
+
+                            @if (Model.SingleDateOtDetails != null)
+
+                            {
+
+                                <div class="metric-grid">
+
+                                    <div class="metric-box">
+
+                                        <div class="metric-label">OT In Time</div>
+
+                                        <div class="metric-value">@Model.SingleDateOtDetails.OvertimeInTime</div>
+
+                                    </div>
+
+                                    <div class="metric-box">
+
+                                        <div class="metric-label">OT Out Time</div>
+
+                                        <div class="metric-value">@Model.SingleDateOtDetails.OvertimeOutTime</div>
+
+                                    </div>
+
+                                    <div class="metric-box">
+
+                                        <div class="metric-label">OT Hours</div>
+
+                                        <div class="metric-value">@Model.SingleDateOtDetails.OvertimeHours</div>
+
+                                    </div>
+
                                 </div>
-                                <div class="empty-state-title">No work hours data for today</div>
-                                <div class="empty-state-description">Work hours distribution will appear here once data is available.</div>
-                            </div>
-                        }
-                    </div>
-                </div>
-            </div>
 
-            <!-- Full Width Sections -->
-            <div class="full-width-section">
-                <!-- Today Worker Status Table -->
-                <div class="dashboard-section">
-                    <div class="section-header">
-                        <div>
-                            <h2 class="section-title">
-                                <i class="bi bi-person-lines-fill me-2"></i>Today Worker Status
-                            </h2>
-                            <p class="section-subtitle">Real-time attendance status for all workers in your section</p>
-                        </div>
-                    </div>
-                    
-                    @if (!Model.TodayWorkers.Any())
-                    {
-                        <div class="empty-state">
-                            <div class="empty-state-icon">
-                                <i class="bi bi-inbox"></i>
-                            </div>
-                            <div class="empty-state-title">No attendance records for your section today</div>
-                            <div class="empty-state-description">Workers haven't checked in yet or there are no scheduled workers for today.</div>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="data-table">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Worker Name</th>
-                                        <th>Login Time</th>
-                                        <th>Logout Time</th>
-                                        <th>Status</th>
-                                        <th>Late By</th>
-                                        <th>OT Hours</th>
-                                        <th>Current State</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var worker in Model.TodayWorkers)
-                                    {
-                                        <tr>
-                                            <td>@worker.WorkerName</td>
-                                            <td>@worker.LoginTimeDisplay</td>
-                                            <td>@worker.LogoutTimeDisplay</td>
-                                            <td>
-                                                @switch (worker.Status)
-                                                {
-                                                    case "Present":
-                                                        <span class="status-badge success">On Time</span>
-                                                        break;
-                                                    case "Late":
-                                                        <span class="status-badge warning">Late</span>
-                                                        break;
-                                                    case "Leave":
-                                                        <span class="status-badge danger">Leave</span>
-                                                        break;
-                                                    default:
-                                                        <span class="status-badge info">@worker.Status</span>
-                                                        break;
-                                                }
-                                            </td>
-                                            <td>@worker.LateByDisplay</td>
-                                            <td>@worker.OtHoursDisplay</td>
-                                            <td>
-                                                @switch (worker.CurrentState)
-                                                {
-                                                    case "On Leave":
-                                                        <span class="status-badge danger">On Leave</span>
-                                                        break;
-                                                    case "Working":
-                                                        <span class="status-badge success">Working</span>
-                                                        break;
-                                                    case "Completed":
-                                                        <span class="status-badge info">Completed</span>
-                                                        break;
-                                                    case "Working OT":
-                                                        <span class="status-badge purple">Working OT</span>
-                                                        break;
-                                                    default:
-                                                        <span class="status-badge">@worker.CurrentState</span>
-                                                        break;
-                                                }
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-                </div>
-            </div>
+                            }
 
-            <div class="full-width-section">
-                <!-- OT Workers Today -->
-                <div class="dashboard-section">
-                    <div class="section-header">
-                        <div>
-                            <h2 class="section-title">
-                                <i class="bi bi-clock-history me-2"></i>OT Workers Today
-                            </h2>
-                            <p class="section-subtitle">Workers currently working overtime or who have completed overtime today</p>
-                        </div>
-                    </div>
-                    
-                    @if (!Model.OtWorkers.Any())
-                    {
-                        <div class="empty-state">
-                            <div class="empty-state-icon">
-                                <i class="bi bi-clock"></i>
-                            </div>
-                            <div class="empty-state-title">No overtime workers today</div>
-                            <div class="empty-state-description">No workers are currently working overtime or have completed overtime today.</div>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="data-table">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Worker</th>
-                                        <th>OT Hours</th>
-                                        <th>Logout Time</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var otWorker in Model.OtWorkers)
-                                    {
-                                        <tr>
-                                            <td>@otWorker.WorkerName</td>
-                                            <td>@otWorker.OtHours.ToString("F1")h</td>
-                                            <td>@otWorker.LogoutTimeDisplay</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-                </div>
-            </div>
+                            else
 
-            <div class="full-width-section">
-                <!-- Last 2 Weeks Attendance Calendar -->
-                <div class="dashboard-section">
-                    <div class="section-header">
-                        <div>
-                            <h2 class="section-title">
-                                <i class="bi bi-calendar3 me-2"></i>Last 2 Weeks Attendance Calendar
-                            </h2>
-                            <p class="section-subtitle">Attendance overview for the past two weeks</p>
+                            {
+
+                                <div class="result-message">@(Model.SingleDateMessage ?? "No overtime record found for this selected date.")</div>
+
+                            }
+
+
+
+                            <p class="info-note">Showing overtime details for @Model.SingleDate.ToString("dd/MM/yyyy")</p>
+
                         </div>
-                    </div>
-                    
-                    @if (Model.LastTwoWeeksCalendarData.Any())
-                    {
-                        <div class="data-table">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>On Time</th>
-                                        <th>Late</th>
-                                        <th>Leave</th>
-                                        <th>OT Hours</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var day in Model.LastTwoWeeksCalendarData)
-                                    {
-                                        <tr>
-                                            <td>@day.Date.ToString("ddd, dd MMM yyyy")</td>
-                                            <td><span class="status-badge success">@day.PresentCount</span></td>
-                                            <td><span class="status-badge warning">@day.LateCount</span></td>
-                                            <td><span class="status-badge danger">@day.LeaveCount</span></td>
-                                            <td><span class="status-badge purple">@day.TotalOtHours.ToString("F1")h</span></td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="empty-state">
-                            <div class="empty-state-icon">
-                                <i class="bi bi-calendar3"></i>
+
+                    </article>
+
+
+
+                    <article class="card-shell">
+
+                        <header class="card-header-clean">
+
+                            <div>
+
+                                <h3>Worker OT Details - Date Range</h3>
+
                             </div>
-                            <div class="empty-state-title">No attendance data for the last 2 weeks</div>
-                            <div class="empty-state-description">Attendance calendar data will appear here once available.</div>
+
+                            <span class="header-badge">From: @Model.RangeFromDate.ToString("dd/MM/yyyy") to @Model.RangeToDate.ToString("dd/MM/yyyy")</span>
+
+                        </header>
+
+                        <div class="card-body-clean">
+
+                            <div class="worker-profile">
+
+                                <div class="worker-avatar">@Model.WorkerProfile.Initials</div>
+
+                                <div>
+
+                                    <h4 class="worker-name">@Model.WorkerProfile.FullName</h4>
+
+                                    <div class="worker-meta">Service ID / Service Number: @Model.WorkerProfile.ServiceId | Section: @Model.WorkerProfile.SectionName</div>
+
+                                </div>
+
+                            </div>
+
+
+
+                            @if (Model.DateRangeOtSummary != null)
+
+                            {
+
+                                <div class="metric-grid metric-grid-2">
+
+                                    <div class="metric-box">
+
+                                        <div class="metric-label">Total Days</div>
+
+                                        <div class="metric-value">@Model.DateRangeOtSummary.TotalDays</div>
+
+                                    </div>
+
+                                    <div class="metric-box">
+
+                                        <div class="metric-label">Total OT Hours</div>
+
+                                        <div class="metric-value">@Model.DateRangeOtSummary.TotalOvertimeDisplay</div>
+
+                                    </div>
+
+                                </div>
+
+
+
+                                @if (Model.DateRangeChartData.Any())
+
+                                {
+
+                                    <div class="date-range-chart-wrap">
+
+                                        <h5 class="date-range-chart-title">Daily OT Trend</h5>
+
+                                        <div class="date-range-chart-container">
+
+                                            <canvas id="dateRangeOtTrendChart"></canvas>
+
+                                        </div>
+
+                                    </div>
+
+                                }
+
+                            }
+
+                            else
+
+                            {
+
+                                <div class="result-message">@(Model.DateRangeMessage ?? "No overtime records found for this selected date range.")</div>
+
+                            }
+
+
+
+                            <p class="info-note">Showing overtime summary from @Model.RangeFromDate.ToString("dd/MM/yyyy") to @Model.RangeToDate.ToString("dd/MM/yyyy")</p>
+
                         </div>
-                    }
-                </div>
-            </div>
-        }
+
+                    </article>
+
+                </section>
+
+            }
+
+        </main>
+
     </div>
+
 }
 
-@section Scripts {
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<div id="addWorkerModalOverlay" class="add-worker-modal-overlay">
+
+    <div class="add-worker-modal">
+
+        <div class="add-worker-modal-header">
+
+            <h4 class="add-worker-modal-title">Create User</h4>
+
+            <button type="button" id="closeAddWorkerModalX" class="add-worker-modal-close" aria-label="Close">&times;</button>
+
+        </div>
+
+        <div class="add-worker-modal-body">
+
+            <div id="addWorkerMessage" class="add-worker-message"></div>
+
+            <form id="addWorkerForm">
+
+                @Html.AntiForgeryToken()
+
+                <div class="add-worker-grid">
+
+                    <div>
+
+                        <label class="add-worker-field-label" for="workerName">Worker Name</label>
+
+                        <input type="text" id="workerName" class="form-control" placeholder="Enter worker's full name" required />
+
+                    </div>
+
+                    <div>
+
+                        <label class="add-worker-field-label" for="workerServiceId">Service ID / Service Number</label>
+
+                        <input type="text" id="workerServiceId" class="form-control" placeholder="Enter Service ID (e.g., EMP001)" required />
+
+                    </div>
+
+                    <div>
+
+                        <label class="add-worker-field-label" for="workerEmail">Email Address</label>
+
+                        <input type="email" id="workerEmail" class="form-control" placeholder="Enter Email Address" required />
+
+                    </div>
+
+                    <div>
+
+                        <label class="add-worker-field-label" for="workerPhone">Phone Number</label>
+
+                        <input type="text" id="workerPhone" class="form-control" placeholder="Enter Phone Number" required />
+
+                    </div>
+
+                    <div>
+
+                        <label class="add-worker-field-label" for="workerSectionName">Section</label>
+
+                        <input type="text" id="workerSectionName" class="form-control" value="@(string.IsNullOrWhiteSpace(Model.SectionName) ? "No section assigned" : Model.SectionName)" disabled readonly />
+
+                    </div>
+
+                    <div class="result-message">A temporary password will be securely generated.</div>
+
+                </div>
+
+            </form>
+
+        </div>
+
+        <div class="add-worker-modal-footer">
+
+            <button type="button" id="cancelAddWorkerModal" class="add-worker-btn-cancel">Cancel</button>
+
+            <button type="button" id="saveAddWorkerBtn" class="add-worker-btn-save">Create User</button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div id="deleteUserModalOverlay" class="add-worker-modal-overlay">
+
+    <div class="add-worker-modal">
+
+        <div class="add-worker-modal-header">
+
+            <h4 class="add-worker-modal-title">Delete User</h4>
+
+            <button type="button" id="closeDeleteUserModalX" class="add-worker-modal-close" aria-label="Close">&times;</button>
+
+        </div>
+
+        <div class="add-worker-modal-body">
+
+            <div id="deleteUserMessage" class="add-worker-message"></div>
+
+            <form id="deleteUserForm">
+
+                @Html.AntiForgeryToken()
+
+                <div class="add-worker-grid">
+
+                    <div>
+
+                        <label class="add-worker-field-label" for="deleteUserServiceId">Service ID / Service Number</label>
+
+                        <input type="text" id="deleteUserServiceId" class="form-control" placeholder="Enter Service ID to delete" required />
+
+                    </div>
+
+                    <div class="result-message text-danger">This will deactivate the user in your section.</div>
+
+                </div>
+
+            </form>
+
+        </div>
+
+        <div class="add-worker-modal-footer">
+
+            <button type="button" id="cancelDeleteUserModal" class="add-worker-btn-cancel">Cancel</button>
+
+            <button type="button" id="confirmDeleteUserBtn" class="add-worker-btn-save">Delete User</button>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
     <script>
-        @if (Model.HasSection && !Model.IsWorkerSearchMode)
-        {
-            <text>
-            // Today Status Breakdown Doughnut Chart
-            const statusCtx = document.getElementById('statusBreakdownChart');
-            if (statusCtx) {
-                new Chart(statusCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['On Time', 'Late', 'Leave', 'OT'],
-                        datasets: [{
-                            data: [@Html.Raw(Json.Serialize(Model.OnTimeCount)), @Html.Raw(Json.Serialize(Model.LateCount)), @Html.Raw(Json.Serialize(Model.LeaveCount)), @Html.Raw(Json.Serialize(Model.OtCount))],
-                            backgroundColor: ['#28a745', '#ffc107', '#dc3545', '#6f42c1'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '65%',
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    boxWidth: 12,
-                                    padding: 16
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return context.label + ': ' + context.parsed + ' workers';
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-            </text>
-        }
 
-        @if (Model.HasSection && !Model.IsWorkerSearchMode && Model.WorkHoursPieChart.Any())
-        {
-            <text>
-            // Work Hours Doughnut Chart
-            const workHoursCtx = document.getElementById('workHoursPieChart');
-            if (workHoursCtx) {
-                new Chart(workHoursCtx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: @Html.Raw(Json.Serialize(Model.WorkHoursPieChart.Select(x => x.Label))),
-                        datasets: [{
-                            data: @Html.Raw(Json.Serialize(Model.WorkHoursPieChart.Select(x => x.Hours))),
-                            backgroundColor: [
-                                '#28a745', '#20c997', '#ffc107', '#dc3545', '#6c757d', '#17a2b8'
-                            ],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        cutout: '65%',
-                        plugins: {
-                            legend: {
-                                position: 'bottom',
-                                labels: {
-                                    boxWidth: 12,
-                                    padding: 16
-                                }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return context.label + ': ' + context.parsed + ' hours';
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-            </text>
-        }
+        document.addEventListener("DOMContentLoaded", function () {
 
-        // Attendance Modal Functionality (only when worker search is active)
-        @if (Model.WorkerHistorySearchResult != null)
-        {
-            <text>
-            const currentServiceId = @Html.Raw(Json.Serialize(Model.WorkerHistorySearchResult.ServiceId));
-            const attendanceModal = document.getElementById('attendanceModal');
-            const modalTitle = document.getElementById('modalTitle');
-            const modalWorkerInfo = document.getElementById('modalWorkerInfo');
-            const modalBody = document.getElementById('modalBody');
-            const applyDateBtn = document.getElementById('applyDateFilter');
-            const attendanceDateInput = document.getElementById('attendanceDate');
+            const hasSection = @Model.HasSection.ToString().ToLowerInvariant();
 
-            console.log('Attendance modal script loaded for worker:', currentServiceId);
+            const form = document.getElementById("workerOtSearchForm");
 
-            // Apply Date button click handler
-            if (applyDateBtn && attendanceDateInput && attendanceModal) {
-                applyDateBtn.addEventListener('click', async function(e) {
-                    console.log('Apply Date clicked - Opening modal');
-                    e.preventDefault();
-                    
-                    const selectedDate = attendanceDateInput.value;
-                    console.log('serviceId sent:', currentServiceId);
-                    console.log('date sent:', selectedDate);
-                    
-                    if (!selectedDate) {
-                        alert('Please select a date');
-                        return;
-                    }
+            const serviceInput = document.getElementById("serviceId");
 
-                    // Format date for API (ensure yyyy-MM-dd format)
-                    const formattedDate = new Date(selectedDate).toISOString().split('T')[0];
-                    console.log('Formatted date for API:', formattedDate);
+            const singleDateInput = document.getElementById("singleDate");
 
-                    // Show loading state
-                    applyDateBtn.disabled = true;
-                    applyDateBtn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>Loading...';
+            const fromDateInput = document.getElementById("fromDate");
 
-                    try {
-                        const apiUrl = `/Dashboard/GetWorkerAttendanceByDate?serviceId=${encodeURIComponent(currentServiceId)}&date=${formattedDate}`;
-                        console.log('API URL:', apiUrl);
-                        
-                        const response = await fetch(apiUrl);
-                        console.log('Response status:', response.status);
-                        
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}`);
-                        }
-                        
-                        const data = await response.json();
-                        console.log('API response:', data);
+            const toDateInput = document.getElementById("toDate");
 
-                        if (data.success === true && data.record) {
-                            console.log('Success, showing modal with record data');
-                            showAttendanceModal(data.record, formattedDate);
-                        } else {
-                            console.log('Backend returned error or no record:', data.message);
-                            showAttendanceModal(null, formattedDate, data.message);
-                        }
-                    } catch (error) {
-                        console.error('Error fetching attendance data:', error);
-                        showAttendanceModal(null, formattedDate, 'An error occurred while fetching attendance data: ' + error.message);
-                    } finally {
-                        // Reset button state
-                        applyDateBtn.disabled = false;
-                        applyDateBtn.innerHTML = '<i class="bi bi-check-circle me-2"></i>Apply Date';
-                    }
-                });
+
+
+            if (!form || !serviceInput) {
+
+                return;
+
             }
 
-            function showAttendanceModal(record, date, errorMessage = null) {
-                console.log('Showing attendance modal with record:', record);
-                console.log('Date:', date);
-                console.log('Error message:', errorMessage);
-                
-                // Format date for display
-                const dateObj = new Date(date);
-                const formattedDate = dateObj.toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric', 
-                    year: 'numeric' 
-                });
-                
-                // Update modal header and date
-                document.getElementById('modalDate').textContent = formattedDate;
-                
-                // Check if we have valid record data
-                if (record && !errorMessage) {
-                    console.log('Rendering attendance record with data:', record);
-                    
-                    // Use fallback values to prevent undefined display
-                    const workerName = record.workerName ?? "-";
-                    const serviceId = record.serviceId ?? "-";
-                    const sectionName = record.section ?? "-";
-                    const loginTime = formatTimeSafe(record.loginTime);
-                    const logoutTime = formatTimeSafe(record.logoutTime);
-                    const workedHours = formatHoursSafe(record.workedMinutes);
-                    const regularHours = formatHoursSafe(record.regularMinutes);
-                    const otHours = formatHoursSafe(record.overtimeMinutes);
-                    const status = record.status ?? "Unknown";
-                    const currentState = record.currentState ?? "Unknown";
-                    const lateByText = record.lateByText ?? "-";
-                    const earlyByText = record.earlyByText ?? "-";
-                    
-                    // Update worker summary
-                    document.getElementById('modalWorkerName').textContent = workerName;
-                    document.getElementById('modalWorkerServiceId').textContent = serviceId;
-                    document.getElementById('modalWorkerSection').textContent = sectionName;
-                    
-                    const statusBadgeClass = getStatusBadgeClass(status);
-                    const stateBadgeClass = getStateBadgeClass(currentState);
-                    const statusIcon = getStatusIcon(status);
-                    
-                    modalBody.innerHTML = `
-                        <div class="attendance-details-grid">
-                            <div class="detail-row">
-                                <div class="detail-item">
-                                    <div class="detail-label">Login Time</div>
-                                    <div class="detail-value">${loginTime}</div>
-                                </div>
-                                <div class="detail-item">
-                                    <div class="detail-label">Logout Time</div>
-                                    <div class="detail-value">${logoutTime}</div>
-                                </div>
-                            </div>
-                            <div class="detail-row">
-                                <div class="detail-item">
-                                    <div class="detail-label">Worked Hours</div>
-                                    <div class="detail-value">${workedHours}</div>
-                                </div>
-                                <div class="detail-item">
-                                    <div class="detail-label">Regular Hours</div>
-                                    <div class="detail-value">${regularHours}</div>
-                                </div>
-                            </div>
-                            <div class="detail-row">
-                                <div class="detail-item">
-                                    <div class="detail-label">OT Hours</div>
-                                    <div class="detail-value ${otHours !== '0h 0m' ? 'text-purple' : 'text-muted'}">
-                                        ${otHours !== '0h 0m' ? otHours : 'No OT recorded'}
-                                    </div>
-                                </div>
-                                <div class="detail-item">
-                                    <div class="detail-label">Status</div>
-                                    <div class="detail-value">
-                                        <span class="status-badge ${statusBadgeClass}">
-                                            ${statusIcon} ${status}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                            ${lateByText !== '-' ? `
-                            <div class="detail-row">
-                                <div class="detail-item" style="grid-column: span 2;">
-                                    <div class="detail-label">Late By</div>
-                                    <div class="detail-value text-warning">
-                                        <i class="bi bi-clock me-1"></i>${lateByText}
-                                    </div>
-                                </div>
-                            </div>
-                            ` : ''}
-                            ${earlyByText !== '-' ? `
-                            <div class="detail-row">
-                                <div class="detail-item" style="grid-column: span 2;">
-                                    <div class="detail-label">Early By</div>
-                                    <div class="detail-value text-info">
-                                        <i class="bi bi-clock-history me-1"></i>${earlyByText}
-                                    </div>
-                                </div>
-                            </div>
-                            ` : ''}
-                            <div class="detail-row">
-                                <div class="detail-item" style="grid-column: span 2;">
-                                    <div class="current-state-container">
-                                        <div class="current-state-label">Current State</div>
-                                        <div class="detail-value">
-                                            <span class="state-badge ${stateBadgeClass}">${currentState}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    console.log('No attendance record found or error occurred');
-                    
-                    // Update worker summary with service ID only
-                    document.getElementById('modalWorkerName').textContent = "-";
-                    document.getElementById('modalWorkerServiceId').textContent = currentServiceId;
-                    document.getElementById('modalWorkerSection').textContent = "-";
-                    
-                    const message = errorMessage || `No attendance record found for ${currentServiceId} on ${formattedDate}.`;
-                    
-                    modalBody.innerHTML = `
-                        <div class="attendance-empty-state">
-                            <div class="empty-state-icon">
-                                <i class="bi bi-calendar-x"></i>
-                            </div>
-                            <div class="empty-state-title">No Record Found</div>
-                            <div class="empty-state-description">${message}</div>
-                        </div>
-                    `;
+
+
+            function submitIfServiceIdExists() {
+
+                if (serviceInput.value.trim() !== "") {
+
+                    form.submit();
+
                 }
-                
-                // Show modal
-                attendanceModal.classList.remove('hidden');
-                setTimeout(() => {
-                    attendanceModal.classList.add('show');
-                }, 10);
+
             }
 
-            // Safe time formatter for Login/Logout times
-            function formatTimeSafe(timeValue) {
-                if (!timeValue || timeValue === null || timeValue === "") return "-";
-                
+
+
+            if (singleDateInput) {
+
+                singleDateInput.addEventListener("change", submitIfServiceIdExists);
+
+            }
+
+
+
+            if (fromDateInput) {
+
+                fromDateInput.addEventListener("change", function () {
+
+                    if (toDateInput && toDateInput.value) {
+
+                        submitIfServiceIdExists();
+
+                    }
+
+                });
+
+            }
+
+
+
+            if (toDateInput) {
+
+                toDateInput.addEventListener("change", function () {
+
+                    if (fromDateInput && fromDateInput.value) {
+
+                        submitIfServiceIdExists();
+
+                    }
+
+                });
+
+            }
+
+
+
+            const openAddWorkerModalBtn = document.getElementById("openAddWorkerModal");
+
+            const addWorkerModalOverlay = document.getElementById("addWorkerModalOverlay");
+
+            const closeAddWorkerModalX = document.getElementById("closeAddWorkerModalX");
+
+            const cancelAddWorkerModal = document.getElementById("cancelAddWorkerModal");
+
+            const saveAddWorkerBtn = document.getElementById("saveAddWorkerBtn");
+
+            const addWorkerForm = document.getElementById("addWorkerForm");
+
+            const addWorkerMessage = document.getElementById("addWorkerMessage");
+
+            const workerNameInput = document.getElementById("workerName");
+
+            const deleteUserModalOverlay = document.getElementById("deleteUserModalOverlay");
+
+            const openDeleteUserModalBtn = document.getElementById("openDeleteUserModal");
+
+            const closeDeleteUserModalX = document.getElementById("closeDeleteUserModalX");
+
+            const cancelDeleteUserModal = document.getElementById("cancelDeleteUserModal");
+
+            const confirmDeleteUserBtn = document.getElementById("confirmDeleteUserBtn");
+
+            const deleteUserForm = document.getElementById("deleteUserForm");
+
+            const deleteUserMessage = document.getElementById("deleteUserMessage");
+
+
+
+            function showAddWorkerMessage(type, message) {
+
+                if (!addWorkerMessage) {
+
+                    return;
+
+                }
+
+                addWorkerMessage.className = "add-worker-message " + type;
+
+                addWorkerMessage.textContent = message;
+
+                addWorkerMessage.style.display = "block";
+
+            }
+
+
+
+            function showDeleteUserMessage(type, message) {
+
+                if (!deleteUserMessage) {
+
+                    return;
+
+                }
+
+                deleteUserMessage.className = "add-worker-message " + type;
+
+                deleteUserMessage.textContent = message;
+
+                deleteUserMessage.style.display = "block";
+
+            }
+
+
+
+            function clearDeleteUserMessage() {
+
+                if (!deleteUserMessage) {
+
+                    return;
+
+                }
+
+                deleteUserMessage.className = "add-worker-message";
+
+                deleteUserMessage.textContent = "";
+
+                deleteUserMessage.style.display = "none";
+
+            }
+
+
+
+            function openDeleteUserModal() {
+
+                if (!deleteUserModalOverlay) {
+
+                    return;
+
+                }
+
+                clearDeleteUserMessage();
+
+                deleteUserModalOverlay.style.display = "flex";
+
+                document.body.style.overflow = "hidden";
+
+            }
+
+
+
+            function closeDeleteUserModal() {
+
+                if (!deleteUserModalOverlay) {
+
+                    return;
+
+                }
+
+                deleteUserModalOverlay.style.display = "none";
+
+                document.body.style.overflow = "";
+
+                clearDeleteUserMessage();
+
+                if (deleteUserForm) {
+
+                    deleteUserForm.reset();
+
+                }
+
+            }
+
+
+
+            function clearAddWorkerMessage() {
+
+                if (!addWorkerMessage) {
+
+                    return;
+
+                }
+
+                addWorkerMessage.className = "add-worker-message";
+
+                addWorkerMessage.textContent = "";
+
+                addWorkerMessage.style.display = "none";
+
+            }
+
+
+
+            async function openAddWorkerModal() {
+
+                if (!addWorkerModalOverlay) {
+
+                    return;
+
+                }
+
+                clearAddWorkerMessage();
+
+                addWorkerModalOverlay.style.display = "flex";
+
+                document.body.style.overflow = "hidden";
+
+
+
+                const serviceIdInput = document.getElementById("workerServiceId");
+
+                if (serviceIdInput) {
+
+                    serviceIdInput.value = "";
+
+                }
+
+
+
                 try {
-                    // Handle TimeSpan objects (with ticks property)
-                    if (timeValue && typeof timeValue === 'object' && timeValue.ticks !== undefined) {
-                        const totalSeconds = timeValue.ticks / 10000000; // Convert ticks to seconds
-                        const hours = Math.floor(totalSeconds / 3600);
-                        const minutes = Math.floor((totalSeconds % 3600) / 60);
-                        const period = hours >= 12 ? 'PM' : 'AM';
-                        const displayHours = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
-                        return `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
+
+                    const response = await fetch("@Url.Action("GetNextServiceId", "Dashboard")");
+
+                    const result = await response.json();
+
+
+
+                    if (result.success && serviceIdInput) {
+
+                        serviceIdInput.value = result.serviceId || "";
+
+                    } else if (result.message) {
+
+                        showAddWorkerMessage("error", result.message);
+
                     }
-                    
-                    // Handle string time formats
-                    if (typeof timeValue === 'string') {
-                        // Handle "08:10:00" format
-                        if (timeValue.match(/^\d{2}:\d{2}:\d{2}$/)) {
-                            const [hours, minutes] = timeValue.split(':').map(Number);
-                            const period = hours >= 12 ? 'PM' : 'AM';
-                            const displayHours = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
-                            return `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
-                        }
-                        
-                        // Handle "08:10" format
-                        if (timeValue.match(/^\d{2}:\d{2}$/)) {
-                            const [hours, minutes] = timeValue.split(':').map(Number);
-                            const period = hours >= 12 ? 'PM' : 'AM';
-                            const displayHours = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
-                            return `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
-                        }
-                        
-                        // Handle ISO datetime strings
-                        if (timeValue.includes('T') || timeValue.includes('-')) {
-                            const date = new Date(timeValue);
-                            if (!isNaN(date.getTime())) {
-                                const hours = date.getHours();
-                                const minutes = date.getMinutes();
-                                const period = hours >= 12 ? 'PM' : 'AM';
-                                const displayHours = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
-                                return `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
-                            }
-                        }
-                    }
-                    
-                    // Handle numeric values (treat as minutes from midnight)
-                    if (typeof timeValue === 'number') {
-                        const hours = Math.floor(timeValue / 60);
-                        const minutes = Math.floor(timeValue % 60);
-                        const period = hours >= 12 ? 'PM' : 'AM';
-                        const displayHours = hours > 12 ? hours - 12 : (hours === 0 ? 12 : hours);
-                        return `${displayHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ${period}`;
-                    }
-                    
-                    return "-";
+
                 } catch (error) {
-                    console.warn('Time formatting error:', error, timeValue);
-                    return "-";
+
+                    showAddWorkerMessage("error", "An error occurred while generating the Service ID.");
+
                 }
+
             }
 
-            // Safe hours formatter for worked/regular/OT hours
-            function formatHoursSafe(minutes) {
-                if (!minutes || minutes === null || minutes === undefined || minutes === 0) return "0h 0m";
-                
+
+
+            function closeAddWorkerModal() {
+
+                if (!addWorkerModalOverlay) {
+
+                    return;
+
+                }
+
+                addWorkerModalOverlay.style.display = "none";
+
+                document.body.style.overflow = "";
+
+                clearAddWorkerMessage();
+
+                if (addWorkerForm) {
+
+                    addWorkerForm.reset();
+
+                }
+
+            }
+
+
+
+            async function deleteUser() {
+
+                const serviceIdValue = document.getElementById("deleteUserServiceId")?.value?.trim() ?? "";
+
+                if (!hasSection) {
+
+                    showDeleteUserMessage("error", "No section is assigned to your account.");
+
+                    return;
+
+                }
+
+                if (!serviceIdValue) {
+
+                    showDeleteUserMessage("error", "Please enter a Service ID.");
+
+                    return;
+
+                }
+
+                const token = document.querySelector('#deleteUserForm input[name="__RequestVerificationToken"]')?.value ?? "";
+
                 try {
-                    const mins = parseInt(minutes);
-                    if (isNaN(mins)) return "0h 0m";
-                    
-                    const hours = Math.floor(mins / 60);
-                    const remainingMinutes = mins % 60;
-                    return `${hours}h ${remainingMinutes}m`;
+
+                    const formData = new FormData();
+                    formData.append('serviceId', serviceIdValue);
+                    if (token) {
+                        formData.append('__RequestVerificationToken', token);
+                    }
+
+                    const response = await fetch("@Url.Action("DeleteUser", "Dashboard")", {
+
+                        method: "POST",
+
+                        headers: {
+                            "X-Requested-With": "XMLHttpRequest"
+                        },
+
+                        body: formData
+
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+
+                        showDeleteUserMessage("success", result.message || "User deleted successfully.");
+
+                        setTimeout(function () {
+
+                            closeDeleteUserModal();
+
+                            window.location.reload();
+
+                        }, 900);
+
+                    } else {
+
+                        let errorMessage = result.message || "Failed to delete user.";
+
+                        if (result.errors) {
+
+                            const allErrors = Object.values(result.errors).flat();
+
+                            if (allErrors.length > 0) {
+
+                                errorMessage = allErrors.join(" ");
+
+                            }
+
+                        }
+
+                        showDeleteUserMessage("error", errorMessage);
+
+                    }
+
                 } catch (error) {
-                    console.warn('Hours formatting error:', error, minutes);
-                    return "0h 0m";
+
+                    showDeleteUserMessage("error", "An error occurred while deleting the user.");
+
                 }
+
             }
 
-            // Legacy functions for backward compatibility
-            function formatTimeSpan(timeSpan) {
-                return formatTimeSafe(timeSpan);
-            }
 
-            function formatMinutes(minutes) {
-                return formatHoursSafe(minutes);
-            }
 
-            function closeAttendanceModal() {
-                console.log('Closing attendance modal');
-                attendanceModal.classList.remove('show');
-                setTimeout(() => {
-                    attendanceModal.classList.add('hidden');
-                }, 300);
-            }
+            async function saveWorker() {
 
-            // Close modal on ESC key
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape' && !attendanceModal.classList.contains('hidden')) {
-                    closeAttendanceModal();
+                const workerName = workerNameInput?.value?.trim() ?? "";
+
+                const serviceIdValue = document.getElementById("workerServiceId")?.value?.trim() ?? "";
+
+                const email = document.getElementById("workerEmail")?.value?.trim() ?? "";
+
+                const phone = document.getElementById("workerPhone")?.value?.trim() ?? "";
+
+
+
+                if (!hasSection) {
+
+                    showAddWorkerMessage("error", "No section is assigned to your account.");
+
+                    return;
+
                 }
+
+
+
+                if (!workerName || !serviceIdValue || !email || !phone) {
+
+                    showAddWorkerMessage("error", "Please fill all required fields.");
+
+                    return;
+
+                }
+
+
+
+                const token = document.querySelector('#addWorkerForm input[name="__RequestVerificationToken"]')?.value ?? "";
+
+
+
+                try {
+
+                    const response = await fetch("@Url.Action("CreateWorker", "Dashboard")", {
+
+                        method: "POST",
+
+                        headers: {
+
+                            "Content-Type": "application/json",
+
+                            "RequestVerificationToken": token
+
+                        },
+
+                        body: JSON.stringify({
+
+                            workerName: workerName,
+
+                            serviceId: serviceIdValue,
+
+                            email: email,
+
+                            phone: phone
+
+                        })
+
+                    });
+
+
+
+                    const result = await response.json();
+
+                    if (result.success) {
+
+                        showAddWorkerMessage("success", result.message || "Worker created successfully.");
+
+                        setTimeout(function () {
+
+                            closeAddWorkerModal();
+
+                            window.location.reload();
+
+                        }, 800);
+
+                    } else {
+
+                        let errorMessage = result.message || "Failed to create worker.";
+
+                        if (result.errors) {
+
+                            const allErrors = Object.values(result.errors).flat();
+
+                            if (allErrors.length > 0) {
+
+                                errorMessage = allErrors.join(" ");
+
+                            }
+
+                        }
+
+                        showAddWorkerMessage("error", errorMessage);
+
+                    }
+
+                } catch (error) {
+
+                    showAddWorkerMessage("error", "An error occurred while creating the worker.");
+
+                }
+
+            }
+
+
+
+            if (openAddWorkerModalBtn) {
+
+                openAddWorkerModalBtn.addEventListener("click", openAddWorkerModal);
+
+            }
+
+            if (closeAddWorkerModalX) {
+
+                closeAddWorkerModalX.addEventListener("click", closeAddWorkerModal);
+
+            }
+
+            if (cancelAddWorkerModal) {
+
+                cancelAddWorkerModal.addEventListener("click", closeAddWorkerModal);
+
+            }
+
+            if (saveAddWorkerBtn) {
+
+                saveAddWorkerBtn.addEventListener("click", saveWorker);
+
+            }
+
+            if (openDeleteUserModalBtn) {
+
+                openDeleteUserModalBtn.addEventListener("click", openDeleteUserModal);
+
+            }
+
+            if (closeDeleteUserModalX) {
+
+                closeDeleteUserModalX.addEventListener("click", closeDeleteUserModal);
+
+            }
+
+            if (cancelDeleteUserModal) {
+
+                cancelDeleteUserModal.addEventListener("click", closeDeleteUserModal);
+
+            }
+
+            if (confirmDeleteUserBtn) {
+
+                confirmDeleteUserBtn.addEventListener("click", deleteUser);
+
+            }
+
+            if (addWorkerModalOverlay) {
+
+                addWorkerModalOverlay.addEventListener("click", function (event) {
+
+                    if (event.target === addWorkerModalOverlay) {
+
+                        closeAddWorkerModal();
+
+                    }
+
+                });
+
+            }
+
+            if (deleteUserModalOverlay) {
+
+                deleteUserModalOverlay.addEventListener("click", function (event) {
+
+                    if (event.target === deleteUserModalOverlay) {
+
+                        closeDeleteUserModal();
+
+                    }
+
+                });
+
+            }
+
+
+
+            document.addEventListener("keydown", function (event) {
+
+                if (event.key === "Escape" && addWorkerModalOverlay && addWorkerModalOverlay.style.display === "flex") {
+
+                    closeAddWorkerModal();
+
+                }
+
             });
 
-            // Helper functions
-            function getStatusBadgeClass(status) {
-                switch(status) {
-                    case 'Present': return 'success';
-                    case 'On Time': return 'success';
-                    case 'Late': return 'warning';
-                    case 'Leave': return 'danger';
-                    case 'Absent': return 'secondary';
-                    default: return 'info';
-                }
+        });
+
+
+
+        (function () {
+
+            const chartElement = document.getElementById("dateRangeOtTrendChart");
+
+            if (!chartElement) {
+
+                return;
+
             }
 
-            function getStateBadgeClass(state) {
-                switch(state) {
-                    case 'Completed': return 'bg-success';
-                    case 'Working': return 'bg-success';
-                    case 'Working OT': return 'bg-purple';
-                    case 'On Leave': return 'bg-danger';
-                    case 'Absent': return 'bg-secondary';
-                    default: return 'bg-secondary';
-                }
+
+
+            const labels = @Html.Raw(JsonSerializer.Serialize(Model.DateRangeChartData.Select(x => x.DateLabel).ToList()));
+
+            const values = @Html.Raw(JsonSerializer.Serialize(Model.DateRangeChartData.Select(x => x.OTHours).ToList()));
+
+
+
+            if (!labels.length || !values.length) {
+
+                return;
+
             }
 
-            function getStatusIcon(status) {
-                switch(status) {
-                    case 'Present': return '<i class="bi bi-check-circle"></i>';
-                    case 'Late': return '<i class="bi bi-clock"></i>';
-                    case 'Leave': return '<i class="bi bi-calendar-x"></i>';
-                    case 'Absent': return '<i class="bi bi-x-circle"></i>';
-                    default: return '<i class="bi bi-question-circle"></i>';
-                }
-            }
-            </text>
-        }
-    </script>
-}
 
-<!-- Attendance Details Modal -->
-<div id="attendanceModal" class="attendance-modal hidden">
-    <div class="attendance-modal-overlay" onclick="closeAttendanceModal()"></div>
-    <div class="attendance-modal-content">
-        <div class="attendance-modal-header">
-            <div class="attendance-modal-header-content">
-                <div class="attendance-modal-title-section">
-                    <h3 class="attendance-modal-title">Attendance Details</h3>
-                    <div class="attendance-modal-date" id="modalDate">Apr 7, 2026</div>
-                </div>
-                <button class="attendance-modal-close" onclick="closeAttendanceModal()">
-                    <i class="bi bi-x-lg"></i>
-                </button>
-            </div>
-        </div>
-        
-        <div class="attendance-modal-worker-summary" id="modalWorkerSummary">
-            <div class="worker-summary-item">
-                <div class="worker-summary-label">Worker</div>
-                <div class="worker-summary-value" id="modalWorkerName">-</div>
-            </div>
-            <div class="worker-summary-item">
-                <div class="worker-summary-label">Service ID</div>
-                <div class="worker-summary-value" id="modalWorkerServiceId">-</div>
-            </div>
-            <div class="worker-summary-item">
-                <div class="worker-summary-label">Section</div>
-                <div class="worker-summary-value" id="modalWorkerSection">-</div>
-            </div>
-        </div>
-        
-        <div class="attendance-modal-body" id="modalBody">
-            <!-- Content will be dynamically inserted here -->
-        </div>
-        
-        <div class="attendance-modal-footer">
-            <button type="button" class="btn btn-primary" onclick="closeAttendanceModal()">Close</button>
-        </div>
-    </div>
-</div>
 
-<!-- Add Employee Modal -->
-<div class="modal fade" id="addEmployeeModal" tabindex="-1" aria-labelledby="addEmployeeModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="addEmployeeModalLabel">
-                    <i class="bi bi-person-plus me-2"></i>Add New Employee
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form asp-controller="User" asp-action="CreateEmployee" method="post">
-                    @Html.AntiForgeryToken()
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label asp-for="FirstName" class="form-label">First Name</label>
-                            <input asp-for="FirstName" class="form-control" required>
-                            <span asp-validation-for="FirstName" class="text-danger"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="LastName" class="form-label">Last Name</label>
-                            <input asp-for="LastName" class="form-control" required>
-                            <span asp-validation-for="LastName" class="text-danger"></span>
-                        </div>
-                    </div>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label asp-for="Email" class="form-label">Email</label>
-                            <input asp-for="Email" class="form-control" type="email" required>
-                            <span asp-validation-for="Email" class="text-danger"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="Phone" class="form-label">Phone</label>
-                            <input asp-for="Phone" class="form-control" type="tel">
-                            <span asp-validation-for="Phone" class="text-danger"></span>
-                        </div>
-                    </div>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label asp-for="Address" class="form-label">Address</label>
-                            <textarea asp-for="Address" class="form-control" rows="3"></textarea>
-                            <span asp-validation-for="Address" class="text-danger"></span>
-                        </div>
-                    </div>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label asp-for="Password" class="form-label">Password</label>
-                            <input asp-for="Password" class="form-control" type="password" required>
-                            <span asp-validation-for="Password" class="text-danger"></span>
-                        </div>
-                        <div class="col-md-6">
-                            <label asp-for="ConfirmPassword" class="form-label">Confirm Password</label>
-                            <input asp-for="ConfirmPassword" class="form-control" type="password" required>
-                            <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
-                        </div>
-                    </div>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label asp-for="SectionId" class="form-label">Section</label>
-                            <select asp-for="SectionId" class="form-control">
-                                <option value="">Select Section</option>
-                                @if (ViewBag.Sections != null)
-                                {
-                                    @foreach (var sec in ViewBag.Sections)
-                                    {
-                                        <option value="@sec.Id">@sec.Name</option>
-                                    }
+            new Chart(chartElement, {
+
+                type: "line",
+
+                data: {
+
+                    labels,
+
+                    datasets: [
+
+                        {
+
+                            label: "OT Hours",
+
+                            data: values,
+
+                            borderColor: "#7c3aed",
+
+                            backgroundColor: "rgba(124, 58, 237, 0.10)",
+
+                            pointBackgroundColor: "#7c3aed",
+
+                            pointBorderColor: "#ffffff",
+
+                            pointBorderWidth: 1.5,
+
+                            pointRadius: 3,
+
+                            pointHoverRadius: 4,
+
+                            borderWidth: 2,
+
+                            tension: 0.32,
+
+                            fill: true
+
+                        }
+
+                    ]
+
+                },
+
+                options: {
+
+                    responsive: true,
+
+                    maintainAspectRatio: false,
+
+                    plugins: {
+
+                        legend: {
+
+                            display: false
+
+                        },
+
+                        tooltip: {
+
+                            callbacks: {
+
+                                label(context) {
+
+                                    return `OT Hours: ${context.parsed.y}h`;
+
                                 }
-                            </select>
-                            <span asp-validation-for="SectionId" class="text-danger"></span>
-                        </div>
-                    </div>
-                    <div class="row g-3">
-                        <div class="col-12">
-                            <button type="submit" class="btn btn-primary w-100">
-                                <i class="bi bi-person-check me-2"></i>Add Employee
-                            </button>
-                        </div>
-                    </div>
-                </form>
+
+                            }
+
+                        }
+
+                    },
+
+                    scales: {
+
+                        x: {
+
+                            grid: {
+
+                                color: "rgba(148, 163, 184, 0.15)"
+
+                            },
+
+                            ticks: {
+
+                                color: "#5f6f87",
+
+                                maxRotation: 0,
+
+                                autoSkipPadding: 14
+
+                            }
+
+                        },
+
+                        y: {
+
+                            beginAtZero: true,
+
+                            grid: {
+
+                                color: "rgba(148, 163, 184, 0.22)"
+
+                            },
+
+                            ticks: {
+
+                                color: "#5f6f87",
+
+                                callback(value) {
+
+                                    return `${value}h`;
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+            });
+
+        })();
+
+    </script>
+
+<!-- Change Password Modal -->
+
+<div id="adminChangePasswordModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:3000;align-items:center;justify-content:center;padding:16px;">
+
+    <div style="width:min(460px,100%);border-radius:16px;background:#fff;box-shadow:0 24px 48px rgba(15,23,42,0.25);overflow:hidden;">
+
+        <div style="background:linear-gradient(135deg,#6c5ce7,#a855f7);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
+
+            <div style="display:flex;align-items:center;gap:12px;">
+
+                <div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:6px 10px;">
+
+                    <i class="bi bi-shield-lock-fill" style="color:#fff;"></i>
+
+                </div>
+
+                <div>
+
+                    <h5 style="color:#fff;margin:0;font-weight:700;">Change Password</h5>
+
+                    <p style="color:rgba(255,255,255,0.8);margin:0;font-size:12px;">Update your account password</p>
+
+                </div>
+
             </div>
+
+            <button onclick="document.getElementById('adminChangePasswordModal').style.display='none';document.body.style.overflow='';" style="background:transparent;border:none;color:#fff;font-size:1.3rem;cursor:pointer;">&times;</button>
+
         </div>
+
+        <div style="padding:24px;">
+
+            <div id="adminCpError" style="display:none;background:#fee2e2;border:1px solid #fca5a5;color:#991b1b;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:0.85rem;"></div>
+
+            <div id="adminCpSuccess" style="display:none;background:#dcfce7;border:1px solid #86efac;color:#166534;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:0.85rem;"></div>
+
+            <div style="margin-bottom:14px;">
+
+                <label style="font-weight:600;font-size:0.88rem;display:block;margin-bottom:6px;">Current Password</label>
+
+                <div class="input-group">
+
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+
+                    <input type="password" id="adminCpCurrent" class="form-control" placeholder="Enter current password" />
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom:14px;">
+
+                <label style="font-weight:600;font-size:0.88rem;display:block;margin-bottom:6px;">New Password</label>
+
+                <div class="input-group">
+
+                    <span class="input-group-text"><i class="bi bi-key"></i></span>
+
+                    <input type="password" id="adminCpNew" class="form-control" placeholder="Enter new password (min 6 chars)" />
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom:6px;">
+
+                <label style="font-weight:600;font-size:0.88rem;display:block;margin-bottom:6px;">Confirm New Password</label>
+
+                <div class="input-group">
+
+                    <span class="input-group-text"><i class="bi bi-key-fill"></i></span>
+
+                    <input type="password" id="adminCpConfirm" class="form-control" placeholder="Confirm new password" />
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div style="padding:14px 24px;border-top:1px solid #f0f0f0;display:flex;justify-content:flex-end;gap:10px;">
+
+            <button onclick="document.getElementById('adminChangePasswordModal').style.display='none';document.body.style.overflow='';" class="btn btn-light">Cancel</button>
+
+            <button onclick="adminSubmitChangePassword()" class="btn text-white" style="background:linear-gradient(135deg,#6c5ce7,#a855f7);"><i class="bi bi-check2-circle me-1"></i> Update Password</button>
+
+        </div>
+
     </div>
+
 </div>
 
-<style>
-    .bg-purple {
-        background-color: #6f42c1 !important;
-    }
-    .text-purple {
-        color: #6f42c1 !important;
-    }
-    .bg-purple.bg-opacity-10 {
-        background-color: rgba(111, 66, 193, 0.1) !important;
-    }
-
-    /* Date Filter Styles */
-    .attendance-detail-item {
-        padding: 0.75rem;
-        background: #f8f9fa;
-        border-radius: 8px;
-        border: 1px solid #e9ecef;
-    }
-
-    .attendance-status-badge {
-        display: inline-block;
-        padding: 0.5rem 1rem;
-        border-radius: 25px;
-        font-weight: 600;
-        font-size: 1rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .attendance-metric {
-        text-align: center;
-        padding: 1rem;
-        background: #fff;
-        border-radius: 12px;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
-    }
-
-    .attendance-metric:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-
-    .metric-label {
-        font-size: 0.875rem;
-        color: #6c757d;
-        font-weight: 500;
-        margin-bottom: 0.5rem;
-    }
-
-    .metric-value {
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: #2c3e50;
-    }
-
-    .metric-value.text-purple {
-        color: #6f42c1 !important;
-    }
-
-    .metric-value.text-warning {
-        color: #ffc107 !important;
-    }
-
-    .metric-value.text-muted {
-        color: #6c757d !important;
-    }
-
-    /* Date filter button loading state */
-    #applyDateFilter:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
-    }
-
-    /* Responsive adjustments */
-    @@media (max-width: 768px) {
-        .attendance-metric {
-            margin-bottom: 1rem;
-        }
-        
-        .metric-value {
-            font-size: 1.1rem;
-        }
-    }
-
-    /* Attendance Details Modal */
-    .attendance-modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 9999;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        opacity: 0;
-        visibility: hidden;
-        transition: all 0.3s ease;
-    }
-
-    .attendance-modal.show {
-        opacity: 1;
-        visibility: visible;
-    }
-
-    .attendance-modal.hidden {
-        opacity: 0;
-        visibility: hidden;
-    }
-
-    .attendance-modal-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.6);
-        backdrop-filter: blur(8px);
-    }
-
-    .attendance-modal-content {
-        position: relative;
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-        max-width: 600px;
-        width: 95%;
-        max-height: 90vh;
-        overflow: hidden;
-        transform: scale(0.9) translateY(20px);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .attendance-modal.show .attendance-modal-content {
-        transform: scale(1) translateY(0);
-    }
-
-    .attendance-modal-header {
-        padding: 0;
-        border-bottom: 1px solid #f1f5f9;
-    }
-
-    .attendance-modal-header-content {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        padding: 24px 24px 20px 24px;
-    }
-
-    .attendance-modal-title-section {
-        flex: 1;
-    }
-
-    .attendance-modal-title {
-        margin: 0 0 4px 0;
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #1e293b;
-        line-height: 1.2;
-    }
-
-    .attendance-modal-date {
-        font-size: 0.875rem;
-        color: #64748b;
-        font-weight: 500;
-    }
-
-    .attendance-modal-close {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        font-size: 1rem;
-        color: #64748b;
-        cursor: pointer;
-        padding: 8px;
-        border-radius: 8px;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 36px;
-        height: 36px;
-    }
-
-    .attendance-modal-close:hover {
-        background: #f1f5f9;
-        color: #475569;
-        border-color: #cbd5e1;
-        transform: scale(1.05);
-    }
-
-    .attendance-modal-worker-summary {
-        padding: 20px 24px;
-        background: #f8fafc;
-        border-bottom: 1px solid #f1f5f9;
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
-    }
-
-    .worker-summary-item {
-        text-align: center;
-    }
-
-    .worker-summary-label {
-        font-size: 0.75rem;
-        color: #64748b;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 4px;
-    }
-
-    .worker-summary-value {
-        font-size: 0.875rem;
-        color: #1e293b;
-        font-weight: 600;
-    }
-
-    .attendance-modal-body {
-        padding: 24px;
-        max-height: 60vh;
-        overflow-y: auto;
-    }
-
-    .attendance-modal-footer {
-        padding: 20px 24px;
-        border-top: 1px solid #f1f5f9;
-        background: #fafbfc;
-        display: flex;
-        justify-content: flex-end;
-        gap: 12px;
-    }
-
-    .attendance-details-grid {
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-    }
-
-    .detail-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-    }
-
-    .detail-item {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-
-    .detail-label {
-        font-size: 0.875rem;
-        color: #64748b;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.025em;
-    }
-
-    .detail-value {
-        font-size: 1rem;
-        color: #1e293b;
-        font-weight: 600;
-        line-height: 1.4;
-    }
-
-    /* Status and State Badges */
-    .status-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        padding: 6px 12px;
-        border-radius: 999px;
-        font-size: 12px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        border: none;
-    }
-
-    .status-badge.success {
-        background: #D1FAE5;
-        color: #065F46;
-    }
-
-    .status-badge.warning {
-        background: #FEF3C7;
-        color: #92400E;
-    }
-
-    .status-badge.danger {
-        background: #FEE2E2;
-        color: #991B1B;
-    }
-
-    .status-badge.secondary {
-        background: #FECACA;
-        color: #7F1D1D;
-    }
-
-    .status-badge.info {
-        background: #DBEAFE;
-        color: #1E3A8A;
-    }
-
-    .state-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 6px 12px;
-        border-radius: 999px;
-        font-size: 12px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        border: none;
-    }
-
-    .state-badge.bg-success {
-        background: #D1FAE5;
-        color: #065F46;
-    }
-
-    .state-badge.bg-purple {
-        background: #7C3AED;
-        color: #FFFFFF;
-    }
-
-    .state-badge.bg-danger {
-        background: #FEE2E2;
-        color: #991B1B;
-    }
-
-    .state-badge.bg-secondary {
-        background: #FECACA;
-        color: #7F1D1D;
-    }
-
-    .state-badge.bg-info {
-        background: #DBEAFE;
-        color: #1E3A8A;
-    }
-
-    /* Current State Label Styling */
-    .current-state-label {
-        font-size: 12px;
-        color: #6B7280;
-        margin-bottom: 4px;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.025em;
-    }
-
-    .current-state-container {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    /* OT Counter Styling */
-    .ot-counter-content {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        padding: 8px 0;
-    }
-
-    .ot-counter-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 4px 0;
-    }
-
-    .ot-counter-label {
-        font-size: 0.875rem;
-        color: #6B7280;
-        font-weight: 500;
-    }
-
-    .ot-counter-value {
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: #1e293b;
-    }
-
-    .ot-counter-value.text-purple {
-        color: #7c3aed !important;
-    }
-
-    /* Worker Details Grid Layout */
-    .worker-details-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        align-items: start;
-    }
-
-    .worker-side-column {
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-    }
-
-    .worker-info-card,
-    .section-status-card,
-    .ot-counter-card {
-        background: #f8fafc;
-        border: 1px solid #e5e7eb;
-        border-radius: 14px;
-        overflow: hidden;
-    }
-
-    .worker-info-card .card-header,
-    .section-status-card .card-header,
-    .ot-counter-card .card-header {
-        background: #ffffff;
-        border-bottom: 1px solid #e5e7eb;
-        padding: 16px 20px;
-    }
-
-    .worker-info-card .card-title,
-    .section-status-card .card-title,
-    .ot-counter-card .card-title {
-        margin: 0;
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: #374151;
-        display: flex;
-        align-items: center;
-    }
-
-    .worker-info-card .card-body,
-    .section-status-card .card-body,
-    .ot-counter-card .card-body {
-        padding: 20px;
-    }
-
-    .profile-item {
-        margin-bottom: 16px;
-    }
-
-    .profile-item:last-child {
-        margin-bottom: 0;
-    }
-
-    .profile-label {
-        display: block;
-        font-size: 0.75rem;
-        color: #6b7280;
-        font-weight: 500;
-        margin-bottom: 4px;
-        text-transform: uppercase;
-        letter-spacing: 0.025em;
-    }
-
-    .profile-value {
-        font-size: 0.9rem;
-        color: #1f2937;
-        font-weight: 600;
-        line-height: 1.4;
-    }
-
-    /* OT Stats Grid */
-    .ot-stats-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 16px;
-    }
-
-    .ot-stat-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 16px;
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-    }
-
-    .ot-stat-label {
-        font-size: 0.8rem;
-        color: #6b7280;
-        font-weight: 500;
-    }
-
-    .ot-stat-value {
-        font-size: 0.9rem;
-        font-weight: 700;
-        color: #1f2937;
-    }
-
-    .ot-stat-value.text-purple {
-        color: #7c3aed !important;
-    }
-
-    .ot-stat-value.text-dark {
-        color: #1f2937 !important;
-    }
-
-    /* Responsive adjustments for Worker Details */
-    @@media (max-width: 768px) {
-        .worker-details-grid {
-            grid-template-columns: 1fr;
-            gap: 16px;
+
+
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
+
+<script>
+
+    function adminSubmitChangePassword() {
+
+        const current = document.getElementById('adminCpCurrent').value;
+
+        const newPwd = document.getElementById('adminCpNew').value;
+
+        const confirm = document.getElementById('adminCpConfirm').value;
+
+        const errorEl = document.getElementById('adminCpError');
+
+        const successEl = document.getElementById('adminCpSuccess');
+
+
+
+        errorEl.style.display = 'none';
+
+        successEl.style.display = 'none';
+
+
+
+        if (!current || !newPwd || !confirm) {
+
+            errorEl.textContent = 'All fields are required.';
+
+            errorEl.style.display = 'block';
+
+            return;
+
         }
 
-        .worker-side-column {
-            gap: 16px;
+        if (newPwd.length < 6) {
+
+            errorEl.textContent = 'New password must be at least 6 characters.';
+
+            errorEl.style.display = 'block';
+
+            return;
+
         }
 
-        .worker-info-card .card-header,
-        .section-status-card .card-header,
-        .ot-counter-card .card-header {
-            padding: 12px 16px;
+        if (newPwd !== confirm) {
+
+            errorEl.textContent = 'Passwords do not match.';
+
+            errorEl.style.display = 'block';
+
+            return;
+
         }
 
-        .worker-info-card .card-body,
-        .section-status-card .card-body,
-        .ot-counter-card .card-body {
-            padding: 16px;
-        }
 
-        .profile-item {
-            margin-bottom: 12px;
-        }
 
-        .ot-stat-item {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 4px;
-            padding: 8px 12px;
-        }
+        const formData = new FormData();
 
-        .ot-stat-label {
-            font-size: 0.75rem;
-        }
+        formData.append('currentPassword', current);
 
-        .ot-stat-value {
-            font-size: 0.85rem;
-        }
+        formData.append('newPassword', newPwd);
+
+        formData.append('confirmPassword', confirm);
+
+
+
+        fetch('/Account/ChangePassword', { method: 'POST', body: formData })
+
+            .then(r => r.json())
+
+            .then(result => {
+
+                if (result.success) {
+
+                    successEl.textContent = result.message;
+
+                    successEl.style.display = 'block';
+
+                    document.getElementById('adminCpCurrent').value = '';
+
+                    document.getElementById('adminCpNew').value = '';
+
+                    document.getElementById('adminCpConfirm').value = '';
+
+                    setTimeout(() => {
+
+                        document.getElementById('adminChangePasswordModal').style.display = 'none';
+
+                        document.body.style.overflow = '';
+
+                    }, 1500);
+
+                } else {
+
+                    errorEl.textContent = result.message;
+
+                    errorEl.style.display = 'block';
+
+                }
+
+            })
+
+            .catch(() => {
+
+                errorEl.textContent = 'An error occurred. Please try again.';
+
+                errorEl.style.display = 'block';
+
+            });
+
     }
 
-    /* Legacy OT Counter styles - kept for backward compatibility */
-    .ot-counter-content {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        padding: 8px 0;
-    }
+</script>
 
-    .ot-counter-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 4px 0;
-    }
+</body>
 
-    .ot-counter-label {
-        font-size: 0.875rem;
-        color: #6B7280;
-        font-weight: 500;
-    }
+</html>
 
-    .ot-counter-value {
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: #1e293b;
-    }
-
-    .ot-counter-value.text-purple {
-        color: #7c3aed !important;
-    }
-
-    /* Empty State */
-    .attendance-empty-state {
-        text-align: center;
-        padding: 48px 24px;
-    }
-
-    .empty-state-icon {
-        font-size: 3rem;
-        color: #cbd5e1;
-        margin-bottom: 16px;
-    }
-
-    .empty-state-title {
-        font-size: 1.125rem;
-        font-weight: 700;
-        color: #1e293b;
-        margin-bottom: 8px;
-    }
-
-    .empty-state-description {
-        color: #64748b;
-        font-size: 0.875rem;
-        line-height: 1.5;
-    }
-
-    /* Color utilities */
-    .text-purple {
-        color: #7c3aed !important;
-    }
-
-    .text-info {
-        color: #0ea5e9 !important;
-    }
-
-    .text-warning {
-        color: #f59e0b !important;
-    }
-
-    .text-muted {
-        color: #64748b !important;
-    }
-
-    /* Button styles */
-    .btn-primary {
-        background: #3b82f6;
-        color: white;
-        border: 1px solid #3b82f6;
-        padding: 8px 20px;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 0.875rem;
-        transition: all 0.2s ease;
-        cursor: pointer;
-    }
-
-    .btn-primary:hover {
-        background: #2563eb;
-        border-color: #2563eb;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-    }
-
-    .btn-secondary {
-        background: #f8fafc;
-        color: #475569;
-        border: 1px solid #e2e8f0;
-        padding: 8px 20px;
-        border-radius: 8px;
-        font-weight: 600;
-        font-size: 0.875rem;
-        transition: all 0.2s ease;
-        cursor: pointer;
-    }
-
-    .btn-secondary:hover {
-        background: #f1f5f9;
-        border-color: #cbd5e1;
-        transform: translateY(-1px);
-    }
-
-    /* Responsive adjustments */
-    @@media (max-width: 640px) {
-        .attendance-modal-content {
-            width: 98%;
-            margin: 20px;
-        }
-
-        .attendance-modal-worker-summary {
-            grid-template-columns: 1fr;
-            gap: 16px;
-        }
-
-        .detail-row {
-            grid-template-columns: 1fr;
-            gap: 16px;
-        }
-
-        .attendance-modal-header-content {
-            padding: 20px;
-        }
-
-        .attendance-modal-worker-summary {
-            padding: 16px 20px;
-        }
-
-        .attendance-modal-body {
-            padding: 20px;
-        }
-
-        .attendance-modal-footer {
-            padding: 16px 20px;
-        }
-    }
-
-    /* Modal Content Styles */
-    .attendance-detail-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 20px;
-        margin-bottom: 20px;
-    }
-
-    .attendance-detail-item {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .attendance-detail-label {
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: #6b7280;
-    }
-
-    .attendance-detail-value {
-        font-size: 1rem;
-        font-weight: 600;
-        color: #1f2937;
-    }
-
-    .attendance-status-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 0.875rem;
-        font-weight: 500;
-    }
-
-    .attendance-status-badge.success {
-        background: #dcfce7;
-        color: #166534;
-    }
-
-    .attendance-status-badge.warning {
-        background: #fef3c7;
-        color: #92400e;
-    }
-
-    .attendance-status-badge.danger {
-        background: #fee2e2;
-        color: #991b1b;
-    }
-
-    .attendance-status-badge.secondary {
-        background: #f3f4f6;
-        color: #4b5563;
-    }
-
-    .attendance-current-state {
-        display: inline-block;
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-size: 0.75rem;
-        font-weight: 500;
-        text-transform: uppercase;
-    }
-
-    .attendance-current-state.bg-success {
-        background: #dcfce7;
-        color: #166534;
-    }
-
-    .attendance-current-state.bg-purple {
-        background: #f3e8ff;
-        color: #7c3aed;
-    }
-
-    .attendance-current-state.bg-danger {
-        background: #fee2e2;
-        color: #991b1b;
-    }
-
-    .attendance-current-state.bg-secondary {
-        background: #f3f4f6;
-        color: #4b5563;
-    }
-
-    .attendance-empty-state {
-        text-align: center;
-        padding: 40px 20px;
-    }
-
-    .attendance-empty-state-icon {
-        font-size: 3rem;
-        color: #d1d5db;
-        margin-bottom: 16px;
-    }
-
-    .attendance-empty-state-title {
-        font-size: 1.125rem;
-        font-weight: 600;
-        color: #374151;
-        margin-bottom: 8px;
-    }
-
-    .attendance-empty-state-description {
-        color: #6b7280;
-        font-size: 0.875rem;
-    }
-</style>

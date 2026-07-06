@@ -1,0 +1,429 @@
+@model DashboardViewModel
+@using System.Text.Json
+@{
+    ViewData["Title"] = "Dashboard";
+    var worker = Model.WorkerOtDashboard;
+    var trendLabels = worker?.TrendPoints.Select(x => x.DateLabel).ToList() ?? new List<string>();
+    var trendValues = worker?.TrendPoints.Select(x => x.OtHours).ToList() ?? new List<decimal>();
+    var workerName = worker?.FullName ?? "Worker";
+    var rangeDisplayCompact = worker == null ? "-" : $"{worker.MonthStartDate:dd/MM/yyyy} to {worker.SearchDate:dd/MM/yyyy}";
+    var monthHours = worker == null ? "0" : Math.Round(worker.TotalOtMinutes / 60m, 2).ToString("0.##");
+}
+
+<section class="dashboard-shell worker-dashboard-shell">
+    <div class="worker-hero-banner">
+        <div class="worker-hero-text">
+            <h1>Hi @workerName &#128075;</h1>
+            <h3>Here's your OT overview</h3>
+            <p>Track your overtime from the start of the selected month up to the searched date.</p>
+        </div>
+
+        <div class="worker-hero-art" aria-hidden="true">
+            <div class="hero-glow hero-glow-1"></div>
+            <div class="hero-glow hero-glow-2"></div>
+            <div class="hero-wave"></div>
+
+            <div class="hero-clock">
+                <span class="clock-hand hour-hand"></span>
+                <span class="clock-hand minute-hand"></span>
+                <span class="clock-center"></span>
+            </div>
+
+            <div class="hero-calendar">
+                <div class="calendar-rings">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+                <div class="calendar-grid">
+                    <span></span><span></span><span></span>
+                    <span></span><span></span><span></span>
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+
+            <div class="hero-plant">
+                <span></span>
+            </div>
+        </div>
+    </div>
+
+    <form method="get" asp-action="Index" class="dashboard-date-filter worker-dashboard-filter mb-4 worker-filter-row">
+        <div class="worker-filter-main">
+            <div class="worker-filter-input-wrap">
+                <label for="selectedDate" class="form-label mb-0 fw-semibold">View OT Dashboard Date:</label>
+                <input type="date"
+                       id="selectedDate"
+                       name="selectedDate"
+                       class="form-control"
+                       value="@Model.SelectedDate.ToString("yyyy-MM-dd")"
+                       onchange="this.form.submit()" />
+            </div>
+            <p class="worker-filter-range-text">Showing records from @rangeDisplayCompact</p>
+        </div>
+    </form>
+
+    @if (worker == null)
+    {
+        <article class="panel-card">
+            <div class="panel-body">
+                <p class="text-muted mb-0">No worker OT details available for this date.</p>
+            </div>
+        </article>
+    }
+    else
+    {
+        <div class="worker-top-grid">
+            <article class="ot-hours-card worker-trend-card">
+                <div class="ot-card-content">
+                    <div class="ot-card-left">
+                        <div class="ot-icon-badge">
+                            <i class="bi bi-graph-up-arrow"></i>
+                        </div>
+                        <div class="ot-mini-stat">
+                            <div class="ot-mini-label">THIS MONTH OT</div>
+                            <div class="ot-mini-value">@monthHours hrs</div>
+                        </div>
+                    </div>
+                    <div class="ot-card-right">
+                        <div class="ot-card-header">
+                            <h2 class="ot-card-title">OT Hours Trend</h2>
+                            <p class="ot-card-subtitle">Daily trend of overtime hours</p>
+                        </div>
+                        <div class="ot-card-body">
+                            <div class="ot-chart-container">
+                                <canvas id="workerOtHoursChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+
+            <article class="panel-card worker-details-card">
+                <header class="panel-header">
+                    <div>
+                        <h2>My OT Details</h2>
+                        <p class="panel-subtitle">Details for selected date and cumulative month summary</p>
+                    </div>
+                    <a asp-action="DownloadWorkerRecentOtPdf"
+                       asp-route-selectedDate="@Model.SelectedDate.ToString("yyyy-MM-dd")"
+                       class="btn btn-brand worker-pdf-btn">
+                        <i class="bi bi-file-earmark-pdf"></i> Download PDF
+                    </a>
+                </header>
+                <div class="panel-body">
+                    <div class="worker-profile-block">
+                        <div class="worker-avatar">@worker.Initials</div>
+                        <div>
+                            <h3 class="worker-name">@worker.FullName</h3>
+                            <p class="worker-email">@worker.Email</p>
+                            <div class="worker-badge-row">
+                                <span class="badge-soft badge-soft-neutral">@worker.SectionName</span>
+                                <span class="badge-soft badge-soft-success">@worker.ServiceId</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="worker-date-details-grid">
+                        <div class="worker-detail-item">
+                            <p>OT In Time</p>
+                            <h4>@worker.SearchedDateOtInTime</h4>
+                        </div>
+                        <div class="worker-detail-item">
+                            <p>OT Out Time</p>
+                            <h4>@worker.SearchedDateOtOutTime</h4>
+                        </div>
+                        <div class="worker-detail-item">
+                            <p>Total OT Duration</p>
+                            <h4>@worker.SearchedDateOtDuration</h4>
+                        </div>
+                        <div class="worker-detail-item">
+                            <p>Search Date</p>
+                            <h4>@worker.SearchDate.ToString("dd MMM yyyy")</h4>
+                        </div>
+                    </div>
+
+                    <div class="worker-cumulative-wrap">
+                        <h3>Cumulative OT Summary (@worker.MonthStartDate.ToString("dd MMM yyyy") - @worker.SearchDate.ToString("dd MMM yyyy"))</h3>
+                        <div class="worker-cumulative-grid">
+                            <div class="worker-cumulative-item">
+                                <p>Month Start</p>
+                                <h4>@worker.MonthStartDate.ToString("dd MMM yyyy")</h4>
+                            </div>
+                            <div class="worker-cumulative-item">
+                                <p>Search Date</p>
+                                <h4>@worker.SearchDate.ToString("dd MMM yyyy")</h4>
+                            </div>
+                            <div class="worker-cumulative-item">
+                                <p>Total OT Hours</p>
+                                <h4>@Math.Round(worker.TotalOtMinutes / 60m, 2).ToString("0.##")h</h4>
+                            </div>
+                            <div class="worker-cumulative-item">
+                                <p>OT Days</p>
+                                <h4>@worker.OtDays</h4>
+                            </div>
+                            <div class="worker-cumulative-item">
+                                <p>Average OT / Day</p>
+                                <h4>@worker.AverageOtHoursPerDay.ToString("0.##")h</h4>
+                            </div>
+                        </div>
+                        <p class="worker-cumulative-note">Totals are calculated from the start of the month up to the searched date.</p>
+                    </div>
+                </div>
+            </article>
+        </div>
+
+        <article class="panel-card worker-recent-card">
+            <header class="panel-header worker-recent-header">
+                <div>
+                    <h2><i class="bi bi-clock-history me-2"></i>Recent OT Records</h2>
+                    <p class="panel-subtitle">Your OT records from the start of the month to the selected date</p>
+                </div>
+                <a asp-action="DownloadWorkerRecentOtPdf"
+                   asp-route-selectedDate="@Model.SelectedDate.ToString("yyyy-MM-dd")"
+                   class="btn btn-brand worker-pdf-btn">
+                    <i class="bi bi-file-earmark-pdf"></i> Download PDF
+                </a>
+            </header>
+            <div class="panel-body">
+                <form method="get" asp-action="Index" asp-controller="Dashboard" class="worker-recent-filters recent-date-filter-form">
+                    <span class="panel-meta worker-date-pill">From Date: @worker.MonthStartDate.ToString("dd/MM/yyyy")</span>
+                    <span class="panel-meta worker-date-pill">To Date: @worker.SearchDate.ToString("dd/MM/yyyy")</span>
+                    <label class="panel-meta worker-date-pill worker-date-pill-input">
+                        <span>Search Date:</span>
+                        <i class="bi bi-calendar3"></i>
+                        <input type="date"
+                               name="selectedDate"
+                               value="@Model.SelectedDate.ToString("yyyy-MM-dd")"
+                               max="@DateTime.Today.ToString("yyyy-MM-dd")"
+                               onchange="this.form.submit()" />
+                    </label>
+                </form>
+
+                <div class="table-responsive">
+                    <table class="table table-modern mb-0">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>OT In Time</th>
+                                <th>OT Out Time</th>
+                                <th>OT Duration</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (worker.RecentOtRecords.Any())
+                            {
+                                @foreach (var row in worker.RecentOtRecords)
+                                {
+                                    <tr>
+                                        <td class="fw-semibold">@row.Date.ToString("dd MMM yyyy")</td>
+                                        <td>@row.OtInTime</td>
+                                        <td>@row.OtOutTime</td>
+                                        <td>@row.OtDuration</td>
+                                    </tr>
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted py-4">No OT records found for this range.</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="worker-recent-footer">
+                    <div class="worker-recent-total">Total Records: <strong>@worker.TotalRecords</strong></div>
+                    <div class="worker-recent-total">Total OT Duration: <strong>@worker.TotalOtDurationDisplay</strong></div>
+                </div>
+            </div>
+        </article>
+    }
+</section>
+
+@section Scripts {
+    <!-- Change Password Modal -->
+    <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-labelledby="changePasswordModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius:16px;border:none;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+                <div class="modal-header" style="background:linear-gradient(135deg,#6c5ce7,#a855f7);border-radius:16px 16px 0 0;border:none;">
+                    <div class="d-flex align-items-center gap-2">
+                        <div style="background:rgba(255,255,255,0.2);border-radius:8px;padding:6px 10px;">
+                            <i class="bi bi-shield-lock-fill text-white"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title text-white mb-0" id="changePasswordModalLabel">Change Password</h5>
+                            <p class="text-white mb-0" style="font-size:12px;opacity:0.8;">Update your account password</p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="cpError" class="alert alert-danger d-none"></div>
+                    <div id="cpSuccess" class="alert alert-success d-none"></div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Current Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                            <input type="password" id="cpCurrent" class="form-control" placeholder="Enter current password" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">New Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-key"></i></span>
+                            <input type="password" id="cpNew" class="form-control" placeholder="Enter new password" />
+                        </div>
+                        <div class="form-text">Minimum 6 characters.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Confirm New Password</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-key-fill"></i></span>
+                            <input type="password" id="cpConfirm" class="form-control" placeholder="Confirm new password" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top:1px solid #f0f0f0;">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn text-white" style="background:linear-gradient(135deg,#6c5ce7,#a855f7);" onclick="submitChangePassword()">
+                        <i class="bi bi-check2-circle me-1"></i> Update Password
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script>
+        const workerTrendLabels = @Html.Raw(JsonSerializer.Serialize(trendLabels));
+        const workerTrendValues = @Html.Raw(JsonSerializer.Serialize(trendValues));
+        const workerChartElement = document.getElementById("workerOtHoursChart");
+
+        if (workerChartElement) {
+            new Chart(workerChartElement, {
+                type: "line",
+                data: {
+                    labels: workerTrendLabels,
+                    datasets: [
+                        {
+                            label: "OT Hours",
+                            data: workerTrendValues,
+                            borderColor: "#8b5cf6",
+                            backgroundColor: "rgba(139, 92, 246, 0.12)",
+                            pointBackgroundColor: "#8b5cf6",
+                            pointBorderColor: "#ffffff",
+                            pointBorderWidth: 2,
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            fill: true,
+                            tension: 0.35
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: "index",
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: "#10233f",
+                            callbacks: {
+                                label: function (context) {
+                                    return `OT Hours: ${Number(context.parsed.y).toFixed(2)}h`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: "#5f6f87", maxRotation: 0, autoSkipPadding: 18 },
+                            grid: { display: false }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: "#5f6f87",
+                                callback: function(value) {
+                                    return Number(value).toFixed(1) + "h";
+                                }
+                            },
+                            grid: { color: "rgba(95, 122, 160, 0.18)" }
+                        }
+                    }
+                }
+            });
+        }
+
+        function submitChangePassword() {
+            const current = document.getElementById('cpCurrent').value;
+            const newPwd = document.getElementById('cpNew').value;
+            const confirm = document.getElementById('cpConfirm').value;
+            const errorEl = document.getElementById('cpError');
+            const successEl = document.getElementById('cpSuccess');
+
+            errorEl.classList.add('d-none');
+            successEl.classList.add('d-none');
+
+            if (!current || !newPwd || !confirm) {
+                errorEl.textContent = 'All fields are required.';
+                errorEl.classList.remove('d-none');
+                return;
+            }
+            if (newPwd.length < 6) {
+                errorEl.textContent = 'New password must be at least 6 characters.';
+                errorEl.classList.remove('d-none');
+                return;
+            }
+            if (newPwd !== confirm) {
+                errorEl.textContent = 'Passwords do not match.';
+                errorEl.classList.remove('d-none');
+                return;
+            }
+
+            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+            const formData = new FormData();
+            formData.append('currentPassword', current);
+            formData.append('newPassword', newPwd);
+            formData.append('confirmPassword', confirm);
+            if (token) formData.append('__RequestVerificationToken', token);
+
+            fetch('/Account/ChangePassword', { method: 'POST', body: formData })
+                .then(r => r.json())
+                .then(result => {
+                    if (result.success) {
+                        successEl.textContent = result.message;
+                        successEl.classList.remove('d-none');
+                        document.getElementById('cpCurrent').value = '';
+                        document.getElementById('cpNew').value = '';
+                        document.getElementById('cpConfirm').value = '';
+                        setTimeout(() => {
+                            bootstrap.Modal.getInstance(document.getElementById('changePasswordModal')).hide();
+                        }, 1500);
+                    } else {
+                        errorEl.textContent = result.message;
+                        errorEl.classList.remove('d-none');
+                    }
+                })
+                .catch(() => {
+                    errorEl.textContent = 'An error occurred. Please try again.';
+                    errorEl.classList.remove('d-none');
+                });
+        }
+
+        document.getElementById('changePasswordModal').addEventListener('hidden.bs.modal', function () {
+            document.getElementById('cpCurrent').value = '';
+            document.getElementById('cpNew').value = '';
+            document.getElementById('cpConfirm').value = '';
+            document.getElementById('cpError').classList.add('d-none');
+            document.getElementById('cpSuccess').classList.add('d-none');
+        });
+    </script>
+}
+

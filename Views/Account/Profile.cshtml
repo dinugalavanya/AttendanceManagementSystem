@@ -1,4 +1,5 @@
 @using AttendanceManagementSystem.Models
+@model User?
 @{
     ViewData["Title"] = "Profile";
     Layout = "_Layout";
@@ -17,8 +18,8 @@
                             <div class="profile-avatar">
                                 <i class="bi bi-person-circle" style="font-size: 5rem; color: var(--primary-color);"></i>
                             </div>
-                            <h4 class="mt-3">@(User?.Identity?.Name ?? "User")</h4>
-                            <p class="text-muted">@(User?.Claims?.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value ?? "Unknown Role")</p>
+                            <h4 class="mt-3">@(Model?.FullName ?? User?.Identity?.Name ?? "User")</h4>
+                            <p class="text-muted">@(Model?.Role?.Name ?? User?.Claims?.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value ?? "Unknown Role")</p>
                         </div>
                         <div class="col-md-8">
                             <div class="profile-info">
@@ -26,25 +27,29 @@
                                 <hr>
                                 <div class="row mb-3">
                                     <div class="col-sm-3"><strong>Email:</strong></div>
-                                    <div class="col-sm-9">@(User?.Identity?.Name ?? "N/A")</div>
+                                    <div class="col-sm-9">@(Model?.Email ?? User?.Claims?.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Email)?.Value ?? "N/A")</div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-sm-3"><strong>Employee ID:</strong></div>
+                                    <div class="col-sm-9">@(Model?.ServiceId ?? User?.Claims?.FirstOrDefault(c => c.Type == "ServiceId")?.Value ?? "N/A")</div>
                                 </div>
                                 <div class="row mb-3">
                                     <div class="col-sm-3"><strong>First Name:</strong></div>
-                                    <div class="col-sm-9">@(User?.Claims?.FirstOrDefault(c => c.Type == "FirstName")?.Value ?? "N/A")</div>
+                                    <div class="col-sm-9">@(Model?.FirstName ?? User?.Claims?.FirstOrDefault(c => c.Type == "FirstName")?.Value ?? "N/A")</div>
                                 </div>
                                 <div class="row mb-3">
                                     <div class="col-sm-3"><strong>Last Name:</strong></div>
-                                    <div class="col-sm-9">@(User?.Claims?.FirstOrDefault(c => c.Type == "LastName")?.Value ?? "N/A")</div>
+                                    <div class="col-sm-9">@(Model?.LastName ?? User?.Claims?.FirstOrDefault(c => c.Type == "LastName")?.Value ?? "N/A")</div>
                                 </div>
                                 <div class="row mb-3">
                                     <div class="col-sm-3"><strong>Role:</strong></div>
                                     <div class="col-sm-9">
-                                        <span class="badge bg-primary">@(User?.Claims?.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value ?? "Unknown")</span>
+                                        <span class="badge bg-primary">@(Model?.Role?.Name ?? User?.Claims?.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Role)?.Value ?? "Unknown")</span>
                                     </div>
                                 </div>
                                 <div class="row mb-3">
                                     <div class="col-sm-3"><strong>Section:</strong></div>
-                                    <div class="col-sm-9">@(User?.Claims?.FirstOrDefault(c => c.Type == "SectionId")?.Value != "0" ? "Section " + User?.Claims?.FirstOrDefault(c => c.Type == "SectionId")?.Value : "No Section")</div>
+                                    <div class="col-sm-9">@(Model?.Section?.Name ?? (User?.Claims?.FirstOrDefault(c => c.Type == "SectionId")?.Value != "0" ? "Section " + User?.Claims?.FirstOrDefault(c => c.Type == "SectionId")?.Value : "No Section"))</div>
                                 </div>
                             </div>
                         </div>
@@ -54,8 +59,57 @@
                             <i class="bi bi-arrow-left"></i> Back
                         </a>
                     </div>
+
+                    <div class="mt-4">
+                        <h6><i class="bi bi-shield-lock me-2"></i>Change Password</h6>
+                        <hr>
+                        <div id="passwordAlert"></div>
+                        <form id="changePasswordForm">
+                            @Html.AntiForgeryToken()
+                            <div class="mb-3">
+                                <label class="form-label">Current Password</label>
+                                <input type="password" id="currentPassword" class="form-control" placeholder="Enter current password" required />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">New Password</label>
+                                <input type="password" id="newPassword" class="form-control" placeholder="Enter new password (min 6 chars)" required />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Confirm New Password</label>
+                                <input type="password" id="confirmPassword" class="form-control" placeholder="Confirm new password" required />
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle me-1"></i>Update Password
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+@section Scripts {
+<script>
+    $('#changePasswordForm').submit(function(e) {
+        e.preventDefault();
+        $.post('@Url.Action("ChangePassword", "Account")', {
+            currentPassword: $('#currentPassword').val(),
+            newPassword: $('#newPassword').val(),
+            confirmPassword: $('#confirmPassword').val(),
+            __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val()
+        })
+        .done(function(res) {
+            if (res.success) {
+                $('#passwordAlert').html('<div class="alert alert-success"><i class="bi bi-check2-circle me-1"></i>' + res.message + '</div>');
+                $('#changePasswordForm')[0].reset();
+            } else {
+                $('#passwordAlert').html('<div class="alert alert-danger"><i class="bi bi-exclamation-circle me-1"></i>' + res.message + '</div>');
+            }
+        })
+        .fail(function() {
+            $('#passwordAlert').html('<div class="alert alert-danger">An error occurred. Please try again.</div>');
+        });
+    });
+</script>
+}

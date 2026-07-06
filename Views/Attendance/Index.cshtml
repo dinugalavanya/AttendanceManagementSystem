@@ -1,22 +1,236 @@
 @model AttendanceManagementSystem.ViewModels.AttendanceViewModel
 @using AttendanceManagementSystem.Models
 @{
-    ViewData["Title"] = "My Attendance";
+    ViewData["Title"] = "My OT";
 }
 
 <style>
-    .attendance-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* Premium Attendance Details Cards */
+    .premium-card {
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+        position: relative;
+    }
+
+    .premium-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
+        border-color: rgba(124, 58, 237, 0.2);
+    }
+
+    .premium-card-highlight {
+        background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
         border: none;
-        border-radius: 20px;
+    }
+
+    .premium-card-highlight:hover {
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 25px 50px rgba(124, 58, 237, 0.25);
+    }
+
+    .premium-card-header {
+        padding: 20px 24px 12px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    }
+
+    .premium-card-header h5 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin: 0;
+    }
+
+    .premium-card-body {
+        padding: 20px 24px;
+    }
+
+    .premium-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 16px;
+        transition: all 0.3s ease;
+    }
+
+    .premium-card:hover .premium-icon-wrapper {
+        transform: scale(1.1);
+    }
+
+    .premium-icon-wrapper.primary {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .premium-icon-wrapper.success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .premium-icon-wrapper.warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    }
+
+    .premium-icon-wrapper.purple {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+    }
+
+    .premium-icon-wrapper.neutral {
+        background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+        box-shadow: 0 4px 12px rgba(100, 116, 139, 0.3);
+    }
+
+    .premium-icon-wrapper.status-present {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .premium-icon-wrapper.status-present::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+        animation: pulse-glow 2s ease-in-out infinite;
+    }
+
+    .premium-icon-wrapper.status-absent {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        box-shadow: 0 10px 25px rgba(239, 68, 68, 0.4);
+    }
+
+    .premium-icon-wrapper.status-late {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        box-shadow: 0 10px 25px rgba(245, 158, 11, 0.4);
+    }
+
+    .premium-icon-wrapper.status-not-marked {
+        background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+        box-shadow: 0 4px 12px rgba(100, 116, 139, 0.2);
+    }
+
+    @@keyframes pulse-glow {
+        0%, 100% {
+            opacity: 0.3;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 0.5;
+            transform: scale(1.1);
+        }
+    }
+
+    .premium-icon-wrapper i {
+        font-size: 24px;
         color: white;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        transition: transform 0.3s ease;
     }
-    
-    .attendance-card:hover {
-        transform: translateY(-5px);
+
+    .premium-card-highlight .premium-icon-wrapper {
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
     }
+
+    .premium-card-highlight .premium-icon-wrapper i {
+        color: white;
+    }
+
+    .premium-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: #64748b;
+        margin-bottom: 8px;
+        letter-spacing: 0.3px;
+    }
+
+    .premium-card-highlight .premium-label {
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .premium-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: #1e293b;
+        line-height: 1.2;
+        letter-spacing: -0.5px;
+    }
+
+    .premium-card-highlight .premium-value {
+        color: white;
+        font-size: 32px;
+    }
+
+    .premium-trend {
+        font-size: 12px;
+        font-weight: 600;
+        margin-top: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .premium-trend.positive {
+        color: #10b981;
+    }
+
+    .premium-trend.neutral {
+        color: #64748b;
+    }
+
+    .premium-card-highlight .premium-trend {
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .premium-section-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .premium-section-title i {
+        color: #7c3aed;
+        font-size: 22px;
+    }
+
+    /* Animation */
+    @@keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .premium-card {
+        animation: fadeInUp 0.6s ease-out forwards;
+    }
+
+    .premium-card:nth-child(1) { animation-delay: 0.1s; }
+    .premium-card:nth-child(2) { animation-delay: 0.2s; }
+    .premium-card:nth-child(3) { animation-delay: 0.3s; }
+    .premium-card:nth-child(4) { animation-delay: 0.4s; }
+    .premium-card:nth-child(5) { animation-delay: 0.5s; }
     
     .check-btn {
         border-radius: 50px;
@@ -143,253 +357,404 @@
     
     .ot-summary-display {
         display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 12px;
-        background: rgba(251, 191, 36, 0.1);
-        border-radius: 8px;
-        margin-bottom: 8px;
-    }
-    
-    .ot-summary-value {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: #f59e0b;
-        min-width: 60px;
-        text-align: center;
-    }
-    
-    /* Professional Attendance Card Styles */
-    .attendance-professional-card {
-        border: none;
         border-radius: 16px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         overflow: hidden;
-        background: white;
+        border: 1px solid rgba(0, 0, 0, 0.06);
     }
-    
-    .attendance-professional-card .card-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border: none;
-        padding: 1.5rem;
+
+    .attendance-form-header {
+        background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+        padding: 1.25rem 1.75rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
-    
-    .status-box {
-        border-radius: 12px;
-        padding: 1.5rem;
-        background: #f8f9fa;
-        border: 2px solid #e9ecef;
-        transition: all 0.3s ease;
+
+    .attendance-header-left {
+        flex: 1;
     }
-    
-    .status-box.status-green {
-        background: #d4edda;
-        border-color: #28a745;
+
+    .attendance-title {
+        font-size: 1.125rem;
+        font-weight: 700;
+        color: white;
+        margin: 0 0 0.25rem 0;
+        font-family: var(--font-heading);
     }
-    
-    .status-box.status-blue {
-        background: #d1ecf1;
-        border-color: #17a2b8;
+
+    .attendance-subtitle {
+        font-size: 0.813rem;
+        color: rgba(255, 255, 255, 0.85);
+        margin: 0;
     }
-    
-    .status-box.status-gray {
-        background: #f8f9fa;
-        border-color: #6c757d;
+
+    .attendance-header-right {
+        flex-shrink: 0;
     }
-    
-    .status-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
+
+    .live-clock {
+        text-align: right;
+    }
+
+    .clock-time {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: white;
+        margin-bottom: 0.125rem;
+    }
+
+    .clock-label {
+        font-size: 0.688rem;
+        color: rgba(255, 255, 255, 0.75);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .attendance-form-body {
+        padding: 1.5rem 1.75rem;
+    }
+
+    .attendance-lock-message {
+        background: #fff7ed;
+        border: 1px solid #fdba74;
+        color: #9a3412;
+        border-radius: 10px;
+        padding: 0.75rem 0.9rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
         display: flex;
         align-items: center;
-        justify-content: center;
-        background: white;
-        margin-right: 1rem;
-        font-size: 1.2rem;
-        color: #495057;
+        gap: 0.5rem;
     }
-    
-    .status-label {
-        font-size: 0.875rem;
-        color: #6c757d;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0.25rem;
+
+    .form-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
     }
-    
-    .status-value {
-        font-size: 1.25rem;
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .form-group-full {
+        grid-column: 1 / -1;
+    }
+
+    .form-label {
+        font-size: 0.813rem;
         font-weight: 600;
-        color: #212529;
+        color: #334155;
+        margin-bottom: 0.375rem;
     }
-    
-    .stat-box {
-        border: 1px solid #e9ecef;
-        border-radius: 12px;
-        padding: 1.25rem;
-        background: white;
-        transition: all 0.3s ease;
-        height: 100%;
+
+    .required {
+        color: #ef4444;
     }
-    
-    .stat-box:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+
+    .form-control {
+        height: 42px;
+        border-radius: 8px;
+        border: 1px solid #e2e8f0;
+        font-size: 0.875rem;
+        padding: 0.5rem 0.75rem;
+        transition: all 0.2s ease;
     }
-    
-    .stat-box.stat-highlight {
+
+    .form-control:focus {
+        outline: none;
         border-color: #7c3aed;
-        background: linear-gradient(135deg, rgba(124, 58, 237, 0.05), rgba(124, 58, 237, 0.1));
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
     }
-    
-    .stat-icon-wrapper {
-        width: 40px;
-        height: 40px;
+
+    textarea.form-control {
+        height: auto;
+        resize: vertical;
+        min-height: 80px;
+    }
+
+    .btn-save {
+        background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+        border: none;
+        color: white;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        font-size: 0.938rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: auto;
+        justify-self: start;
+    }
+
+    .btn-save:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(124, 58, 237, 0.3);
+    }
+
+    .btn-save i {
+        font-size: 1rem;
+    }
+
+    .btn-save:disabled {
+        background: #94a3b8;
+        cursor: not-allowed;
+        box-shadow: none;
+        transform: none;
+    }
+
+    /* Overtime Summary Section */
+    .overtime-summary-section {
+        padding: 0;
+    }
+
+    .overtime-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+    }
+
+    .ot-card {
+        background: white;
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        border: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: all 0.3s ease;
+        height: 130px;
+    }
+
+    .ot-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .ot-card-today {
+        background: rgba(139, 92, 246, 0.04);
+        border: 1.5px solid #7c3aed;
+        box-shadow: 0 2px 8px rgba(124, 58, 237, 0.1);
+    }
+
+    .ot-card-icon {
+        width: 48px;
+        height: 48px;
         border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #f8f9fa;
-        margin-bottom: 0.75rem;
-    }
-    
-    .stat-icon-wrapper.bg-purple {
-        background: #7c3aed;
         color: white;
+        font-size: 1.375rem;
+        flex-shrink: 0;
     }
-    
-    .stat-icon {
-        font-size: 1.1rem;
-        color: #495057;
+
+    .ot-card-today .ot-card-icon {
+        background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
     }
-    
-    .stat-icon-wrapper.bg-purple .stat-icon {
-        color: white;
+
+    .ot-card-week .ot-card-icon {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
     }
-    
-    .stat-content .stat-label {
-        font-size: 0.8rem;
-        color: #6c757d;
+
+    .ot-card-month .ot-card-icon {
+        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+    }
+
+    .ot-card-content {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        flex: 1;
+        justify-content: center;
+    }
+
+    .ot-card-label {
+        font-size: 0.688rem;
+        font-weight: 700;
+        color: #64748b;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
-        margin-bottom: 0.5rem;
+        letter-spacing: 0.05em;
     }
-    
-    .stat-content .stat-value {
+
+    .ot-card-value {
         font-size: 1.5rem;
         font-weight: 700;
-        color: #212529;
-        margin-bottom: 0.25rem;
+        color: #1e293b;
+        line-height: 1.2;
     }
-    
-    .stat-content .stat-value.text-purple {
+
+    .ot-card-today .ot-card-value {
         color: #7c3aed;
     }
-    
-    .stat-content .stat-helper {
+
+    .ot-card-desc {
         font-size: 0.75rem;
-        color: #6c757d;
+        color: #64748b;
+        line-height: 1.3;
     }
-    
-    .progress-section {
-        background: #f8f9fa;
-        border-radius: 12px;
-        padding: 1rem;
-    }
-    
-    .progress {
-        background: #e9ecef;
-        border-radius: 4px;
+
+    /* Purple OT Highlight Banner */
+    .ot-highlight-banner {
+        background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+        border-radius: 10px;
+        box-shadow: 0 4px 16px rgba(124, 58, 237, 0.25);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.25rem 1.75rem;
         overflow: hidden;
-    }
-    
-    .progress-bar {
-        transition: width 0.6s ease;
-    }
-    
-    .action-section {
-        border-top: 1px solid #e9ecef;
-        padding-top: 1.5rem;
-        margin-top: 1.5rem;
-    }
-    
-    .btn-lg {
-        padding: 0.75rem 1.5rem;
-        font-weight: 600;
-        border-radius: 8px;
         transition: all 0.3s ease;
+        height: 130px;
     }
-    
-    .btn-lg:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+
+    .ot-highlight-banner:hover {
+        box-shadow: 0 6px 20px rgba(124, 58, 237, 0.35);
+        transform: translateY(-2px);
     }
-    
-    /* Overtime Summary Styles */
-    .ot-summary-item {
-        padding: 0.75rem 0;
-        border-bottom: 1px solid #f1f3f4;
-        transition: all 0.3s ease;
+
+    .ot-banner-left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex: 1;
     }
-    
-    .ot-summary-item:last-child {
-        border-bottom: none;
-        padding-bottom: 0;
-    }
-    
-    .ot-summary-item:hover {
-        background: rgba(124, 58, 237, 0.02);
-        border-radius: 8px;
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
-    }
-    
-    .ot-icon-wrapper {
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
+
+    .ot-banner-icon {
+        width: 52px;
+        height: 52px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.9rem;
+        color: white;
+        font-size: 1.5rem;
+        backdrop-filter: blur(10px);
+        flex-shrink: 0;
     }
-    
-    .ot-icon-wrapper.bg-purple {
-        background: #7c3aed;
+
+    .ot-banner-text {
+        color: white;
     }
-    
-    .ot-icon-wrapper.bg-primary {
-        background: #0d6efd;
-    }
-    
-    .ot-icon-wrapper.bg-info {
-        background: #0dcaf0;
-    }
-    
-    .ot-label {
-        font-size: 0.875rem;
-        color: #6c757d;
+
+    .ot-banner-label {
+        font-size: 0.75rem;
         font-weight: 500;
+        opacity: 0.85;
         margin-bottom: 0.25rem;
     }
-    
-    .ot-value {
-        font-size: 1.1rem;
+
+    .ot-banner-value {
+        font-size: 1.75rem;
         font-weight: 700;
+        margin-bottom: 0.125rem;
     }
-    
-    .ot-value.text-purple {
+
+    .ot-banner-subtitle {
+        font-size: 0.813rem;
+        font-weight: 600;
+        opacity: 0.75;
+    }
+
+    .ot-banner-right {
+        flex-shrink: 0;
+    }
+
+    .ot-banner-decoration {
+        font-size: 3.5rem;
+        color: rgba(255, 255, 255, 0.12);
+        opacity: 0.5;
+    }
+
+    /* Button Section */
+    .button-section {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+
+    .btn-action {
+        background: white;
+        border: 1.5px solid #e2e8f0;
+        color: #334155;
+        padding: 0.625rem 1.5rem;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        height: 42px;
+    }
+
+    .btn-action:hover {
+        border-color: #7c3aed;
         color: #7c3aed;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
     }
-    
-    .ot-value.text-primary {
-        color: #0d6efd;
+
+    .btn-action i {
+        font-size: 1rem;
     }
-    
-    .ot-value.text-info {
-        color: #0dcaf0;
+
+    /* Responsive Design */
+    @@media (max-width: 992px) {
+        .form-row {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .overtime-cards-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .attendance-form-header {
+            flex-direction: column;
+            text-align: center;
+            gap: 1rem;
+        }
+
+        .attendance-header-right {
+            text-align: center;
+        }
+
+        .live-clock {
+            text-align: center;
+        }
+
+        .form-row {
+            grid-template-columns: 1fr;
+        }
+
+        .overtime-cards-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .ot-highlight-banner {
+            flex-direction: column;
+            text-align: center;
+            gap: 1rem;
+        }
+
+        .ot-banner-left {
+            flex-direction: column;
+        }
+
+        .ot-banner-decoration {
+            font-size: 3rem;
+        }
     }
 </style>
 
@@ -406,7 +771,7 @@
                     <!-- Date Picker -->
                     <form method="get" asp-action="Index" class="date-filter-form mb-0">
                         <div class="d-flex flex-column align-items-end">
-                            <label for="selectedDate" class="form-label mb-1 small">View Attendance Date</label>
+                            <label for="selectedDate" class="form-label mb-1 small">View OT Date</label>
                             <input type="date"
                                    id="selectedDate"
                                    name="selectedDate"
@@ -421,273 +786,143 @@
         </div>
     </div>
 
-    <!-- Main Attendance Card -->
-    <div class="row mb-4">
-        <div class="col-lg-8">
-            <div class="card attendance-professional-card">
-                <div class="card-header bg-primary text-white">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <h2 class="h4 mb-1">@(Model.SelectedDate.Date == DateTime.Today ? "Today's Attendance" : "Attendance for " + Model.SelectedDate.ToString("MMM dd, yyyy"))</h2>
-                            <p class="mb-0 small opacity-75">@Model.SelectedDate.ToString("dddd, MMMM dd, yyyy")</p>
-                        </div>
-                        <div class="text-end live-clock">
-                            <div class="h2 mb-0 fw-bold" id="attendanceLiveClock">--:--:--</div>
-                            <small>Current Time</small>
+    <!-- Main Content - Full Width -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <!-- Today's Attendance Form Card -->
+            <div class="attendance-form-card">
+                <div class="attendance-form-header">
+                    <div class="attendance-header-left">
+                        <h2 class="attendance-title">@(Model.SelectedDate.Date == DateTime.Today ? "Today's Overtime" : "Overtime for " + Model.SelectedDate.ToString("MMM dd, yyyy"))</h2>
+                        <p class="attendance-subtitle">@Model.SelectedDate.ToString("dddd, MMMM dd, yyyy")</p>
+                    </div>
+                    <div class="attendance-header-right">
+                        <div class="live-clock">
+                            <div class="clock-time" id="attendanceLiveClock">--:--:--</div>
+                            <div class="clock-label">Current Time</div>
                         </div>
                     </div>
                 </div>
-                <div class="card-body">
-                    <!-- Manual Entry Form -->
-                    <div class="mb-4">
-                        <h5 class="mb-3"><i class="bi bi-pencil-square me-2"></i>Add / Update Attendance</h5>
-                        <form asp-action="SaveAttendance" method="post">
-                            @Html.AntiForgeryToken()
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label for="selectedDate" class="form-label">Date</label>
-                                    <input type="date"
-                                           id="selectedDate"
-                                           name="selectedDate"
-                                           class="form-control"
-                                           value="@Model.SelectedDate.ToString("yyyy-MM-dd")"
-                                           readonly />
-                                </div>
-                                <div class="col-md-4">
-                                    <label for="inTime" class="form-label">In Time <span class="text-danger">*</span></label>
-                                    <input type="time"
-                                           id="inTime"
-                                           name="inTime"
-                                           class="form-control"
-                                           value="@(Model.TodayAttendance?.InTime != null ? Model.TodayAttendance.InTime.Value.ToString(@"hh\:mm") : "")"
-                                           required />
-                                </div>
-                                <div class="col-md-4">
-                                    <label for="outTime" class="form-label">Out Time</label>
-                                    <input type="time"
-                                           id="outTime"
-                                           name="outTime"
-                                           class="form-control"
-                                           value="@(Model.TodayAttendance?.OutTime != null ? Model.TodayAttendance.OutTime.Value.ToString(@"hh\:mm") : "")" />
-                                </div>
-                                <div class="col-12">
-                                    <label for="notes" class="form-label">Notes (Optional)</label>
-                                    <textarea id="notes"
-                                              name="notes"
-                                              class="form-control"
-                                              rows="2">@(Model.TodayAttendance?.Notes ?? "")</textarea>
-                                </div>
-                                <div class="col-12">
-                                    <button type="submit" class="btn btn-primary btn-lg w-100">
-                                        <i class="bi bi-save me-2"></i>Save Attendance
-                                    </button>
-                                </div>
+                <div class="attendance-form-body">
+                    <form asp-action="SaveAttendance" method="post">
+                        @Html.AntiForgeryToken()
+                        @if (Model.IsAlreadySubmitted)
+                        {
+                            <div class="attendance-lock-message">
+                                <i class="bi bi-exclamation-triangle-fill"></i>
+                                <span>@Model.AlreadySubmittedMessage</span>
                             </div>
-                        </form>
-                    </div>
-
-                    @if (Model.TodayAttendance != null && Model.TodayAttendance.InTime.HasValue)
-                    {
-                        <!-- Result Cards -->
-                        <div class="mt-4">
-                            <h5 class="mb-3"><i class="bi bi-info-circle me-2"></i>Attendance Details</h5>
-                            <div class="row g-3">
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="stat-box">
-                                        <div class="stat-icon-wrapper">
-                                            <i class="bi bi-clock-in stat-icon"></i>
-                                        </div>
-                                        <div class="stat-content">
-                                            <div class="stat-label">Started Work At</div>
-                                            <div class="stat-value">@Model.CheckInTimeDisplay</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="stat-box">
-                                        <div class="stat-icon-wrapper">
-                                            <i class="bi bi-clock-out stat-icon"></i>
-                                        </div>
-                                        <div class="stat-content">
-                                            <div class="stat-label">Checked Out At</div>
-                                            <div class="stat-value">@Model.CheckOutTimeDisplay</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="stat-box">
-                                        <div class="stat-icon-wrapper">
-                                            <i class="bi bi-hourglass-split stat-icon"></i>
-                                        </div>
-                                        <div class="stat-content">
-                                            <div class="stat-label">Total Worked Today</div>
-                                            <div class="stat-value">@Model.WorkedTimeDisplay</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="stat-box @(Model.HasOTToday ? "stat-highlight" : "")">
-                                        <div class="stat-icon-wrapper @(Model.HasOTToday ? "bg-purple" : "")">
-                                            <i class="bi bi-clock-history stat-icon"></i>
-                                        </div>
-                                        <div class="stat-content">
-                                            <div class="stat-label">Extra Time Worked</div>
-                                            <div class="stat-value @(Model.HasOTToday ? "text-purple" : "")">@Model.TodayOTDisplay</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6 col-lg-4">
-                                    <div class="stat-box">
-                                        <div class="stat-icon-wrapper">
-                                            <i class="bi bi-info-circle stat-icon"></i>
-                                        </div>
-                                        <div class="stat-content">
-                                            <div class="stat-label">Status</div>
-                                            <div class="stat-value">@Model.TodayAttendance.Status</div>
-                                        </div>
-                                    </div>
-                                </div>
+                        }
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="selectedDate" class="form-label">OT Date</label>
+                                <input type="date"
+                                       id="selectedDate"
+                                       name="selectedDate"
+                                       class="form-control"
+                                       value="@Model.SelectedDate.ToString("yyyy-MM-dd")"
+                                       readonly />
                             </div>
-
-                            <!-- Progress Bar -->
-                            @if (Model.TotalWorkMinutes > 0)
-                            {
-                                <div class="progress-section mt-4">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <span class="small text-muted">Daily Progress</span>
-                                        <span class="small text-muted">@Math.Round(Model.TotalWorkMinutes / 60.0, 1) hours total</span>
-                                    </div>
-                                    <div class="progress" style="height: 8px;">
-                                        <div class="progress-bar bg-success" style="width: @(Math.Min(Model.RegularWorkMinutes * 100 / 480, 100))%" 
-                                             title="Regular Hours: @Model.RegularWorkMinutes minutes"></div>
-                                        @if (Model.HasOTToday)
-                                        {
-                                            <div class="progress-bar bg-warning" style="width: @((Model.TotalWorkMinutes - Model.RegularWorkMinutes) * 100 / 480)%" 
-                                                 title="Extra Time: @(Model.TotalWorkMinutes - Model.RegularWorkMinutes) minutes"></div>
-                                        }
-                                    </div>
-                                    <div class="d-flex justify-content-between mt-2">
-                                        <small class="text-muted">Regular Work: 8h required</small>
-                                        @if (Model.HasOTToday)
-                                        {
-                                            <small class="text-purple">Extra OT after 8h</small>
-                                        }
-                                    </div>
-                                </div>
-                            }
-                            
-                            <!-- Calculation Explanation -->
-                            <div class="text-center mt-4">
-                                <small class="text-muted">
-                                    <i class="bi bi-info-circle me-1"></i>
-                                    Overtime starts only after the worker completes 8 working hours.
-                                </small>
+                            <div class="form-group">
+                                <label for="inTime" class="form-label">OT In Time <span class="required">*</span></label>
+                                <input type="time"
+                                       id="inTime"
+                                       name="inTime"
+                                       class="form-control"
+                                       value="@(Model.TodayAttendance?.InTime != null ? Model.TodayAttendance.InTime.Value.ToString(@"hh\:mm") : "")"
+                                       step="60"
+                                       @(Model.IsAlreadySubmitted ? "disabled" : string.Empty)
+                                       required />
+                            </div>
+                            <div class="form-group">
+                                <label for="outTime" class="form-label">OT Out Time <span class="required">*</span></label>
+                                <input type="time"
+                                       id="outTime"
+                                       name="outTime"
+                                       class="form-control"
+                                       value="@(Model.TodayAttendance?.OutTime != null ? Model.TodayAttendance.OutTime.Value.ToString(@"hh\:mm") : "")"
+                                       step="60"
+                                       @(Model.IsAlreadySubmitted ? "disabled" : string.Empty)
+                                       required />
+                            </div>
+                            <div class="form-group form-group-full">
+                                <label for="notes" class="form-label">OT Notes (Optional)</label>
+                                <textarea id="notes"
+                                          name="notes"
+                                          class="form-control"
+                                          rows="2"
+                                          @(Model.IsAlreadySubmitted ? "readonly" : string.Empty)>@(Model.TodayAttendance?.Notes ?? "")</textarea>
+                            </div>
+                            <div class="form-group form-group-full">
+                                <button type="submit" class="btn-save" @(Model.IsAlreadySubmitted ? "disabled" : string.Empty)>
+                                    <i class="bi bi-save"></i>
+                                    @(Model.IsAlreadySubmitted ? "Already Submitted" : "Save Overtime")
+                                </button>
                             </div>
                         </div>
-                    }
-
-                    <!-- Overtime Summary Card -->
-                    <div class="card info-card mt-4">
-                        <div class="card-body">
-                            <h5 class="card-title mb-4">
-                                <i class="bi bi-clock-history text-purple me-2"></i>
-                                Overtime Summary
-                            </h5>
-
-                            <div class="row g-3">
-                                <!-- Today's OT -->
-                                <div class="col-md-4">
-                                    <div class="stat-box stat-highlight">
-                                        <div class="stat-icon-wrapper bg-purple">
-                                            <i class="bi bi-calendar-day text-white stat-icon"></i>
-                                        </div>
-                                        <div class="stat-content">
-                                            <div class="stat-label">Today OT</div>
-                                            <div class="stat-value text-purple">@Model.TodayOTDisplay</div>
-                                            <div class="stat-helper">Extra hours worked today</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Weekly OT -->
-                                <div class="col-md-4">
-                                    <div class="stat-box">
-                                        <div class="stat-icon-wrapper bg-primary">
-                                            <i class="bi bi-calendar-week text-white stat-icon"></i>
-                                        </div>
-                                        <div class="stat-content">
-                                            <div class="stat-label">This Week OT</div>
-                                            <div class="stat-value text-primary">@Model.WeeklyOTDisplay</div>
-                                            <div class="stat-helper">Total overtime this week</div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Monthly OT -->
-                                <div class="col-md-4">
-                                    <div class="stat-box">
-                                        <div class="stat-icon-wrapper bg-info">
-                                            <i class="bi bi-calendar-month text-white stat-icon"></i>
-                                        </div>
-                                        <div class="stat-content">
-                                            <div class="stat-label">This Month OT</div>
-                                            <div class="stat-value text-info">@Model.MonthlyOTDisplay</div>
-                                            <div class="stat-helper">Total overtime this month</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    </form>
                 </div>
             </div>
         </div>
-        
-        <!-- Right Sidebar Cards -->
-        <div class="col-lg-4">
-            <!-- Work Schedule Card -->
-            <div class="card info-card mb-3">
-                <div class="card-body">
-                    <h5 class="card-title mb-4">
-                        <i class="bi bi-info-circle text-primary me-2"></i>
-                        Work Schedule
-                    </h5>
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div>
-                            <i class="bi bi-sunrise text-info me-2"></i>
-                            <strong>Start:</strong>
+    </div>
+
+                    <!-- Overtime Summary Section -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="overtime-summary-section">
+                <div class="overtime-cards-grid">
+                    <div class="ot-card ot-card-today">
+                        <div class="ot-card-icon">
+                            <i class="bi bi-calendar-day"></i>
                         </div>
-                        <span class="badge bg-info">8:30 AM</span>
+                        <div class="ot-card-content">
+                            <div class="ot-card-label">TODAY OT</div>
+                            <div class="ot-card-value">@Model.TodayOTDisplay</div>
+                            <div class="ot-card-desc">Extra hours worked today</div>
+                        </div>
                     </div>
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div>
-                            <i class="bi bi-sunset text-warning me-2"></i>
-                            <strong>End:</strong>
+                    <div class="ot-card ot-card-week">
+                        <div class="ot-card-icon">
+                            <i class="bi bi-calendar-week"></i>
                         </div>
-                        <span class="badge bg-warning">4:30 PM</span>
+                        <div class="ot-card-content">
+                            <div class="ot-card-label">THIS WEEK OT</div>
+                            <div class="ot-card-value">@Model.WeeklyOTDisplay</div>
+                            <div class="ot-card-desc">Total overtime this week</div>
+                        </div>
                     </div>
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <i class="bi bi-clock text-success me-2"></i>
-                            <strong>Regular:</strong>
+                    <div class="ot-card ot-card-month">
+                        <div class="ot-card-icon">
+                            <i class="bi bi-calendar-month"></i>
                         </div>
-                        <span class="badge bg-success">8 Hours</span>
+                        <div class="ot-card-content">
+                            <div class="ot-card-label">THIS MONTH OT</div>
+                            <div class="ot-card-value">@Model.MonthlyOTDisplay</div>
+                            <div class="ot-card-desc">Total overtime this month</div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Action Buttons -->
-    <div class="row">
+    <!-- Purple OT Highlight Banner -->
+    <div class="row mb-3">
         <div class="col-12">
-            <div class="d-flex gap-3 flex-wrap">
-                <a asp-controller="Attendance" asp-action="History" class="btn btn-outline-primary btn-lg">
-                    <i class="bi bi-calendar-history me-2"></i> View History
-                </a>
-                <a href="@Url.Action("Profile", "Account")" class="btn btn-outline-secondary btn-lg">
-                    <i class="bi bi-person-circle me-2"></i> My Profile
-                </a>
+            <div class="ot-highlight-banner">
+                <div class="ot-banner-left">
+                    <div class="ot-banner-icon">
+                        <i class="bi bi-trophy-fill"></i>
+                    </div>
+                    <div class="ot-banner-text">
+                        <div class="ot-banner-label">Extra Time Worked</div>
+                        <div class="ot-banner-value">@Model.TodayOTDisplay</div>
+                        <div class="ot-banner-subtitle">Overtime Today</div>
+                    </div>
+                </div>
+                <div class="ot-banner-right">
+                    <i class="bi bi-hourglass-split ot-banner-decoration"></i>
+                </div>
             </div>
         </div>
     </div>

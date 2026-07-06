@@ -6,6 +6,8 @@ using AttendanceManagementSystem.Data;
 using AttendanceManagementSystem.ViewModels;
 using AttendanceManagementSystem.Services;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using static BCrypt.Net.BCrypt;
 
 namespace AttendanceManagementSystem.Controllers
 {
@@ -14,21 +16,27 @@ namespace AttendanceManagementSystem.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly AttendanceCalculationService _calculationService;
+        private readonly ILogger<DashboardController> _logger;
+        private readonly IEmailService _emailService;
+        private readonly IAuthService _authService;
 
-        public DashboardController(ApplicationDbContext context, AttendanceCalculationService calculationService)
+        public DashboardController(ApplicationDbContext context, AttendanceCalculationService calculationService, ILogger<DashboardController> logger, IEmailService emailService, IAuthService authService)
         {
             _context = context;
             _calculationService = calculationService;
-            
-            // Test calculation examples to verify logic is correct
-            Console.WriteLine("[ATTENDANCE CALCULATION VALIDATION]");
-            _calculationService.ValidateCalculationExamples();
-            Console.WriteLine("[ATTENDANCE CALCULATION VALIDATION COMPLETE]");
+            _logger = logger;
+            _emailService = emailService;
+            _authService = authService;
         }
 
-        public async Task<IActionResult> Index(string? serviceId, DateTime? selectedDate)
+        public async Task<IActionResult> Index(string? serviceId, DateTime? selectedDate, DateTime? singleDate, DateTime? fromDate, DateTime? toDate)
         {
-            Console.WriteLine($"[WORKER SEARCH] serviceId received: {serviceId}, selectedDate: {selectedDate?.ToString("yyyy-MM-dd")}");
+            _logger.LogDebug("[WORKER SEARCH] serviceId={ServiceId}, selectedDate={SelectedDate}, singleDate={SingleDate}, fromDate={FromDate}, toDate={ToDate}",
+                serviceId,
+                selectedDate?.ToString("yyyy-MM-dd"),
+                singleDate?.ToString("yyyy-MM-dd"),
+                fromDate?.ToString("yyyy-MM-dd"),
+                toDate?.ToString("yyyy-MM-dd"));
 
             var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!int.TryParse(userIdClaim, out var userId))
@@ -47,15 +55,19 @@ namespace AttendanceManagementSystem.Controllers
                 return RedirectToAction("Login", "Account");
             }
 
-            // Use selectedDate if provided, otherwise use today
-            var today = selectedDate ?? DateTime.Today;
+            // Use selectedDate if provided, otherwise use today (admin fallback can override this later)
+            var today = selectedDate?.Date ?? DateTime.Today;
             var tomorrow = today.AddDays(1);
             var monthStart = new DateTime(today.Year, today.Month, 1);
             var monthEndExclusive = monthStart.AddMonths(1);
 
-            var isSuperAdmin = currentUser.Role.Name == RoleNames.SuperAdmin;
-            var isAdmin = currentUser.Role.Name == RoleNames.Admin;
-            var isWorker = currentUser.Role.Name == RoleNames.Worker;
+            var roleName = currentUser.Role.Name;
+            var isSuperAdmin = roleName == RoleNames.SuperAdmin;
+            var isAdmin = roleName == RoleNames.Admin;
+            var isGM = roleName == RoleNames.GM;
+            var isDGM = roleName == RoleNames.DGM;
+            var isEngineer = RoleNames.HasEngineerPrivileges(roleName);
+            var isWorker = roleName == RoleNames.Worker;
 
             var userScope = _context.Users.AsNoTracking().Where(u => u.IsActive);
             var attendanceScope = _context.Attendances.AsNoTracking().AsQueryable();
@@ -65,326 +77,88 @@ namespace AttendanceManagementSystem.Controllers
                 userScope = userScope.Where(u => u.Id == currentUser.Id);
                 attendanceScope = attendanceScope.Where(a => a.UserId == currentUser.Id);
             }
-            else if (isAdmin)
+            else if (isAdmin || isEngineer)
             {
-                if (!currentUser.SectionId.HasValue)
+                if (!SectionIds.IsAssignable(currentUser.SectionId))
                 {
-                    var adminViewModel = new AdminDashboardViewModel
+                    return View("AdminDashboard", new AdminDashboardViewModel
                     {
-                        HasSection = false
-                    };
-                    return View("AdminDashboard", adminViewModel);
+                        HasSection = false,
+                        NoSectionMessage = "No valid section assigned to this account. Section 0 is reserved for SuperAdmin and GM only."
+                    });
                 }
 
-                var sectionId = currentUser.SectionId.Value;
-                var sectionName = currentUser.Section?.Name ?? string.Empty;
-                userScope = userScope.Where(u => u.SectionId == sectionId);
-                attendanceScope = attendanceScope.Where(a => a.User.SectionId == sectionId);
-
-                var sectionTotalUsers = await userScope
-                    .AsNoTracking()
-                    .CountAsync();
-
-                // Get today's attendance for section workers
-                var todayAttendances = await attendanceScope
-                    .Where(a => a.AttendanceDate >= today && a.AttendanceDate < tomorrow)
-                    .Include(a => a.User)
-                    .ToListAsync();
-
-                // Use AttendanceCalculationService to recalculate all attendance records with standardized rules
-                var todayCalculated = todayAttendances.Select(a => _calculationService.CalculateAttendance(
-                    a.AttendanceDate, a.InTime, a.OutTime, a.Status)).ToList();
-
-                var presentToday = todayCalculated.Count(c => c.Status == "On Time");
-                var lateToday = todayCalculated.Count(c => c.Status == "Late");
-                var leaveToday = todayCalculated.Count(c => c.Status == "Leave");
-                var workingOtToday = todayCalculated.Count(c => c.CurrentState == "Working OT");
-
-                // Calculate OT hours for today using standardized rules (only after 8 hours)
-                var todayOtMinutes = todayCalculated.Sum(c => c.OvertimeMinutes);
-                var todayOtHours = todayOtMinutes / 60m;
-
-                // Calculate total OT hours this month using standardized rules
-                var monthlyAttendances = await attendanceScope
-                    .Where(a => a.AttendanceDate >= monthStart && a.AttendanceDate < monthEndExclusive)
-                    .ToListAsync();
-
-                var monthlyCalculated = monthlyAttendances.Select(a => _calculationService.CalculateAttendance(
-                    a.AttendanceDate, a.InTime, a.OutTime, a.Status)).ToList();
-
-                var monthlyOtMinutes = monthlyCalculated.Sum(c => c.OvertimeMinutes);
-                var monthlyOtHours = monthlyOtMinutes / 60m;
-
-                // Prepare worker attendance rows for table using standardized calculations
-                var todayWorkers = todayCalculated
-                    .Select((c, index) => new WorkerAttendanceRow
-                    {
-                        WorkerName = todayAttendances[index].User?.FirstName + " " + todayAttendances[index].User?.LastName ?? "Unknown",
-                        LoginTimeDisplay = c.InTimeText,
-                        LogoutTimeDisplay = c.OutTimeText,
-                        Status = c.Status,
-                        LateByDisplay = c.LateByText != "-" ? c.LateByText : "On Time",
-                        OtHoursDisplay = c.OvertimeHoursText != "-" ? c.OvertimeHoursText : "0h",
-                        CurrentState = c.CurrentState
-                    })
-                    .OrderBy(a => a.WorkerName)
-                    .ToList();
-
-                // Prepare work hours pie chart using standardized calculations
-                var workHoursPieChart = todayCalculated
-                    .Where(c => c.TotalWorkedMinutes > 0)
-                    .Select((c, index) => new 
-                    {
-                        WorkerName = todayAttendances[index].User?.FirstName + " " + todayAttendances[index].User?.LastName ?? "Unknown",
-                        TotalWorkedMinutes = c.TotalWorkedMinutes
-                    })
-                    .GroupBy(x => x.WorkerName)
-                    .Select(g => new PieChartItem
-                    {
-                        Label = g.Key,
-                        Hours = (decimal)g.Sum(x => x.TotalWorkedMinutes) / 60m
-                    })
-                    .ToList();
-
-                // Prepare OT workers list using standardized calculations (only after 8 hours)
-                var otWorkers = todayCalculated
-                    .Where(c => c.OvertimeMinutes > 0)
-                    .Select((c, index) => new OtWorkerItem
-                    {
-                        WorkerName = todayAttendances[index].User?.FirstName + " " + todayAttendances[index].User?.LastName ?? "Unknown",
-                        OtHours = (decimal)c.OvertimeMinutes / 60m,
-                        LogoutTimeDisplay = c.OutTimeText
-                    })
-                    .OrderByDescending(a => a.OtHours)
-                    .ToList();
-
-                // Prepare calendar summary using standardized calculations
-                var monthlyAttendancesForCalendar = await attendanceScope
-                    .Where(a => a.AttendanceDate >= monthStart && a.AttendanceDate < monthEndExclusive)
-                    .ToListAsync();
-
-                var monthlyCalculatedForCalendar = monthlyAttendancesForCalendar.Select(a => _calculationService.CalculateAttendance(
-                    a.AttendanceDate, a.InTime, a.OutTime, a.Status)).ToList();
-
-                var calendarSummary = monthlyCalculatedForCalendar
-                    .GroupBy(c => c.AttendanceDate.Date)
-                    .Select(g => new DailyAttendanceSummary
-                    {
-                        Date = g.Key,
-                        PresentCount = g.Count(c => c.Status == "On Time"),
-                        LateCount = g.Count(c => c.Status == "Late"),
-                        LeaveCount = g.Count(c => c.Status == "Leave"),
-                        TotalOtHours = (decimal)g.Sum(c => c.OvertimeMinutes) / 60m
-                    })
-                    .OrderBy(g => g.Date)
-                    .ToList();
-
-                // Prepare last 2 weeks calendar data using standardized calculations (last 14 days only)
-                var twoWeeksAgo = today.AddDays(-13);
-                var lastTwoWeeksAttendances = await attendanceScope
-                    .Where(a => a.AttendanceDate >= twoWeeksAgo && a.AttendanceDate < tomorrow)
-                    .ToListAsync();
-
-                var lastTwoWeeksCalculated = lastTwoWeeksAttendances.Select(a => _calculationService.CalculateAttendance(
-                    a.AttendanceDate, a.InTime, a.OutTime, a.Status)).ToList();
-
-                var lastTwoWeeksCalendarData = lastTwoWeeksCalculated
-                    .GroupBy(c => c.AttendanceDate.Date)
-                    .Select(g => new DailyAttendanceSummary
-                    {
-                        Date = g.Key,
-                        PresentCount = g.Count(c => c.Status == "On Time"),
-                        LateCount = g.Count(c => c.Status == "Late"),
-                        LeaveCount = g.Count(c => c.Status == "Leave"),
-                        TotalOtHours = (decimal)g.Sum(c => c.OvertimeMinutes) / 60m
-                    })
-                    .OrderByDescending(g => g.Date)
-                    .Take(14)
-                    .ToList();
-
-                // Load active sections for the Add Employee modal
-                ViewBag.Sections = await _context.Sections
-                    .Where(s => s.IsActive)
-                    .OrderBy(s => s.Name)
-                    .ToListAsync();
-
-                var adminDashboardViewModel = new AdminDashboardViewModel
+                var searchRequest = new WorkerOtSearchRequestViewModel
                 {
-                    SectionName = sectionName,
-                    TotalWorkers = sectionTotalUsers,
-                    PresentToday = presentToday,
-                    LateToday = lateToday,
-                    LeaveToday = leaveToday,
-                    WorkingOtToday = workingOtToday,
-                    TotalOtHoursThisMonth = (double)monthlyOtHours,
-                    TodayWorkers = todayWorkers,
-                    WorkHoursPieChart = workHoursPieChart,
-                    OtWorkers = otWorkers,
-                    CalendarSummary = calendarSummary,
-                    LastTwoWeeksCalendarData = lastTwoWeeksCalendarData,
-                    HasSection = true,
-                    OnTimeCount = presentToday,
-                    LateCount = lateToday,
-                    LeaveCount = leaveToday,
-                    OtCount = workingOtToday
+                    ServiceId = serviceId,
+                    SelectedDate = selectedDate,
+                    SingleDate = singleDate,
+                    FromDate = fromDate,
+                    ToDate = toDate
                 };
 
-                // Add search logic here
-                if (!string.IsNullOrWhiteSpace(serviceId))
-                {
-                    var normalizedServiceId = serviceId.Trim().ToUpper();
-                    adminDashboardViewModel.SearchServiceId = normalizedServiceId;
-
-                    Console.WriteLine($"[WORKER SEARCH] normalized serviceId: {normalizedServiceId}");
-
-                    var worker = await _context.Users
-                        .Include(u => u.Section)
-                        .FirstOrDefaultAsync(u => u.ServiceId != null && u.ServiceId.ToUpper() == normalizedServiceId);
-
-                    if (worker == null)
-                    {
-                        adminDashboardViewModel.WorkerSearchMessage = $"Worker with Service ID {normalizedServiceId} not found.";
-                        Console.WriteLine("[WORKER SEARCH] worker not found");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"[WORKER SEARCH] worker found: {worker.Id} {worker.FullName}");
-
-                        // Check permissions based on user role
-                        if (isAdmin)
-                        {
-                            // Admin role: check section permissions
-                            if (!currentUser.SectionId.HasValue)
-                            {
-                                adminDashboardViewModel.WorkerSearchMessage = "You are not assigned to a section.";
-                                Console.WriteLine("[WORKER SEARCH] Admin not assigned to section");
-                            }
-                            else if (worker.SectionId != currentUser.SectionId)
-                            {
-                                adminDashboardViewModel.WorkerSearchMessage = "You do not have permission to view workers outside your section.";
-                                Console.WriteLine("[WORKER SEARCH] Admin trying to access worker outside section");
-                            }
-                            else
-                            {
-                                // Admin has permission to view worker in their section
-                                await LoadWorkerHistory(adminDashboardViewModel, worker);
-                            }
-                        }
-                        else if (isSuperAdmin)
-                        {
-                            // SuperAdmin role: can view any worker
-                            await LoadWorkerHistory(adminDashboardViewModel, worker);
-                        }
-                        else
-                        {
-                            // Worker role: should not see search functionality
-                            adminDashboardViewModel.WorkerSearchMessage = "Worker role does not have search permissions.";
-                            Console.WriteLine("[WORKER SEARCH] Worker role attempting search");
-                        }
-                    }
-                }
-
-                // Helper method to load worker history
-                async Task LoadWorkerHistory(AdminDashboardViewModel model, User targetWorker)
-                {
-                    var history = await _context.Attendances
-                        .Where(a => a.UserId == targetWorker.Id)
-                        .OrderByDescending(a => a.AttendanceDate)
-                        .Take(30)
-                        .ToListAsync();
-
-                    Console.WriteLine($"[WORKER SEARCH] history count: {history.Count}");
-
-                    // Set worker search mode
-                    model.IsWorkerSearchMode = true;
-
-                    // Calculate worker statistics
-                    var totalWorkedHours = Math.Round(history.Sum(a => a.TotalWorkedMinutes) / 60m, 2);
-                    var totalOTHours = Math.Round(history.Sum(a => a.OvertimeMinutes) / 60m, 2);
-                    var otDaysCount = history.Count(a => a.OvertimeMinutes > 0);
-                    var leaveDaysCount = history.Count(a => a.Status == "Leave");
-                    var lateDaysCount = history.Count(a => a.Status == "Late");
-                    var onTimeDaysCount = history.Count(a => a.Status == "Present");
-                    
-                    // Get latest status and attendance
-                    var latestStatus = history.FirstOrDefault()?.Status ?? "No Record";
-                    var latestAttendanceRecord = history.FirstOrDefault();
-                    WorkerAttendanceHistoryRowViewModel? latestAttendance = null;
-                    
-                    if (latestAttendanceRecord != null)
-                    {
-                        latestAttendance = new WorkerAttendanceHistoryRowViewModel
-                        {
-                            Date = latestAttendanceRecord.AttendanceDate,
-                            InTime = latestAttendanceRecord.InTime.HasValue ? latestAttendanceRecord.InTime.Value.ToString(@"hh\:mm") : "-",
-                            OutTime = latestAttendanceRecord.OutTime.HasValue ? latestAttendanceRecord.OutTime.Value.ToString(@"hh\:mm") : "-",
-                            WorkedHours = latestAttendanceRecord.TotalWorkedDisplay,
-                            OTHours = latestAttendanceRecord.OvertimeMinutes > 0 ? latestAttendanceRecord.OvertimeDisplay : "-",
-                            OTHoursValue = latestAttendanceRecord.OvertimeMinutes / 60m,
-                            Status = latestAttendanceRecord.Status
-                        };
-                    }
-
-                    // Build history list with OTHoursValue
-                    var historyList = history.Select(a => new WorkerAttendanceHistoryRowViewModel
-                    {
-                        Date = a.AttendanceDate,
-                        InTime = a.InTime.HasValue ? a.InTime.Value.ToString(@"hh\:mm") : "-",
-                        OutTime = a.OutTime.HasValue ? a.OutTime.Value.ToString(@"hh\:mm") : "-",
-                        WorkedHours = a.TotalWorkedDisplay,
-                        OTHours = a.OvertimeMinutes > 0 ? a.OvertimeDisplay : "-",
-                        OTHoursValue = a.OvertimeMinutes / 60m,
-                        Status = a.Status
-                    }).ToList();
-
-                    // Build OT history list (only records with overtime)
-                    var otHistoryList = history.Where(a => a.OvertimeMinutes > 0)
-                        .Select(a => new WorkerAttendanceHistoryRowViewModel
-                        {
-                            Date = a.AttendanceDate,
-                            InTime = a.InTime.HasValue ? a.InTime.Value.ToString(@"hh\:mm") : "-",
-                            OutTime = a.OutTime.HasValue ? a.OutTime.Value.ToString(@"hh\:mm") : "-",
-                            WorkedHours = a.TotalWorkedDisplay,
-                            OTHours = a.OvertimeDisplay,
-                            OTHoursValue = a.OvertimeMinutes / 60m,
-                            Status = a.Status
-                        }).ToList();
-
-                    // Calculate chart data
-                    var orderedHistory = history.OrderBy(a => a.AttendanceDate).ToList();
-                    var chartLabels = orderedHistory.Select(a => a.AttendanceDate.ToString("dd MMM")).ToList();
-                    var workedHoursChartData = orderedHistory.Select(a => Math.Round(a.TotalWorkedMinutes / 60m, 2)).ToList();
-                    var otHoursChartData = orderedHistory.Select(a => Math.Round(a.OvertimeMinutes / 60m, 2)).ToList();
-
-                    model.WorkerHistorySearchResult = new WorkerHistorySearchViewModel
-                    {
-                        WorkerId = targetWorker.Id,
-                        ServiceId = targetWorker.ServiceId ?? "-",
-                        FullName = targetWorker.FullName,
-                        Email = targetWorker.Email,
-                        SectionName = targetWorker.Section != null ? targetWorker.Section.Name : "Unassigned",
-                        LatestStatus = latestStatus,
-                        TotalWorkedHours = totalWorkedHours,
-                        TotalOTHours = totalOTHours,
-                        OTDaysCount = otDaysCount,
-                        LeaveDaysCount = leaveDaysCount,
-                        LateDaysCount = lateDaysCount,
-                        OnTimeDaysCount = onTimeDaysCount,
-                        LatestAttendance = latestAttendance,
-                        History = historyList,
-                        OTHistory = otHistoryList,
-                        ChartLabels = chartLabels,
-                        WorkedHoursChartData = workedHoursChartData,
-                        OTHoursChartData = otHoursChartData
-                    };
-
-                    if (!history.Any())
-                    {
-                        model.WorkerSearchMessage = "Worker found, but no attendance history exists.";
-                    }
-                }
-
+                var adminDashboardViewModel = await BuildAdminWorkerSearchViewModelAsync(currentUser, searchRequest);
+                adminDashboardViewModel.IsReadOnly = isEngineer; // Engineer: view+edit own section; handled in controller
                 return View("AdminDashboard", adminDashboardViewModel);
+            }
+            else if (isDGM)
+            {
+                if (!SectionIds.IsAssignable(currentUser.SectionId))
+                {
+                    return View("AdminDashboard", new AdminDashboardViewModel { HasSection = false });
+                }
+
+                var searchRequest = new WorkerOtSearchRequestViewModel
+                {
+                    ServiceId = serviceId,
+                    SelectedDate = selectedDate,
+                    SingleDate = singleDate,
+                    FromDate = fromDate,
+                    ToDate = toDate
+                };
+
+                var dgmViewModel = await BuildAdminWorkerSearchViewModelAsync(currentUser, searchRequest);
+                dgmViewModel.IsReadOnly = true;
+                return View("AdminDashboard", dgmViewModel);
+            }
+            else if (isGM)
+            {
+                // GM sees all sections — reuse the SuperAdmin-style Index view
+                // No early return; falls through to the full dashboard build below
+            }
+
+            if (isWorker)
+            {
+                var searchDate = selectedDate?.Date ?? DateTime.Today;
+                var monthStartDate = new DateTime(searchDate.Year, searchDate.Month, 1);
+                var rangeEndExclusive = searchDate.AddDays(1);
+
+                // Worker scope must always be month-start through selected date for the logged-in worker.
+                var workerRangeRecords = await _context.Attendances
+                    .AsNoTracking()
+                    .Where(a =>
+                        a.UserId == currentUser.Id &&
+                        a.AttendanceDate >= monthStartDate &&
+                        a.AttendanceDate < rangeEndExclusive)
+                    .OrderByDescending(a => a.AttendanceDate)
+                    .ThenByDescending(a => a.OutTime)
+                    .ToListAsync();
+
+                var workerOtDashboard = BuildWorkerOtDashboardViewModel(currentUser, monthStartDate, searchDate, workerRangeRecords);
+
+                var workerViewModel = new DashboardViewModel
+                {
+                    SelectedDate = searchDate,
+                    ScopeTitle = "My OT overview",
+                    IsSuperAdmin = false,
+                    IsAdmin = false,
+                    IsWorker = true,
+                    OvertimeMinutesMonth = workerOtDashboard.TotalOtMinutes,
+                    UserName = User.Identity?.Name ?? currentUser.FullName,
+                    WorkerOtDashboard = workerOtDashboard
+                };
+
+                return View("WorkerDashboard", workerViewModel);
             }
 
             var totalUsers = await userScope
@@ -519,13 +293,18 @@ namespace AttendanceManagementSystem.Controllers
 
             if (!string.IsNullOrWhiteSpace(serviceId))
             {
+                var normalizedServiceId = serviceId.Trim().ToUpperInvariant();
+
                 var worker = await _context.Users
                     .Include(u => u.Section)
-                    .FirstOrDefaultAsync(u => u.ServiceId == serviceId);
+                    .FirstOrDefaultAsync(u =>
+                        u.IsActive &&
+                        u.ServiceId != null &&
+                        u.ServiceId.ToUpper() == normalizedServiceId);
 
                 if (worker == null)
                 {
-                    workerSearchMessage = $"Worker with Service ID {serviceId} not found.";
+                    workerSearchMessage = $"Worker with Service ID {normalizedServiceId} not found.";
                 }
                 else
                 {
@@ -567,9 +346,13 @@ namespace AttendanceManagementSystem.Controllers
             if (!string.IsNullOrWhiteSpace(serviceId) && selectedDate.HasValue && workerHistorySearchResult != null)
             {
                 Console.WriteLine($"[SELECTED DATE] Processing selected date {selectedDate.Value:yyyy-MM-dd} for worker {serviceId}");
-                
+
+                var selectedDay = selectedDate.Value.Date;
                 var attendanceOnDate = await _context.Attendances
-                    .Where(a => a.UserId == workerHistorySearchResult.WorkerId && a.AttendanceDate == selectedDate.Value)
+                    .Where(a =>
+                        a.UserId == workerHistorySearchResult.WorkerId &&
+                        a.AttendanceDate >= selectedDay &&
+                        a.AttendanceDate < selectedDay.AddDays(1))
                     .FirstOrDefaultAsync();
 
                 if (attendanceOnDate != null)
@@ -686,10 +469,12 @@ namespace AttendanceManagementSystem.Controllers
                 AttendanceTargetPercent = attendanceTargetPercent,
                 ScopeTitle = isSuperAdmin
                     ? "Organization-wide attendance"
-                    : isAdmin
-                        ? $"{currentUser.Section?.Name ?? "Section"} attendance"
-                        : "My attendance overview",
-                IsSuperAdmin = isSuperAdmin,
+                    : isGM
+                        ? "All Sections (View Only)"
+                        : isAdmin
+                            ? $"{currentUser.Section?.Name ?? "Section"} attendance"
+                            : "My attendance overview",
+                IsSuperAdmin = isSuperAdmin || isGM,
                 IsAdmin = isAdmin,
                 IsWorker = isWorker,
                 TrendLabels = trendLabels,
@@ -726,6 +511,327 @@ namespace AttendanceManagementSystem.Controllers
         }
 
         [HttpGet]
+        public async Task<IActionResult> SearchWorkerOt([FromQuery] WorkerOtSearchRequestViewModel request)
+        {
+            _logger.LogDebug("[WORKER SEARCH AJAX] serviceId={ServiceId}, selectedDate={SelectedDate}, singleDate={SingleDate}, fromDate={FromDate}, toDate={ToDate}",
+                request.ServiceId,
+                request.SelectedDate?.ToString("yyyy-MM-dd"),
+                request.SingleDate?.ToString("yyyy-MM-dd"),
+                request.FromDate?.ToString("yyyy-MM-dd"),
+                request.ToDate?.ToString("yyyy-MM-dd"));
+
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized();
+            }
+
+            var currentUser = await _context.Users
+                .AsNoTracking()
+                .Include(u => u.Role)
+                .Include(u => u.Section)
+                .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+
+            if (currentUser == null)
+            {
+                return Unauthorized();
+            }
+
+            if (currentUser.Role?.Name != RoleNames.Admin && !RoleNames.HasEngineerPrivileges(currentUser.Role?.Name))
+            {
+                return Forbid();
+            }
+
+            var viewModel = await BuildAdminWorkerSearchViewModelAsync(currentUser, request);
+            return PartialView("_WorkerOtSearchResults", viewModel);
+        }
+
+        private async Task<AdminDashboardViewModel> BuildAdminWorkerSearchViewModelAsync(User currentUser, WorkerOtSearchRequestViewModel request)
+        {
+            var adminDashboardViewModel = new AdminDashboardViewModel
+            {
+                HasSection = true,
+                SectionName = currentUser.Section?.Name ?? string.Empty,
+                SearchServiceId = request.NormalizedServiceId,
+                SingleDate = (request.SingleDate ?? request.SelectedDate ?? DateTime.Today).Date,
+                RangeFromDate = (request.FromDate ?? DateTime.Today.AddDays(-7)).Date,
+                RangeToDate = (request.ToDate ?? DateTime.Today).Date
+            };
+
+            var isSuperAdminOrGM = _authService.IsSuperAdminOrGM(currentUser);
+
+            // Build sections dropdown based on role
+            if (isSuperAdminOrGM)
+            {
+                // SuperAdmin/GM: show all sections including "All Sections" (Id=-1)
+                var sections = new List<SelectListItem>
+                {
+                    new SelectListItem { Value = "-1", Text = "All Sections" }
+                };
+
+                var dbSections = await _context.Sections
+                    .AsNoTracking()
+                    .Where(s => s.IsActive && s.Id != -1)
+                    .OrderBy(s => s.Name)
+                    .Select(s => new SelectListItem
+                    {
+                        Value = s.Id.ToString(),
+                        Text = s.Name
+                    })
+                    .ToListAsync();
+
+                sections.AddRange(dbSections);
+                adminDashboardViewModel.Sections = sections;
+
+                // SuperAdmin/GM: show all workers across all sections
+                adminDashboardViewModel.WorkerServiceOptions = await _context.Users
+                    .AsNoTracking()
+                    .Where(u => u.IsActive && !string.IsNullOrWhiteSpace(u.ServiceId))
+                    .OrderBy(u => u.ServiceId)
+                    .Select(u => new SelectListItem
+                    {
+                        Value = u.ServiceId!,
+                        Text = u.ServiceId! + " - " + u.FirstName + " " + u.LastName
+                    })
+                    .ToListAsync();
+            }
+            else
+            {
+                // Normal users: show only their assigned section
+                var sectionId = currentUser.SectionId;
+                if (!SectionIds.IsAssignable(sectionId))
+                {
+                    adminDashboardViewModel.HasSection = false;
+                    adminDashboardViewModel.NoSectionMessage = "No valid section assigned to this Admin. Section 0 is reserved for SuperAdmin and GM only.";
+                    return adminDashboardViewModel;
+                }
+
+                var userSection = await _context.Sections
+                    .AsNoTracking()
+                    .Where(s => s.Id == sectionId!.Value)
+                    .Select(s => new SelectListItem
+                    {
+                        Value = s.Id.ToString(),
+                        Text = s.Name
+                    })
+                    .FirstOrDefaultAsync();
+
+                adminDashboardViewModel.Sections = userSection != null ? new List<SelectListItem> { userSection } : new List<SelectListItem>();
+
+                // Normal users: show only workers from their section
+                adminDashboardViewModel.WorkerServiceOptions = await _context.Users
+                    .AsNoTracking()
+                    .Where(u => u.IsActive && u.SectionId == sectionId && !string.IsNullOrWhiteSpace(u.ServiceId))
+                    .OrderBy(u => u.ServiceId)
+                    .Select(u => new SelectListItem
+                    {
+                        Value = u.ServiceId!,
+                        Text = u.ServiceId! + " - " + u.FirstName + " " + u.LastName
+                    })
+                    .ToListAsync();
+            }
+
+            if (adminDashboardViewModel.RangeFromDate > adminDashboardViewModel.RangeToDate)
+            {
+                var tempDate = adminDashboardViewModel.RangeFromDate;
+                adminDashboardViewModel.RangeFromDate = adminDashboardViewModel.RangeToDate;
+                adminDashboardViewModel.RangeToDate = tempDate;
+            }
+
+            if (string.IsNullOrWhiteSpace(request.NormalizedServiceId))
+            {
+                return adminDashboardViewModel;
+            }
+
+            // Search worker based on role
+            User? worker;
+            if (isSuperAdminOrGM)
+            {
+                // SuperAdmin/GM: search across all sections
+                worker = await _context.Users
+                    .AsNoTracking()
+                    .Include(u => u.Section)
+                    .FirstOrDefaultAsync(u =>
+                        u.IsActive &&
+                        u.ServiceId != null &&
+                        u.ServiceId.ToUpper() == request.NormalizedServiceId);
+            }
+            else
+            {
+                // Normal users: search only in their section
+                var sectionId = currentUser.SectionId;
+                if (!SectionIds.IsAssignable(sectionId))
+                {
+                    adminDashboardViewModel.WorkerSearchMessage = "No valid section assigned to your account.";
+                    return adminDashboardViewModel;
+                }
+
+                worker = await _context.Users
+                    .AsNoTracking()
+                    .Include(u => u.Section)
+                    .FirstOrDefaultAsync(u =>
+                        u.IsActive &&
+                        u.SectionId == sectionId &&
+                        u.ServiceId != null &&
+                        u.ServiceId.ToUpper() == request.NormalizedServiceId);
+            }
+
+            if (worker == null)
+            {
+                adminDashboardViewModel.WorkerSearchMessage = "No worker found for this Service ID.";
+                return adminDashboardViewModel;
+            }
+
+            adminDashboardViewModel.ShowWorkerResultCards = true;
+            adminDashboardViewModel.SearchServiceId = request.NormalizedServiceId;
+            adminDashboardViewModel.WorkerProfile = new WorkerOtProfileViewModel
+            {
+                FullName = worker.FullName,
+                ServiceId = worker.ServiceId ?? "-",
+                SectionName = worker.Section?.Name ?? "Unassigned",
+                Initials = BuildInitials(worker.FirstName, worker.LastName)
+            };
+
+            var minDate = new[] { adminDashboardViewModel.SingleDate, adminDashboardViewModel.RangeFromDate }.Min();
+            var maxDate = new[] { adminDashboardViewModel.SingleDate, adminDashboardViewModel.RangeToDate }.Max();
+
+            var workerRecords = await _context.Attendances
+                .AsNoTracking()
+                .Where(a =>
+                    a.UserId == worker.Id &&
+                    a.AttendanceDate >= minDate &&
+                    a.AttendanceDate < maxDate.AddDays(1))
+                .OrderBy(a => a.AttendanceDate)
+                .ThenBy(a => a.InTime)
+                .ToListAsync();
+
+            var singleDateRecord = workerRecords
+                .Where(a => a.AttendanceDate.Date == adminDashboardViewModel.SingleDate)
+                .OrderByDescending(a => a.AttendanceDate)
+                .ThenByDescending(a => a.OutTime)
+                .FirstOrDefault(a => a.InTime.HasValue && a.OutTime.HasValue)
+                ?? workerRecords
+                    .Where(a => a.AttendanceDate.Date == adminDashboardViewModel.SingleDate)
+                    .OrderByDescending(a => a.AttendanceDate)
+                    .ThenByDescending(a => a.OutTime)
+                    .FirstOrDefault();
+
+            if (singleDateRecord == null)
+            {
+                adminDashboardViewModel.SingleDateMessage = "No overtime record found for this selected date.";
+            }
+            else
+            {
+                adminDashboardViewModel.SingleDateOtDetails = new WorkerSingleDateOtDetailsViewModel
+                {
+                    Date = singleDateRecord.AttendanceDate.Date,
+                    OvertimeInTime = singleDateRecord.InTime?.ToString(@"hh\:mm") ?? "-",
+                    OvertimeOutTime = singleDateRecord.OutTime?.ToString(@"hh\:mm") ?? "-",
+                    OvertimeHours = singleDateRecord.InTime.HasValue && singleDateRecord.OutTime.HasValue
+                        ? FormatDurationMinutes(CalculateDurationMinutes(singleDateRecord.InTime, singleDateRecord.OutTime))
+                        : "-"
+                };
+            }
+
+            var rangeRecords = workerRecords
+                .Where(a => a.AttendanceDate.Date >= adminDashboardViewModel.RangeFromDate && a.AttendanceDate.Date <= adminDashboardViewModel.RangeToDate)
+                .OrderBy(a => a.AttendanceDate)
+                .ThenBy(a => a.InTime)
+                .ToList();
+
+            adminDashboardViewModel.DateRangeRows = rangeRecords.Select(a => new WorkerOtRangeRowViewModel
+            {
+                Date = a.AttendanceDate.Date,
+                OvertimeInTime = a.InTime?.ToString(@"hh\:mm") ?? "-",
+                OvertimeOutTime = a.OutTime?.ToString(@"hh\:mm") ?? "-",
+                OvertimeHours = a.InTime.HasValue && a.OutTime.HasValue
+                    ? FormatDurationMinutes(CalculateDurationMinutes(a.InTime, a.OutTime))
+                    : "-",
+                Status = a.Status
+            }).ToList();
+
+            var validRangeRecords = rangeRecords
+                .Where(a => a.InTime.HasValue && a.OutTime.HasValue)
+                .ToList();
+
+            if (!validRangeRecords.Any())
+            {
+                adminDashboardViewModel.DateRangeMessage = "No overtime records found for this selected date range.";
+                return adminDashboardViewModel;
+            }
+
+            var totalDays = validRangeRecords.Select(a => a.AttendanceDate.Date).Distinct().Count();
+            var totalOvertimeMinutes = validRangeRecords.Sum(a => CalculateDurationMinutes(a.InTime, a.OutTime));
+
+            adminDashboardViewModel.DateRangeChartData = validRangeRecords
+                .OrderBy(a => a.AttendanceDate)
+                .ThenBy(a => a.InTime)
+                .Select(a => new DailyOtChartPointViewModel
+                {
+                    DateLabel = a.AttendanceDate.ToString("dd MMM"),
+                    OTHours = Math.Round(CalculateDurationMinutes(a.InTime, a.OutTime) / 60m, 2)
+                })
+                .ToList();
+
+            adminDashboardViewModel.DateRangeOtSummary = new WorkerDateRangeOtSummaryViewModel
+            {
+                FromDate = adminDashboardViewModel.RangeFromDate,
+                ToDate = adminDashboardViewModel.RangeToDate,
+                TotalDays = totalDays,
+                TotalOvertimeMinutes = totalOvertimeMinutes,
+                TotalOvertimeDisplay = FormatDurationMinutes(totalOvertimeMinutes)
+            };
+
+            return adminDashboardViewModel;
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> DownloadWorkerRecentOtPdf(DateTime? selectedDate)
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(userIdClaim, out var userId))
+            {
+                return RedirectToAction("Login", "Account");
+            }
+    
+            var currentUser = await _context.Users
+                .AsNoTracking()
+                .Include(u => u.Role)
+                .Include(u => u.Section)
+                .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+
+            if (currentUser == null)
+            {
+                return RedirectToAction("Login", "Account");
+            }
+
+            if (currentUser.Role.Name != RoleNames.Worker)
+            {
+                return Forbid();
+            }
+
+            var searchDate = selectedDate?.Date ?? DateTime.Today;
+            var monthStartDate = new DateTime(searchDate.Year, searchDate.Month, 1);
+            var rangeEndExclusive = searchDate.AddDays(1);
+
+            var workerRangeRecords = await _context.Attendances
+                .AsNoTracking()
+                .Where(a =>
+                    a.UserId == currentUser.Id &&
+                    a.AttendanceDate >= monthStartDate &&
+                    a.AttendanceDate < rangeEndExclusive)
+                .OrderByDescending(a => a.AttendanceDate)
+                .ThenByDescending(a => a.OutTime)
+                .ToListAsync();
+
+            var workerOtDashboard = BuildWorkerOtDashboardViewModel(currentUser, monthStartDate, searchDate, workerRangeRecords);
+            var pdfBytes = WorkerOtPdfReportBuilder.BuildRecentOtRecordsPdf(workerOtDashboard, DateTime.Now);
+            var fileName = $"recent-ot-records-{searchDate:yyyyMMdd}.pdf";
+
+            return File(pdfBytes, "application/pdf", fileName);
+        }
+
+        [HttpGet]
         public async Task<IActionResult> GetWorkerAttendanceByDate(string serviceId, DateTime date)
         {
             Console.WriteLine($"[WORKER DATE SEARCH] serviceId: {serviceId}, date: {date:yyyy-MM-dd}");
@@ -735,14 +841,19 @@ namespace AttendanceManagementSystem.Controllers
                 return Json(new { success = false, message = "Service ID is required." });
             }
 
+            var normalizedServiceId = serviceId.Trim().ToUpperInvariant();
+
             // Step 1: Find worker from Users table by ServiceId
             var worker = await _context.Users
                 .Include(u => u.Section)
-                .FirstOrDefaultAsync(u => u.ServiceId == serviceId);
+                .FirstOrDefaultAsync(u =>
+                    u.IsActive &&
+                    u.ServiceId != null &&
+                    u.ServiceId.ToUpper() == normalizedServiceId);
 
             if (worker == null)
             {
-                Console.WriteLine($"[WORKER DATE SEARCH] Worker with ServiceId {serviceId} not found");
+                Console.WriteLine($"[WORKER DATE SEARCH] Worker with ServiceId {normalizedServiceId} not found");
                 return Json(new { success = false, message = "Worker not found" });
             }
 
@@ -764,7 +875,7 @@ namespace AttendanceManagementSystem.Controllers
                     workerName = $"{worker.FirstName} {worker.LastName}",
                     serviceId = worker.ServiceId,
                     date = targetDate,
-                    message = $"No attendance record found for {serviceId} on {targetDate:MMM dd, yyyy}."
+                    message = $"No attendance record found for {normalizedServiceId} on {targetDate:MMM dd, yyyy}."
                 });
             }
 
@@ -802,6 +913,536 @@ namespace AttendanceManagementSystem.Controllers
                     currentState = calculationResult.CurrentState
                 }
             });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateWorker([FromBody] CreateWorkerViewModel model)
+        {
+            try
+            {
+                model.WorkerName = model.WorkerName?.Trim() ?? string.Empty;
+                model.ServiceId = model.ServiceId?.Trim() ?? string.Empty;
+                model.Email = model.Email?.Trim() ?? string.Empty;
+                model.Phone = model.Phone?.Trim() ?? string.Empty;
+
+                if (!ModelState.IsValid)
+                {
+                    return Json(new { success = false, errors = GetModelStateErrors() });
+                }
+
+                var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!int.TryParse(userIdClaim, out var currentUserId))
+                {
+                    return Json(new { success = false, message = "User not authenticated." });
+                }
+
+                var currentUser = await _context.Users
+                    .Include(u => u.Role)
+                    .FirstOrDefaultAsync(u => u.Id == currentUserId && u.IsActive);
+
+                if (currentUser == null)
+                {
+                    return Json(new { success = false, message = "User not found or inactive." });
+                }
+
+                // Check if user has permission to create workers
+                if (currentUser.Role == null ||
+                    (currentUser.Role.Name != RoleNames.Admin && currentUser.Role.Name != RoleNames.SuperAdmin))
+                {
+                    return Json(new { success = false, message = "You don't have permission to create workers." });
+                }
+
+                if (string.IsNullOrWhiteSpace(model.WorkerName))
+                {
+                    return Json(new { success = false, errors = new { WorkerName = new[] { "Worker name is required." } } });
+                }
+
+                if (!SectionIds.IsAssignable(currentUser.SectionId))
+                {
+                    return Json(new { success = false, message = "No valid section is assigned to your account. Workers cannot be added to section 0." });
+                }
+
+                var sectionId = currentUser.SectionId!.Value;
+
+                var section = await _context.Sections
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Id == sectionId && s.IsActive && s.Id > 0);
+
+                if (section == null)
+                {
+                    return Json(new { success = false, message = "Your assigned section is not available." });
+                }
+
+                // Check for duplicate Service ID
+                var normalizedServiceId = model.ServiceId.ToUpperInvariant();
+                if (string.IsNullOrWhiteSpace(normalizedServiceId))
+                {
+                    return Json(new { success = false, errors = new { ServiceId = new[] { "Service ID is required." } } });
+                }
+
+                var existingServiceId = await _context.Users
+                    .AsNoTracking()
+                    .AnyAsync(u => u.ServiceId != null && u.ServiceId.ToUpper() == normalizedServiceId);
+
+                if (existingServiceId)
+                {
+                    return Json(new { success = false, errors = new { ServiceId = new[] { "A worker with this Service ID already exists." } } });
+                }
+
+                // Check for duplicate Email
+                var existingEmail = await _context.Users
+                    .AsNoTracking()
+                    .AnyAsync(u => u.Email.ToUpper() == model.Email.ToUpper());
+
+                if (existingEmail)
+                {
+                    return Json(new { success = false, errors = new { Email = new[] { "A worker with this email address already exists." } } });
+                }
+
+                // Get Worker role
+                var workerRole = await _context.Roles
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(r => r.Name == RoleNames.Worker);
+
+                if (workerRole == null)
+                {
+                    return Json(new { success = false, message = "Worker role not found." });
+                }
+
+                // Generate secure temporary password
+                var temporaryPassword = GenerateSecureTemporaryPassword();
+                var passwordHash = HashPassword(temporaryPassword);
+
+                var nameParts = model.WorkerName
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                var firstName = nameParts.Length > 0 ? nameParts[0] : model.WorkerName;
+                var lastName = nameParts.Length > 1 ? string.Join(' ', nameParts.Skip(1)) : string.Empty;
+
+                // Create new user
+                var newUser = new User
+                {
+                    FirstName = firstName,
+                    LastName = lastName,
+                    Email = model.Email,
+                    PasswordHash = passwordHash,
+                    Phone = model.Phone,
+                    ServiceId = normalizedServiceId,
+                    SectionId = sectionId,
+                    RoleId = workerRole.Id,
+                    IsActive = true,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _context.Users.Add(newUser);
+                await _context.SaveChangesAsync();
+
+                Console.WriteLine($"[WORKER CREATION] New worker created: ServiceId={model.ServiceId}, Email={model.Email}, Section={section.Name}, CreatedBy={currentUser.Email}");
+
+                try
+                {
+                    await _emailService.SendLoginCredentialsAsync(model.Email, newUser.FullName, normalizedServiceId, temporaryPassword, "Worker");
+                }
+                catch (Exception emailEx)
+                {
+                    Console.WriteLine($"[EMAIL ERROR] Failed to send email to {model.Email}: {emailEx.Message}");
+                }
+
+                return Json(new { 
+                    success = true, 
+                    message = "Worker created successfully. Login credentials sent to their email.",
+                    workerId = newUser.Id
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[WORKER CREATION ERROR] {ex.Message}");
+                return Json(new { success = false, message = "An error occurred while creating the worker. Please try again." });
+            }
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteUser([FromBody] DeleteUserViewModel model)
+        {
+            try
+            {
+                model.ServiceId = model.ServiceId?.Trim() ?? string.Empty;
+
+                if (!ModelState.IsValid)
+                {
+                    return Json(new { success = false, errors = GetModelStateErrors() });
+                }
+
+                var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (!int.TryParse(userIdClaim, out var currentUserId))
+                {
+                    return Json(new { success = false, message = "User not authenticated." });
+                }
+
+                var currentUser = await _context.Users
+                    .Include(u => u.Role)
+                    .FirstOrDefaultAsync(u => u.Id == currentUserId && u.IsActive);
+
+                if (currentUser == null)
+                {
+                    return Json(new { success = false, message = "User not found or inactive." });
+                }
+
+                if (currentUser.Role == null ||
+                    (currentUser.Role.Name != RoleNames.Admin && currentUser.Role.Name != RoleNames.SuperAdmin))
+                {
+                    return Json(new { success = false, message = "You don't have permission to delete users." });
+                }
+
+                var isSuperAdminOrGM = _authService.IsSuperAdminOrGM(currentUser);
+
+                // Regular Admin must have a real section assigned (not 0 or -1)
+                if (!isSuperAdminOrGM && !SectionIds.IsAssignable(currentUser.SectionId))
+                {
+                    return Json(new { success = false, message = "No valid section is assigned to your account." });
+                }
+
+                if (string.IsNullOrWhiteSpace(model.ServiceId))
+                {
+                    return Json(new { success = false, errors = new { ServiceId = new[] { "Service ID is required." } } });
+                }
+
+                var normalizedServiceId = model.ServiceId.ToUpperInvariant();
+                
+                // Search user based on role
+                User? userToDelete;
+                if (isSuperAdminOrGM)
+                {
+                    // SuperAdmin/GM: can delete from any section
+                    userToDelete = await _context.Users
+                        .Include(u => u.Role)
+                        .FirstOrDefaultAsync(u =>
+                            u.IsActive &&
+                            u.ServiceId.ToUpper() == normalizedServiceId);
+                }
+                else
+                {
+                    // Regular Admin: can only delete from their section
+                    userToDelete = await _context.Users
+                        .Include(u => u.Role)
+                        .FirstOrDefaultAsync(u =>
+                            u.IsActive &&
+                            u.ServiceId.ToUpper() == normalizedServiceId &&
+                            u.SectionId == currentUser.SectionId!.Value);
+                }
+
+                if (userToDelete == null)
+                {
+                    return Json(new { success = false, message = "No active user found for that Service ID in your section." });
+                }
+
+                if (userToDelete.Id == currentUser.Id)
+                {
+                    return Json(new { success = false, message = "You cannot delete your own account." });
+                }
+
+                userToDelete.IsActive = false;
+                userToDelete.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                return Json(new
+                {
+                    success = true,
+                    message = "User deleted successfully.",
+                    serviceId = userToDelete.ServiceId
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[USER DELETE ERROR] {ex.Message}");
+                return Json(new { success = false, message = "An error occurred while deleting the user. Please try again." });
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> GetNextServiceId()
+        {
+            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!int.TryParse(userIdClaim, out var currentUserId))
+            {
+                return Json(new { success = false, message = "User not authenticated." });
+            }
+
+            var currentUser = await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.Id == currentUserId && u.IsActive);
+
+            if (currentUser == null)
+            {
+                return Json(new { success = false, message = "User not found or inactive." });
+            }
+
+            if (currentUser.Role == null ||
+                (currentUser.Role.Name != RoleNames.Admin && currentUser.Role.Name != RoleNames.SuperAdmin))
+            {
+                return Json(new { success = false, message = "You don't have permission to generate a Service ID." });
+            }
+
+            if (!SectionIds.IsAssignable(currentUser.SectionId))
+            {
+                return Json(new { success = false, message = "No valid section is assigned to your account." });
+            }
+
+            var nextServiceId = await GetNextAvailableEmployeeServiceIdAsync(HttpContext.RequestAborted);
+            return Json(new { success = true, serviceId = nextServiceId });
+        }
+
+        private static WorkerOtDashboardViewModel BuildWorkerOtDashboardViewModel(
+            User currentUser,
+            DateTime monthStartDate,
+            DateTime searchDate,
+            List<Attendance> rangeRecords)
+        {
+            var validDurationRecords = rangeRecords
+                .Where(a => a.InTime.HasValue && a.OutTime.HasValue)
+                .Select(a => new
+                {
+                    Record = a,
+                    DurationMinutes = CalculateDurationMinutes(a.InTime, a.OutTime)
+                })
+                .Where(x => x.DurationMinutes > 0)
+                .ToList();
+
+            var durationByDate = validDurationRecords
+                .GroupBy(x => x.Record.AttendanceDate.Date)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Sum(x => x.DurationMinutes) / 60m);
+
+            var trendPoints = new List<WorkerOtTrendPointViewModel>();
+            for (var day = monthStartDate; day <= searchDate; day = day.AddDays(1))
+            {
+                trendPoints.Add(new WorkerOtTrendPointViewModel
+                {
+                    DateLabel = day.ToString("dd MMM"),
+                    OtHours = Math.Round(durationByDate.GetValueOrDefault(day.Date, 0m), 2)
+                });
+            }
+
+            var recordsForSearchedDate = rangeRecords
+                .Where(a => a.AttendanceDate.Date == searchDate.Date)
+                .OrderByDescending(a => a.OutTime)
+                .ThenByDescending(a => a.InTime)
+                .ToList();
+
+            var searchedDateRecord = recordsForSearchedDate
+                .FirstOrDefault(a => a.InTime.HasValue && a.OutTime.HasValue)
+                ?? recordsForSearchedDate.FirstOrDefault();
+
+            // If no OT record exists on searched date, keep "-" values while still showing cumulative month totals.
+            var searchedDateDuration = searchedDateRecord?.InTime.HasValue == true && searchedDateRecord?.OutTime.HasValue == true
+                ? FormatDurationMinutes(CalculateDurationMinutes(searchedDateRecord.InTime, searchedDateRecord.OutTime))
+                : "-";
+
+            var totalOtMinutes = validDurationRecords.Sum(x => x.DurationMinutes);
+            var otDays = validDurationRecords.Count;
+            var averageOtHoursPerDay = otDays == 0
+                ? 0
+                : Math.Round((totalOtMinutes / 60m) / otDays, 2);
+
+            return new WorkerOtDashboardViewModel
+            {
+                MonthStartDate = monthStartDate,
+                SearchDate = searchDate,
+                Initials = BuildInitials(currentUser.FirstName, currentUser.LastName),
+                FullName = currentUser.FullName,
+                Email = currentUser.Email,
+                SectionName = currentUser.Section?.Name ?? "Unassigned",
+                ServiceId = currentUser.ServiceId ?? "-",
+                SearchedDateOtInTime = searchedDateRecord?.InTime?.ToString(@"hh\:mm") ?? "-",
+                SearchedDateOtOutTime = searchedDateRecord?.OutTime?.ToString(@"hh\:mm") ?? "-",
+                SearchedDateOtDuration = searchedDateDuration,
+                TotalOtMinutes = totalOtMinutes,
+                OtDays = otDays,
+                AverageOtHoursPerDay = averageOtHoursPerDay,
+                TotalRecords = rangeRecords.Count,
+                TotalOtDurationDisplay = FormatDurationMinutes(totalOtMinutes),
+                TrendPoints = trendPoints,
+                RecentOtRecords = rangeRecords
+                    .OrderByDescending(a => a.AttendanceDate)
+                    .ThenByDescending(a => a.OutTime)
+                    .Select(a => new WorkerOtRecordRowViewModel
+                    {
+                        Date = a.AttendanceDate.Date,
+                        OtInTime = a.InTime?.ToString(@"hh\:mm") ?? "-",
+                        OtOutTime = a.OutTime?.ToString(@"hh\:mm") ?? "-",
+                        OtDuration = a.InTime.HasValue && a.OutTime.HasValue
+                            ? FormatDurationMinutes(CalculateDurationMinutes(a.InTime, a.OutTime))
+                            : "-"
+                    })
+                    .ToList()
+            };
+        }
+
+        private async Task<string> GetNextAvailableEmployeeServiceIdAsync(CancellationToken cancellationToken)
+        {
+            var serviceIds = await _context.Users
+                .AsNoTracking()
+                .Where(u => u.ServiceId != null)
+                .Select(u => u.ServiceId!)
+                .ToListAsync(cancellationToken);
+
+            var nextNumber = serviceIds
+                .Select(ParseEmployeeServiceNumber)
+                .Where(number => number.HasValue)
+                .Select(number => number!.Value)
+                .DefaultIfEmpty(0)
+                .Max() + 1;
+
+            while (true)
+            {
+                var candidate = BuildEmployeeServiceId(nextNumber);
+                var inUse = await _context.Users
+                    .AsNoTracking()
+                    .AnyAsync(u => u.ServiceId != null && u.ServiceId.ToUpper() == candidate, cancellationToken);
+
+                if (!inUse)
+                {
+                    return candidate;
+                }
+
+                nextNumber++;
+            }
+        }
+
+        private static int? ParseEmployeeServiceNumber(string serviceId)
+        {
+            var normalized = serviceId.Trim().ToUpperInvariant();
+            if (!normalized.StartsWith("EMP", StringComparison.Ordinal))
+            {
+                return null;
+            }
+
+            var digitsOnly = new string(normalized
+                .Skip(3)
+                .TakeWhile(char.IsDigit)
+                .ToArray());
+
+            if (string.IsNullOrWhiteSpace(digitsOnly))
+            {
+                return null;
+            }
+
+            return int.TryParse(digitsOnly, out var parsed) ? parsed : null;
+        }
+
+        private static string BuildEmployeeServiceId(int number)
+        {
+            return $"EMP{number:D3}";
+        }
+
+        private string GenerateSecureTemporaryPassword()
+        {
+            const string upperChars = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+            const string lowerChars = "abcdefghijkmnpqrstuvwxyz";
+            const string digitChars = "23456789";
+            const string specialChars = "!@#$%^&*";
+            
+            var random = new Random();
+            var password = new System.Text.StringBuilder();
+            
+            // Ensure at least one character from each category
+            password.Append(upperChars[random.Next(upperChars.Length)]);
+            password.Append(lowerChars[random.Next(lowerChars.Length)]);
+            password.Append(digitChars[random.Next(digitChars.Length)]);
+            password.Append(specialChars[random.Next(specialChars.Length)]);
+            
+            // Add remaining characters to reach 12 characters total
+            const string allChars = upperChars + lowerChars + digitChars + specialChars;
+            for (int i = 4; i < 12; i++)
+            {
+                password.Append(allChars[random.Next(allChars.Length)]);
+            }
+            
+            // Shuffle the password characters
+            var passwordArray = password.ToString().ToCharArray();
+            for (int i = passwordArray.Length - 1; i > 0; i--)
+            {
+                int j = random.Next(i + 1);
+                char temp = passwordArray[i];
+                passwordArray[i] = passwordArray[j];
+                passwordArray[j] = temp;
+            }
+            
+            return new string(passwordArray);
+        }
+
+        private Dictionary<string, string[]> GetModelStateErrors()
+        {
+            var errors = new Dictionary<string, string[]>();
+            foreach (var key in ModelState.Keys)
+            {
+                var state = ModelState[key];
+                if (state != null && state.Errors.Any())
+                {
+                    errors[key] = state.Errors.Select(e => e.ErrorMessage).ToArray();
+                }
+            }
+            return errors;
+        }
+
+        private static int CalculateOtDurationMinutes(DateTime date, TimeSpan? otInTime, TimeSpan? otOutTime)
+        {
+            if (!otInTime.HasValue || !otOutTime.HasValue)
+            {
+                return 0;
+            }
+
+            var start = date.Date + otInTime.Value;
+            var end = date.Date + otOutTime.Value;
+            if (end < start)
+            {
+                end = end.AddDays(1);
+            }
+
+            return Math.Max(0, (int)(end - start).TotalMinutes);
+        }
+
+        private static int CalculateDurationMinutes(TimeSpan? inTime, TimeSpan? outTime)
+        {
+            if (!inTime.HasValue || !outTime.HasValue)
+            {
+                return 0;
+            }
+
+            var safeOutTime = outTime.Value;
+            if (safeOutTime < inTime.Value)
+            {
+                safeOutTime = safeOutTime.Add(TimeSpan.FromDays(1));
+            }
+
+            return Math.Max(0, (int)(safeOutTime - inTime.Value).TotalMinutes);
+        }
+
+        private static string FormatDurationMinutes(int minutes)
+        {
+            if (minutes <= 0)
+            {
+                return "0h 0m";
+            }
+
+            var totalHours = minutes / 60;
+            var remainingMinutes = minutes % 60;
+            return $"{totalHours}h {remainingMinutes}m";
+        }
+
+        private static string BuildInitials(string firstName, string lastName)
+        {
+            var firstInitial = string.IsNullOrWhiteSpace(firstName)
+                ? 'A'
+                : char.ToUpperInvariant(firstName.Trim()[0]);
+            var lastInitial = string.IsNullOrWhiteSpace(lastName)
+                ? 'U'
+                : char.ToUpperInvariant(lastName.Trim()[0]);
+
+            return $"{firstInitial}{lastInitial}";
         }
 
         private string GetWorkerCurrentState(TimeSpan? inTime, TimeSpan? outTime, string status)

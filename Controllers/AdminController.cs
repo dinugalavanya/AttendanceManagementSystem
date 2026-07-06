@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AttendanceManagementSystem.Controllers
 {
-    [Authorize(Roles = $"{RoleNames.SuperAdmin},{RoleNames.Admin}")]
+    [Authorize(Roles = RoleNames.EngineerAccessRoles)]
     public class AdminController : Controller
     {
         private readonly ApplicationDbContext _context;

@@ -13,6 +13,8 @@ namespace AttendanceManagementSystem.Models
         [Required]
         public DateTime AttendanceDate { get; set; }
 
+        public DateTime? OtDate { get; set; }
+
         public TimeSpan? InTime { get; set; }
 
         public TimeSpan? OutTime { get; set; }

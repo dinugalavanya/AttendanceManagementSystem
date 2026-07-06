@@ -1,0 +1,131 @@
+@model AttendanceManagementSystem.ViewModels.AdminDashboardViewModel
+@using System.Text.Json
+
+@if (!string.IsNullOrWhiteSpace(Model.WorkerSearchMessage))
+{
+    <div class="warning-box">@Model.WorkerSearchMessage</div>
+}
+
+@if (Model.ShowWorkerResultCards && Model.WorkerProfile != null)
+{
+    <section class="result-grid">
+        <article class="card-shell">
+            <header class="card-header-clean">
+                <div>
+                    <h3>Worker OT Details - Single Date</h3>
+                </div>
+                <span class="header-badge">Date: @Model.SingleDate.ToString("dd/MM/yyyy")</span>
+            </header>
+            <div class="card-body-clean">
+                <div class="worker-profile">
+                    <div class="worker-avatar">@Model.WorkerProfile.Initials</div>
+                    <div>
+                        <h4 class="worker-name">@Model.WorkerProfile.FullName</h4>
+                        <div class="worker-meta">Service ID / Service Number: @Model.WorkerProfile.ServiceId | Section: @Model.WorkerProfile.SectionName</div>
+                    </div>
+                </div>
+
+                @if (Model.SingleDateOtDetails != null)
+                {
+                    <div class="metric-grid">
+                        <div class="metric-box">
+                            <div class="metric-label">OT In Time</div>
+                            <div class="metric-value">@Model.SingleDateOtDetails.OvertimeInTime</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="metric-label">OT Out Time</div>
+                            <div class="metric-value">@Model.SingleDateOtDetails.OvertimeOutTime</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="metric-label">OT Hours</div>
+                            <div class="metric-value">@Model.SingleDateOtDetails.OvertimeHours</div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="result-message">@(Model.SingleDateMessage ?? "No overtime record found for this selected date.")</div>
+                }
+
+                <p class="info-note">Showing overtime details for @Model.SingleDate.ToString("dd/MM/yyyy")</p>
+            </div>
+        </article>
+
+        <article class="card-shell">
+            <header class="card-header-clean">
+                <div>
+                    <h3>Worker OT Details - Date Range</h3>
+                </div>
+                <span class="header-badge">From: @Model.RangeFromDate.ToString("dd/MM/yyyy") to @Model.RangeToDate.ToString("dd/MM/yyyy")</span>
+            </header>
+            <div class="card-body-clean">
+                <div class="worker-profile">
+                    <div class="worker-avatar">@Model.WorkerProfile.Initials</div>
+                    <div>
+                        <h4 class="worker-name">@Model.WorkerProfile.FullName</h4>
+                        <div class="worker-meta">Service ID / Service Number: @Model.WorkerProfile.ServiceId | Section: @Model.WorkerProfile.SectionName</div>
+                    </div>
+                </div>
+
+                @if (Model.DateRangeOtSummary != null)
+                {
+                    <div class="metric-grid metric-grid-2">
+                        <div class="metric-box">
+                            <div class="metric-label">Total Days</div>
+                            <div class="metric-value">@Model.DateRangeOtSummary.TotalDays</div>
+                        </div>
+                        <div class="metric-box">
+                            <div class="metric-label">Total OT Hours</div>
+                            <div class="metric-value">@Model.DateRangeOtSummary.TotalOvertimeDisplay</div>
+                        </div>
+                    </div>
+
+                    @if (Model.DateRangeChartData.Any())
+                    {
+                        <div class="date-range-chart-wrap">
+                            <h5 class="date-range-chart-title">Daily OT Trend</h5>
+                            <div class="date-range-chart-container">
+                                <canvas id="dateRangeOtTrendChart"></canvas>
+                            </div>
+                            <div id="dateRangeOtChartPayload"
+                                 data-labels='@Html.Raw(JsonSerializer.Serialize(Model.DateRangeChartData.Select(x => x.DateLabel).ToList()))'
+                                 data-values='@Html.Raw(JsonSerializer.Serialize(Model.DateRangeChartData.Select(x => x.OTHours).ToList()))'></div>
+                        </div>
+                    }
+
+                    <div class="table-responsive mt-3">
+                        <table class="table table-sm table-striped align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>OT In</th>
+                                    <th>OT Out</th>
+                                    <th>OT Hours</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in Model.DateRangeRows)
+                                {
+                                    <tr>
+                                        <td>@row.Date.ToString("dd/MM/yyyy")</td>
+                                        <td>@row.OvertimeInTime</td>
+                                        <td>@row.OvertimeOutTime</td>
+                                        <td>@row.OvertimeHours</td>
+                                        <td>@row.Status</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="result-message">@(Model.DateRangeMessage ?? "No overtime records found for this selected date range.")</div>
+                }
+
+                <p class="info-note">Showing overtime summary from @Model.RangeFromDate.ToString("dd/MM/yyyy") to @Model.RangeToDate.ToString("dd/MM/yyyy")</p>
+            </div>
+        </article>
+    </section>
+}

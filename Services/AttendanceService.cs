@@ -13,6 +13,47 @@ namespace AttendanceManagementSystem.Services
             _context = context;
         }
 
+        /// <summary>
+        /// Applies role-based section filtering to attendance queries
+        /// SuperAdmin and GM: no section filter (all data)
+        /// Other roles: filter by user's assigned section if sectionId is provided
+        /// </summary>
+        private IQueryable<Attendance> ApplyRoleBasedSectionFilter(IQueryable<Attendance> query, User? user, int? sectionId)
+        {
+            if (user == null || user.Role == null)
+            {
+                return query;
+            }
+
+            // SuperAdmin and GM have full access - no section filtering
+            if (user.Role.Name == RoleNames.SuperAdmin || user.Role.Name == RoleNames.GM)
+            {
+                // If sectionId is provided and > 0, apply it (for filtering by specific section)
+                // If sectionId is -1 or null, return all data
+                if (sectionId.HasValue && sectionId > 0)
+                {
+                    query = query.Where(a => a.User.SectionId == sectionId);
+                }
+                // sectionId == -1 or null means "All Sections" - no filter applied
+            }
+            else
+            {
+                // Normal users can only see their own section
+                if (user.SectionId == null)
+                {
+                    // User has no section assigned - return empty
+                    query = query.Where(a => false);
+                }
+                else
+                {
+                    // Filter by user's assigned section
+                    query = query.Where(a => a.User.SectionId == user.SectionId);
+                }
+            }
+
+            return query;
+        }
+
         public async Task<Attendance?> GetTodayAttendanceAsync(int userId)
         {
             var today = DateTime.Today;
@@ -158,27 +199,43 @@ namespace AttendanceManagementSystem.Services
                 .ToListAsync();
         }
 
-        public async Task<List<Attendance>> GetSectionAttendancesAsync(int sectionId, DateTime date)
+        public async Task<List<Attendance>> GetSectionAttendancesAsync(int sectionId, DateTime date, User? user = null)
         {
-            return await _context.Attendances
+            var query = _context.Attendances
                 .AsNoTracking()
                 .Include(a => a.User)
                 .ThenInclude(u => u.Section)
+                .Include(a => a.User)
+                .ThenInclude(u => u.Role)
                 .Include(a => a.EditLogs)
-                .Where(a => a.User.SectionId == sectionId && a.AttendanceDate.Date == date.Date)
+                .Where(a => a.AttendanceDate.Date == date.Date &&
+                            a.User.Role.Name == RoleNames.Worker);
+
+            // Apply role-based section filtering
+            query = ApplyRoleBasedSectionFilter(query, user, sectionId);
+
+            return await query
                 .OrderBy(a => a.User.FirstName)
                 .ThenBy(a => a.User.LastName)
                 .ToListAsync();
         }
 
-        public async Task<List<Attendance>> GetAllAttendancesAsync(DateTime date)
+        public async Task<List<Attendance>> GetAllAttendancesAsync(DateTime date, User? user = null)
         {
-            return await _context.Attendances
+            var query = _context.Attendances
                 .AsNoTracking()
                 .Include(a => a.User)
                 .ThenInclude(u => u.Section)
+                .Include(a => a.User)
+                .ThenInclude(u => u.Role)
                 .Include(a => a.EditLogs)
-                .Where(a => a.AttendanceDate.Date == date.Date)
+                .Where(a => a.AttendanceDate.Date == date.Date &&
+                            a.User.Role.Name == RoleNames.Admin);
+
+            // Apply role-based section filtering (no sectionId means all sections for SuperAdmin/GM)
+            query = ApplyRoleBasedSectionFilter(query, user, null);
+
+            return await query
                 .OrderBy(a => a.User.Section != null ? a.User.Section.Name : "")
                 .ThenBy(a => a.User.FirstName)
                 .ThenBy(a => a.User.LastName)
@@ -238,17 +295,15 @@ namespace AttendanceManagementSystem.Services
             return Task.CompletedTask;
         }
 
-        public async Task<Dictionary<string, int>> GetAttendanceStatisticsAsync(int? sectionId, DateTime startDate, DateTime endDate)
+        public async Task<Dictionary<string, int>> GetAttendanceStatisticsAsync(int? sectionId, DateTime startDate, DateTime endDate, User? user = null)
         {
             var query = _context.Attendances
                 .AsNoTracking()
                 .Include(a => a.User)
                 .Where(a => a.AttendanceDate.Date >= startDate.Date && a.AttendanceDate.Date <= endDate.Date);
 
-            if (sectionId.HasValue)
-            {
-                query = query.Where(a => a.User.SectionId == sectionId);
-            }
+            // Apply role-based section filtering
+            query = ApplyRoleBasedSectionFilter(query, user, sectionId);
 
             var attendances = await query.ToListAsync();
 

@@ -44,6 +44,7 @@ namespace AttendanceManagementSystem.ViewModels
         public string? WorkerSearchMessage { get; set; }
         public WorkerHistorySearchViewModel? WorkerHistorySearchResult { get; set; }
         public SelectedDateAttendanceViewModel? SelectedDateAttendance { get; set; }
+        public WorkerOtDashboardViewModel? WorkerOtDashboard { get; set; }
     }
 
     public class SectionSnapshotItem
@@ -77,5 +78,44 @@ namespace AttendanceManagementSystem.ViewModels
         public string Status { get; set; } = string.Empty;
         public TimeSpan? InTime { get; set; }
         public TimeSpan? OutTime { get; set; }
+    }
+
+    public class WorkerOtDashboardViewModel
+    {
+        public DateTime MonthStartDate { get; set; }
+        public DateTime SearchDate { get; set; }
+        public string Initials { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string SectionName { get; set; } = string.Empty;
+        public string ServiceId { get; set; } = string.Empty;
+
+        public string SearchedDateOtInTime { get; set; } = "-";
+        public string SearchedDateOtOutTime { get; set; } = "-";
+        public string SearchedDateOtDuration { get; set; } = "-";
+
+        public int TotalOtMinutes { get; set; }
+        public int OtDays { get; set; }
+        public decimal AverageOtHoursPerDay { get; set; }
+
+        public int TotalRecords { get; set; }
+        public string TotalOtDurationDisplay { get; set; } = "0h 0m";
+
+        public List<WorkerOtTrendPointViewModel> TrendPoints { get; set; } = new();
+        public List<WorkerOtRecordRowViewModel> RecentOtRecords { get; set; } = new();
+    }
+
+    public class WorkerOtTrendPointViewModel
+    {
+        public string DateLabel { get; set; } = string.Empty;
+        public decimal OtHours { get; set; }
+    }
+
+    public class WorkerOtRecordRowViewModel
+    {
+        public DateTime Date { get; set; }
+        public string OtInTime { get; set; } = "-";
+        public string OtOutTime { get; set; } = "-";
+        public string OtDuration { get; set; } = "-";
     }
 }

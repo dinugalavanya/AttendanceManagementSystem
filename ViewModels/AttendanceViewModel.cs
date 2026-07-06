@@ -25,6 +25,8 @@ namespace AttendanceManagementSystem.ViewModels
         public string OvertimeHelperText { get; set; } = "No overtime yet";
         public int RegularWorkMinutes { get; set; }
         public int TotalWorkMinutes { get; set; }
+        public bool IsAlreadySubmitted { get; set; }
+        public string AlreadySubmittedMessage { get; set; } = "You have already submitted OT for this date. This record cannot be changed.";
     }
 
     public class AttendanceHistoryViewModel
@@ -32,11 +34,21 @@ namespace AttendanceManagementSystem.ViewModels
         public List<Attendance> Attendances { get; set; } = new();
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
+
+        // Single date selection
+        public DateTime? SelectedDate { get; set; }
+        public Attendance? SelectedDateRecord { get; set; }
+
+        // Period filtering
+        public DateTime? PeriodStartDate { get; set; }
+        public DateTime? PeriodEndDate { get; set; }
+        public List<Attendance> PeriodRecords { get; set; } = new();
     }
 
     public class AttendanceManageViewModel
     {
         public List<Attendance> Attendances { get; set; } = new();
+        public List<AttendanceManageRowViewModel> Rows { get; set; } = new();
         public DateTime SelectedDate { get; set; }
         public bool CanEdit { get; set; }
         public string ScopeLabel { get; set; } = string.Empty;
@@ -47,6 +59,22 @@ namespace AttendanceManagementSystem.ViewModels
         public int OnLeaveCount { get; set; }
         public decimal TotalWorkedHours { get; set; }
         public decimal OvertimeHours { get; set; }
+        public bool IsGM { get; set; }
+        public int? SelectedSectionId { get; set; }
+        public List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem> Sections { get; set; } = new();
+    }
+
+    public class AttendanceManageRowViewModel
+    {
+        public int AttendanceId { get; set; }
+        public string EmployeeName { get; set; } = string.Empty;
+        public string EmployeeEmail { get; set; } = string.Empty;
+        public string SectionName { get; set; } = "Unassigned";
+        public string OvertimeInTime { get; set; } = "-";
+        public string OvertimeOutTime { get; set; } = "-";
+        public string OvertimeDuration { get; set; } = "-";
+        public string ServiceId { get; set; } = "-";
+        public string Initials { get; set; } = string.Empty;
     }
 
     public class EditAttendanceViewModel

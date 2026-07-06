@@ -1,7 +1,10 @@
 @model AttendanceManagementSystem.ViewModels.Ui.FilterToolbarViewModel
+@{
+    var hasSummary = !string.IsNullOrWhiteSpace(Model.SummaryLabel) || !string.IsNullOrWhiteSpace(Model.SummaryValue);
+}
 
 <article class="filter-toolbar-card">
-    <form method="get" asp-action="@Model.FormAction" asp-controller="@Model.FormController" class="filter-toolbar">
+    <form method="get" asp-action="@Model.FormAction" asp-controller="@Model.FormController" class="filter-toolbar @(hasSummary ? string.Empty : "filter-toolbar-no-summary")">
         <div class="filter-toolbar-left">
             <div class="date-input-group">
                 <div class="date-input-wrapper">
@@ -30,7 +33,7 @@
                 <i class="bi bi-chevron-right"></i>
             </a>
         </div>
-        @if (!string.IsNullOrWhiteSpace(Model.SummaryLabel) || !string.IsNullOrWhiteSpace(Model.SummaryValue))
+        @if (hasSummary)
         {
             <div class="filter-toolbar-summary">
                 @if (!string.IsNullOrWhiteSpace(Model.SummaryLabel))

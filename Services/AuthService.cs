@@ -20,6 +20,13 @@ namespace AttendanceManagementSystem.Services
 
         public async Task<User?> AuthenticateAsync(string email, string password)
         {
+            email = email?.Trim() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+            {
+                return null;
+            }
+
             var user = await _context.Users
                 .Include(u => u.Role)
                 .Include(u => u.Section)
@@ -37,6 +44,19 @@ namespace AttendanceManagementSystem.Services
         public async Task<User?> LoginAsync(string email, string password)
         {
             return await AuthenticateAsync(email, password);
+        }
+
+        public async Task<User?> GetUserByEmailAsync(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return null;
+            }
+
+            return await _context.Users
+                .Include(u => u.Role)
+                .Include(u => u.Section)
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower() && u.IsActive);
         }
 
         public async Task<bool> RegisterAsync(User user)
@@ -95,6 +115,27 @@ namespace AttendanceManagementSystem.Services
             return false;
         }
 
+        /// <summary>
+        /// Checks if the current user has full system access (SuperAdmin or GM)
+        /// </summary>
+        public bool IsSuperAdminOrGM(User? user)
+        {
+            if (user == null || user.Role == null) return false;
+            return user.Role.Name == RoleNames.SuperAdmin || user.Role.Name == RoleNames.GM;
+        }
+
+        /// <summary>
+        /// Checks if the current user has full system access (SuperAdmin or GM) - async version
+        /// </summary>
+        public async Task<bool> IsSuperAdminOrGMAsync(int userId)
+        {
+            var user = await _context.Users
+                .Include(u => u.Role)
+                .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+
+            return IsSuperAdminOrGM(user);
+        }
+
         public void SignIn(User user, bool rememberMe = false)
         {
             var claims = new[]
@@ -103,6 +144,7 @@ namespace AttendanceManagementSystem.Services
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.Name, user.FullName),
                 new Claim(ClaimTypes.Role, user.Role.Name),
+                new Claim("ServiceId", user.ServiceId),
                 new Claim("SectionId", user.SectionId?.ToString() ?? ""),
                 new Claim("FirstName", user.FirstName),
                 new Claim("LastName", user.LastName)
