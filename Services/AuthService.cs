@@ -68,6 +68,7 @@ namespace AttendanceManagementSystem.Services
             {
                 // Check if email already exists
                 var existingUser = await _context.Users
+                    .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(u => u.Email.ToLower() == user.Email.ToLower());
 
                 if (existingUser != null) return false;
@@ -118,29 +119,11 @@ namespace AttendanceManagementSystem.Services
             user.PasswordHash = newPasswordHash;
             user.UpdatedAt = DateTime.UtcNow;
 
-            var entry = _context.Entry(user);
-            _logger.LogInformation("ChangePasswordAsync entity state for UserId {UserId} before save: {State}", user.Id, entry.State);
-            entry.Property(x => x.PasswordHash).IsModified = true;
-            entry.Property(x => x.UpdatedAt).IsModified = true;
-
             _logger.LogInformation("ChangePasswordAsync calling SaveChangesAsync for UserId {UserId}", user.Id);
             var affectedRows = await _context.SaveChangesAsync();
             _logger.LogInformation("ChangePasswordAsync SaveChangesAsync affected {AffectedRows} rows for UserId {UserId}", affectedRows, user.Id);
 
-            if (affectedRows <= 0)
-            {
-                _logger.LogError("ChangePasswordAsync did not persist any rows for UserId {UserId}", user.Id);
-                return false;
-            }
-
-            var persistedHash = await _context.Users
-                .Where(u => u.Id == user.Id)
-                .Select(u => u.PasswordHash)
-                .FirstOrDefaultAsync();
-
-            _logger.LogInformation("ChangePasswordAsync persisted hash for UserId {UserId}: {PasswordHash}", user.Id, persistedHash);
-
-            return string.Equals(persistedHash, newPasswordHash, StringComparison.Ordinal);
+            return affectedRows > 0;
         }
 
         public async Task<bool> IsUserInRoleAsync(int userId, string roleName)

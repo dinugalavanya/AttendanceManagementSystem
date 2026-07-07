@@ -81,6 +81,8 @@ namespace AttendanceManagementSystem.Data
                     .WithMany(s => s.Users)
                     .HasForeignKey(e => e.SectionId)
                     .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasQueryFilter(u => u.IsActive);
             });
 
             // Configure Attendance with table name
@@ -129,7 +131,11 @@ namespace AttendanceManagementSystem.Data
             {
                 new Role { Id = 1, Name = RoleNames.SuperAdmin, Description = "Super Administrator with full system access", CreatedAt = SeedRoleCreatedAt },
                 new Role { Id = 2, Name = RoleNames.Admin, Description = "Section Administrator with limited access", CreatedAt = SeedRoleCreatedAt2 },
-                new Role { Id = 3, Name = RoleNames.Worker, Description = "Regular worker who can mark attendance", CreatedAt = SeedRoleCreatedAt3 }
+                new Role { Id = 3, Name = RoleNames.Worker, Description = "Regular worker who can mark attendance", CreatedAt = SeedRoleCreatedAt3 },
+                new Role { Id = 4, Name = RoleNames.GM, Description = "General Manager with department oversight", CreatedAt = SeedRoleCreatedAt2 },
+                new Role { Id = 5, Name = RoleNames.DGM, Description = "Deputy General Manager with department oversight", CreatedAt = SeedRoleCreatedAt2 },
+                new Role { Id = 6, Name = RoleNames.Engineer, Description = "Engineer with attendance edit privileges", CreatedAt = SeedRoleCreatedAt2 },
+                new Role { Id = 7, Name = RoleNames.LeaveAgent, Description = "Leave Agent with attendance edit privileges", CreatedAt = SeedRoleCreatedAt2 }
             };
 
             modelBuilder.Entity<Role>().HasData(roles);

@@ -20,6 +20,7 @@ namespace AttendanceManagementSystem.Data
 
             var existingEmails = await context.Users
                 .AsNoTracking()
+                .IgnoreQueryFilters()
                 .Where(u => targetEmails.Contains(u.Email))
                 .Select(u => u.Email)
                 .ToListAsync(cancellationToken);
@@ -41,6 +42,7 @@ namespace AttendanceManagementSystem.Data
             var usersToInsert = new List<User>();
             var maxServiceNumber = await context.Users
                 .AsNoTracking()
+                .IgnoreQueryFilters()
                 .Where(u => u.ServiceId != null)
                 .Select(u => u.ServiceId!)
                 .ToListAsync(cancellationToken);

@@ -26,15 +26,14 @@ namespace AttendanceManagementSystem.Models
         public const string GM = "GM";
         public const string DGM = "DGM";
         public const string Engineer = "Engineer";
-        public const string RoleAgent = "Role agent";
         public const string LeaveAgent = "Leave agent";
         public const string Worker = "Worker";
 
-        public const string EngineerAccessRoles = "SuperAdmin,Admin,GM,DGM,Engineer,Role agent,Leave agent";
+        public const string EngineerAccessRoles = "SuperAdmin,Admin,GM,DGM,Engineer,Leave agent";
 
         public static bool HasEngineerPrivileges(string? roleName)
         {
-            return roleName == Engineer || roleName == RoleAgent || roleName == LeaveAgent;
+            return roleName == Engineer || roleName == LeaveAgent;
         }
     }
 }

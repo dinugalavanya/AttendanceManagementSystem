@@ -983,6 +983,7 @@ namespace AttendanceManagementSystem.Controllers
 
                 var existingServiceId = await _context.Users
                     .AsNoTracking()
+                    .IgnoreQueryFilters()
                     .AnyAsync(u => u.ServiceId != null && u.ServiceId.ToUpper() == normalizedServiceId);
 
                 if (existingServiceId)
@@ -993,6 +994,7 @@ namespace AttendanceManagementSystem.Controllers
                 // Check for duplicate Email
                 var existingEmail = await _context.Users
                     .AsNoTracking()
+                    .IgnoreQueryFilters()
                     .AnyAsync(u => u.Email.ToUpper() == model.Email.ToUpper());
 
                 if (existingEmail)
@@ -1285,6 +1287,7 @@ namespace AttendanceManagementSystem.Controllers
         {
             var serviceIds = await _context.Users
                 .AsNoTracking()
+                .IgnoreQueryFilters()
                 .Where(u => u.ServiceId != null)
                 .Select(u => u.ServiceId!)
                 .ToListAsync(cancellationToken);
@@ -1301,6 +1304,7 @@ namespace AttendanceManagementSystem.Controllers
                 var candidate = BuildEmployeeServiceId(nextNumber);
                 var inUse = await _context.Users
                     .AsNoTracking()
+                    .IgnoreQueryFilters()
                     .AnyAsync(u => u.ServiceId != null && u.ServiceId.ToUpper() == candidate, cancellationToken);
 
                 if (!inUse)

@@ -45,6 +45,7 @@ namespace AttendanceManagementSystem.Controllers
             var usersQuery = _context.Users
                 .Include(u => u.Role)
                 .Include(u => u.Section)
+                .Where(u => u.IsActive)
                 .AsQueryable();
 
             if (isSuperAdmin)
@@ -142,6 +143,7 @@ namespace AttendanceManagementSystem.Controllers
 
                 // Check if email already exists
                 var existingUser = await _context.Users
+                    .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(u => u.Email.ToLower() == model.Email.ToLower());
                 
                 if (existingUser != null)
@@ -204,10 +206,14 @@ namespace AttendanceManagementSystem.Controllers
             if (currentUser?.Role?.Name != RoleNames.SuperAdmin)
                 return Json(new { success = false, message = "Unauthorized." });
 
+            var normalizedServiceId = NormalizeServiceId(serviceId);
+            if (string.IsNullOrWhiteSpace(normalizedServiceId))
+                return Json(new { success = false, message = "Please enter a Service ID." });
+
             var admin = await _context.Users
                 .Include(u => u.Role)
                 .Include(u => u.Section)
-                .FirstOrDefaultAsync(u => u.ServiceId == serviceId && u.Role.Name == RoleNames.Admin);
+                .FirstOrDefaultAsync(u => u.ServiceId.ToUpper() == normalizedServiceId && u.Role.Name == RoleNames.Admin);
 
             if (admin == null)
                 return Json(new { success = false, message = "No Admin found with that Service ID." });
@@ -221,6 +227,14 @@ namespace AttendanceManagementSystem.Controllers
             });
         }
 
+        // GET: User/GetNextServiceId
+        [HttpGet]
+        public async Task<IActionResult> GetNextServiceId()
+        {
+            var nextServiceId = await GenerateNextEmployeeServiceIdAsync();
+            return Json(new { success = true, serviceId = nextServiceId });
+        }
+
         // POST: User/ChangeAdminSection
         [HttpPost]
         public async Task<IActionResult> ChangeAdminSection([FromBody] ChangeAdminSectionRequest request)
@@ -229,9 +243,14 @@ namespace AttendanceManagementSystem.Controllers
             if (currentUser?.Role?.Name != RoleNames.SuperAdmin)
                 return Json(new { success = false, message = "Unauthorized." });
 
+            var normalizedServiceId = NormalizeServiceId(request.ServiceId);
+            if (string.IsNullOrWhiteSpace(normalizedServiceId))
+                return Json(new { success = false, message = "Please enter a Service ID." });
+
             var admin = await _context.Users
                 .Include(u => u.Role)
-                .FirstOrDefaultAsync(u => u.ServiceId == request.ServiceId && u.Role.Name == RoleNames.Admin);
+                .Include(u => u.Section)
+                .FirstOrDefaultAsync(u => u.ServiceId.ToUpper() == normalizedServiceId && u.Role.Name == RoleNames.Admin);
 
             if (admin == null)
                 return Json(new { success = false, message = "Admin not found." });
@@ -250,12 +269,21 @@ namespace AttendanceManagementSystem.Controllers
             admin.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
+            await _context.Entry(admin).ReloadAsync();
+
+            if (admin.SectionId != request.SectionId)
+            {
+                return Json(new { success = false, message = "Section update was not persisted. Please try again." });
+            }
+
             return Json(new { success = true, message = $"Section changed to '{section.Name}' successfully." });
         }
 
         private async Task<string> GenerateNextEmployeeServiceIdAsync()
         {
+            // Include inactive users by ignoring query filter
             var existingServiceIds = await _context.Users
+                .IgnoreQueryFilters()
                 .AsNoTracking()
                 .Where(u => u.ServiceId != null)
                 .Select(u => u.ServiceId!)
@@ -268,7 +296,22 @@ namespace AttendanceManagementSystem.Controllers
                 .DefaultIfEmpty(0)
                 .Max();
 
-            return $"EMP{maxNumber + 1:D3}";
+            // Generate next ServiceId and check if it exists
+            int nextNumber = maxNumber + 1;
+            string newServiceId;
+            bool exists;
+
+            do
+            {
+                newServiceId = $"EMP{nextNumber:D3}";
+                exists = existingServiceIds.Any(id => id.Equals(newServiceId, StringComparison.OrdinalIgnoreCase));
+                if (exists)
+                {
+                    nextNumber++;
+                }
+            } while (exists);
+
+            return newServiceId;
         }
 
         private static string GenerateSecurePassword()
@@ -286,6 +329,11 @@ namespace AttendanceManagementSystem.Controllers
             chars[3] = special[rng.Next(special.Length)];
             for (int i = 4; i < 12; i++) chars[i] = all[rng.Next(all.Length)];
             return new string(chars.OrderBy(_ => rng.Next()).ToArray());
+        }
+
+        private static string NormalizeServiceId(string? serviceId)
+        {
+            return serviceId?.Trim().ToUpperInvariant() ?? string.Empty;
         }
 
         private static int? ParseEmployeeServiceNumber(string serviceId)
@@ -328,6 +376,7 @@ namespace AttendanceManagementSystem.Controllers
                 }
 
                 var existingUser = await _context.Users
+                    .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(u => u.Email.ToLower() == request.Email.ToLower());
 
                 if (existingUser != null)
@@ -359,6 +408,23 @@ namespace AttendanceManagementSystem.Controllers
                 string tempPassword = GenerateSecurePassword();
                 string hashedPassword = BCrypt.Net.BCrypt.HashPassword(tempPassword);
 
+                // Use provided ServiceId or generate a new one
+                string serviceId = !string.IsNullOrWhiteSpace(request.ServiceId)
+                    ? request.ServiceId.Trim().ToUpper()
+                    : await GenerateNextEmployeeServiceIdAsync();
+
+                // Validate ServiceId doesn't exist (including inactive users)
+                var existingServiceIdUser = await _context.Users
+                    .IgnoreQueryFilters()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.ServiceId != null && u.ServiceId.ToUpper() == serviceId);
+
+                if (existingServiceIdUser != null)
+                {
+                    // ServiceId already exists, generate a new one
+                    serviceId = await GenerateNextEmployeeServiceIdAsync();
+                }
+
                 var newUser = new User
                 {
                     FirstName = request.FirstName.Trim(),
@@ -367,7 +433,7 @@ namespace AttendanceManagementSystem.Controllers
                     PasswordHash = hashedPassword,
                     Phone = string.IsNullOrWhiteSpace(request.Phone) ? null : request.Phone.Trim(),
                     Address = string.IsNullOrWhiteSpace(request.Address) ? null : request.Address.Trim(),
-                    ServiceId = await GenerateNextEmployeeServiceIdAsync(),
+                    ServiceId = serviceId,
                     RoleId = role.Id,
                     IsActive = true,
                     SectionId = request.SectionId.Value,
@@ -394,7 +460,11 @@ namespace AttendanceManagementSystem.Controllers
             }
             catch (Exception ex)
             {
-                return Json(new { success = false, message = $"Error creating {displayRoleName.ToLowerInvariant()}: {ex.Message}" });
+                var innerException = ex.InnerException?.Message ?? "No inner exception";
+                var fullError = $"Outer: {ex.Message} | Inner: {innerException}";
+                Console.WriteLine($"[CREATE {displayRoleName.ToUpperInvariant()} ERROR] {fullError}");
+                Console.WriteLine($"[STACK TRACE] {ex.StackTrace}");
+                return Json(new { success = false, message = $"Error creating {displayRoleName.ToLowerInvariant()}: {ex.Message}. Inner: {innerException}" });
             }
         }
 
@@ -432,6 +502,7 @@ namespace AttendanceManagementSystem.Controllers
         public string? Phone { get; set; }
         public string? Address { get; set; }
         public int? SectionId { get; set; }
+        public string? ServiceId { get; set; }
     }
 
     public class ChangeAdminSectionRequest
