@@ -1,0 +1,1783 @@
+@model AttendanceManagementSystem.ViewModels.DashboardViewModel
+@using System.Text.Json
+@using AttendanceManagementSystem.Models
+
+@{
+    ViewData["Title"] = "Leave Agent Dashboard";
+
+    var today = Model.SelectedDate;
+    var monthLabel = Model.OTCurrentMonthLabel != string.Empty ? Model.OTCurrentMonthLabel : today.ToString("MMMM yyyy");
+    var sectionName = Model.ScopeTitle.Replace(" Overview", "").Trim();
+
+    // Chart data serialisation
+    var deptLabelsJson  = JsonSerializer.Serialize(Model.DepartmentOTLabels ?? new());
+    var deptValuesJson  = JsonSerializer.Serialize(Model.DepartmentOTValues  ?? new());
+    var dailyLabelsJson = JsonSerializer.Serialize(Model.DailyOTLabels       ?? new());
+    var dailyValuesJson = JsonSerializer.Serialize(Model.DailyOTValues       ?? new());
+    var distLabelsJson  = JsonSerializer.Serialize(Model.OTDistributionLabels ?? new());
+    var distValuesJson  = JsonSerializer.Serialize(Model.OTDistributionValues  ?? new());
+
+    // Calendar data
+    var calDays = Model.OTCalendarDays ?? new();
+    var employees = Model.OTEmployees  ?? new();
+    var alerts    = Model.OTAlerts     ?? new();
+    var summary   = Model.OTSummary    ?? new();
+    var todayStatus = Model.TodayOTStatus ?? new();
+
+    // Derived stats
+    var pendingCount = summary.Employees95to100 + summary.EmployeesAbove100;
+    var approvedToday = Model.PresentCount;
+    var onLeaveToday = todayStatus.EmployeesOnLeave;
+    var urgentCount = summary.EmployeesAbove100;
+}
+
+<!-- ═══════════════════════════════════════════════════════════════
+     LEAVE AGENT DASHBOARD  –  Premium Enterprise HR Dashboard
+     ═══════════════════════════════════════════════════════════════ -->
+
+<style>
+    /* ══════════════════════════════════════════════════════════════
+       DESIGN TOKENS
+       ══════════════════════════════════════════════════════════════ */
+    :root {
+        --ld-blue:        #2563EB;
+        --ld-blue-lt:     #3B82F6;
+        --ld-blue-xlt:    #EFF6FF;
+        --ld-blue-dk:     #1D4ED8;
+        --ld-emerald:     #10B981;
+        --ld-emerald-lt:  #34D399;
+        --ld-emerald-xlt: #ECFDF5;
+        --ld-violet:      #7C3AED;
+        --ld-violet-lt:   #8B5CF6;
+        --ld-violet-xlt:  #EDE9FE;
+        --ld-orange:      #F59E0B;
+        --ld-orange-lt:   #FBBF24;
+        --ld-orange-xlt:  #FEF3C7;
+        --ld-red:         #EF4444;
+        --ld-red-lt:      #F87171;
+        --ld-red-xlt:     #FEE2E2;
+        --ld-green:       #16A34A;
+        --ld-surface:     #F8FAFC;
+        --ld-card:        #FFFFFF;
+        --ld-border:      #E2E8F0;
+        --ld-border-lt:   #F1F5F9;
+        --ld-text:        #0F172A;
+        --ld-text-secondary: #475569;
+        --ld-muted:       #94A3B8;
+        --ld-radius:      20px;
+        --ld-radius-sm:   14px;
+        --ld-radius-xs:   10px;
+        --ld-shadow:      0 1px 3px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.06);
+        --ld-shadow-md:   0 4px 6px -1px rgba(0,0,0,.07), 0 10px 30px -4px rgba(0,0,0,.08);
+        --ld-shadow-lg:   0 10px 40px -8px rgba(0,0,0,.12);
+        --ld-shadow-glow: 0 0 40px rgba(37,99,235,.12);
+        --ld-transition:  all .25s cubic-bezier(.4,0,.2,1);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       PAGE LAYOUT
+       ══════════════════════════════════════════════════════════════ */
+    .ld-page {
+        display: flex;
+        flex-direction: column;
+        gap: 1.75rem;
+        padding-bottom: 3rem;
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       HERO BANNER
+       ══════════════════════════════════════════════════════════════ */
+    .ld-hero {
+        background: linear-gradient(135deg, #1E40AF 0%, #2563EB 30%, #7C3AED 70%, #6D28D9 100%);
+        border-radius: var(--ld-radius);
+        padding: 2rem 2.5rem;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+        box-shadow: var(--ld-shadow-lg), 0 0 60px rgba(37,99,235,.15);
+        position: relative;
+        overflow: hidden;
+    }
+    .ld-hero::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 400px;
+        height: 400px;
+        background: radial-gradient(circle, rgba(255,255,255,.08) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+    .ld-hero::after {
+        content: '';
+        position: absolute;
+        bottom: -30%;
+        left: 20%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(16,185,129,.15) 0%, transparent 70%);
+        border-radius: 50%;
+    }
+    .ld-hero-left { position: relative; z-index: 2; }
+    .ld-hero-eyebrow {
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .14em;
+        text-transform: uppercase;
+        opacity: .75;
+        margin-bottom: .5rem;
+        display: flex;
+        align-items: center;
+        gap: .4rem;
+    }
+    .ld-hero h1 {
+        font-size: 1.75rem;
+        font-weight: 800;
+        margin: 0 0 .35rem;
+        letter-spacing: -.02em;
+    }
+    .ld-hero-sub { font-size: .9rem; opacity: .8; margin: 0; }
+    .ld-hero-right { position: relative; z-index: 2; display: flex; gap: .75rem; flex-wrap: wrap; }
+    .ld-hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        background: rgba(255,255,255,.12);
+        border: 1px solid rgba(255,255,255,.18);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        padding: .45rem 1rem;
+        border-radius: 999px;
+        font-size: .82rem;
+        font-weight: 600;
+        color: #fff;
+        transition: var(--ld-transition);
+    }
+    .ld-hero-badge:hover {
+        background: rgba(255,255,255,.2);
+        transform: translateY(-1px);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       ANALYTICS CARDS (ROW 1)
+       ══════════════════════════════════════════════════════════════ */
+    .ld-stats-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.25rem;
+    }
+    @@media(max-width: 1024px) { .ld-stats-row { grid-template-columns: repeat(2, 1fr); } }
+    @@media(max-width: 540px) { .ld-stats-row { grid-template-columns: 1fr; } }
+
+    .ld-stat-card {
+        background: var(--ld-card);
+        border: 1px solid var(--ld-border);
+        border-radius: var(--ld-radius);
+        padding: 1.5rem 1.75rem;
+        box-shadow: var(--ld-shadow);
+        display: flex;
+        align-items: flex-start;
+        gap: 1.15rem;
+        transition: var(--ld-transition);
+        position: relative;
+        overflow: hidden;
+    }
+    .ld-stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        border-radius: var(--ld-radius) var(--ld-radius) 0 0;
+    }
+    .ld-stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--ld-shadow-md);
+    }
+    .ld-stat-card.orange::before { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+    .ld-stat-card.green::before  { background: linear-gradient(90deg, #10B981, #34D399); }
+    .ld-stat-card.blue::before   { background: linear-gradient(90deg, #2563EB, #3B82F6); }
+    .ld-stat-card.red::before    { background: linear-gradient(90deg, #EF4444, #F87171); }
+
+    .ld-stat-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.35rem;
+        flex-shrink: 0;
+    }
+    .ld-stat-icon.orange { background: var(--ld-orange-xlt); color: var(--ld-orange); }
+    .ld-stat-icon.green  { background: var(--ld-emerald-xlt); color: var(--ld-emerald); }
+    .ld-stat-icon.blue   { background: var(--ld-blue-xlt); color: var(--ld-blue); }
+    .ld-stat-icon.red    { background: var(--ld-red-xlt); color: var(--ld-red); }
+
+    .ld-stat-info { flex: 1; }
+    .ld-stat-label {
+        font-size: .78rem;
+        font-weight: 600;
+        color: var(--ld-muted);
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        margin-bottom: .3rem;
+    }
+    .ld-stat-value {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--ld-text);
+        line-height: 1.1;
+        font-family: var(--font-heading);
+    }
+    .ld-stat-change {
+        display: inline-flex;
+        align-items: center;
+        gap: .25rem;
+        font-size: .72rem;
+        font-weight: 700;
+        margin-top: .35rem;
+        padding: .2rem .55rem;
+        border-radius: 999px;
+    }
+    .ld-stat-change.up   { background: #DCFCE7; color: #15803D; }
+    .ld-stat-change.down { background: #FEE2E2; color: #991B1B; }
+
+    /* ══════════════════════════════════════════════════════════════
+       SHARED CARD COMPONENT
+       ══════════════════════════════════════════════════════════════ */
+    .ld-card {
+        background: var(--ld-card);
+        border: 1px solid var(--ld-border);
+        border-radius: var(--ld-radius);
+        box-shadow: var(--ld-shadow);
+        overflow: hidden;
+        transition: var(--ld-transition);
+    }
+    .ld-card:hover {
+        box-shadow: var(--ld-shadow-md);
+    }
+    .ld-card-header {
+        padding: 1.1rem 1.5rem;
+        border-bottom: 1px solid var(--ld-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+        background: linear-gradient(180deg, rgba(248,250,252,.7), rgba(255,255,255,0));
+    }
+    .ld-card-title {
+        font-size: .95rem;
+        font-weight: 700;
+        color: var(--ld-text);
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+    }
+    .ld-card-title i { font-size: 1.1rem; }
+    .ld-card-body { padding: 1.5rem; }
+
+    /* ══════════════════════════════════════════════════════════════
+       SECOND ROW (Table 70% + Summary 30%)
+       ══════════════════════════════════════════════════════════════ */
+    .ld-row-2 {
+        display: grid;
+        grid-template-columns: 7fr 3fr;
+        gap: 1.25rem;
+        align-items: start;
+    }
+    @@media(max-width: 1100px) { .ld-row-2 { grid-template-columns: 1fr; } }
+
+    /* ── Leave Approval Queue Table ────────────────────────────── */
+    .ld-table-wrap { overflow-x: auto; }
+    .ld-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .ld-table thead th {
+        text-align: left;
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .07em;
+        text-transform: uppercase;
+        color: var(--ld-muted);
+        padding: .85rem 1rem;
+        border-bottom: 2px solid var(--ld-border);
+        background: #FAFBFD;
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        white-space: nowrap;
+    }
+    .ld-table tbody tr {
+        transition: var(--ld-transition);
+        border-bottom: 1px solid var(--ld-border-lt);
+    }
+    .ld-table tbody tr:hover {
+        background: linear-gradient(90deg, #EFF6FF 0%, #EDE9FE 100%);
+    }
+    .ld-table td {
+        padding: .85rem 1rem;
+        vertical-align: middle;
+        font-size: .875rem;
+        color: var(--ld-text-secondary);
+        white-space: nowrap;
+    }
+
+    /* Avatar + Name cell */
+    .ld-emp-cell {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+    }
+    .ld-avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: .78rem;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+    .ld-avatar.v1 { background: linear-gradient(135deg, #2563EB, #3B82F6); }
+    .ld-avatar.v2 { background: linear-gradient(135deg, #7C3AED, #8B5CF6); }
+    .ld-avatar.v3 { background: linear-gradient(135deg, #10B981, #34D399); }
+    .ld-avatar.v4 { background: linear-gradient(135deg, #F59E0B, #FBBF24); }
+    .ld-avatar.v5 { background: linear-gradient(135deg, #EF4444, #F87171); }
+    .ld-emp-name { font-weight: 700; color: var(--ld-text); font-size: .875rem; }
+    .ld-emp-id { font-size: .72rem; color: var(--ld-muted); }
+
+    /* Status badges */
+    .ld-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+        padding: .28rem .7rem;
+        border-radius: 999px;
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .02em;
+    }
+    .ld-badge.pending  { background: var(--ld-orange-xlt); color: #92400E; }
+    .ld-badge.approved { background: var(--ld-emerald-xlt); color: #065F46; }
+    .ld-badge.rejected { background: var(--ld-red-xlt); color: #991B1B; }
+    .ld-badge.urgent   { background: var(--ld-red-xlt); color: #991B1B; }
+
+    /* Priority badges */
+    .ld-priority {
+        display: inline-flex;
+        align-items: center;
+        gap: .25rem;
+        padding: .2rem .6rem;
+        border-radius: 6px;
+        font-size: .7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+    .ld-priority.high   { background: #FEE2E2; color: #DC2626; }
+    .ld-priority.medium { background: #FEF3C7; color: #D97706; }
+    .ld-priority.low    { background: #DCFCE7; color: #16A34A; }
+
+    /* Action buttons */
+    .ld-action-btns { display: flex; gap: .4rem; }
+    .ld-btn-sm {
+        padding: .35rem .65rem;
+        border-radius: 8px;
+        font-size: .72rem;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        transition: var(--ld-transition);
+        display: inline-flex;
+        align-items: center;
+        gap: .3rem;
+    }
+    .ld-btn-sm:hover { transform: translateY(-1px); }
+    .ld-btn-approve {
+        background: linear-gradient(135deg, #10B981, #059669);
+        color: #fff;
+    }
+    .ld-btn-approve:hover { box-shadow: 0 4px 12px rgba(16,185,129,.3); }
+    .ld-btn-reject {
+        background: linear-gradient(135deg, #EF4444, #DC2626);
+        color: #fff;
+    }
+    .ld-btn-reject:hover { box-shadow: 0 4px 12px rgba(239,68,68,.3); }
+    .ld-btn-view {
+        background: var(--ld-blue-xlt);
+        color: var(--ld-blue);
+        border: 1px solid #BFDBFE;
+    }
+    .ld-btn-view:hover { background: #DBEAFE; }
+
+    /* ── Summary Card (Right 30%) ─────────────────────────────── */
+    .ld-summary-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: .85rem;
+        margin-bottom: 1.25rem;
+    }
+    .ld-summary-item {
+        background: var(--ld-surface);
+        border-radius: var(--ld-radius-xs);
+        padding: 1rem;
+        text-align: center;
+        transition: var(--ld-transition);
+    }
+    .ld-summary-item:hover { background: var(--ld-blue-xlt); }
+    .ld-summary-value {
+        font-size: 1.6rem;
+        font-weight: 800;
+        line-height: 1.1;
+        font-family: var(--font-heading);
+    }
+    .ld-summary-label {
+        font-size: .7rem;
+        font-weight: 600;
+        color: var(--ld-muted);
+        margin-top: .25rem;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+    }
+    .ld-donut-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: .5rem 0;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       THIRD ROW (Calendar + Leave Balance)
+       ══════════════════════════════════════════════════════════════ */
+    .ld-row-3 {
+        display: grid;
+        grid-template-columns: 6fr 4fr;
+        gap: 1.25rem;
+        align-items: start;
+    }
+    @@media(max-width: 1100px) { .ld-row-3 { grid-template-columns: 1fr; } }
+
+    /* Calendar */
+    .ld-cal-grid-wrap { overflow-x: auto; }
+    .ld-cal-table { width: 100%; border-collapse: collapse; }
+    .ld-cal-table th {
+        text-align: center;
+        font-size: .72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        color: var(--ld-muted);
+        padding: .6rem .25rem;
+        border-bottom: 2px solid var(--ld-border);
+    }
+    .ld-cal-table td {
+        text-align: center;
+        padding: .5rem .3rem;
+        border: 1px solid var(--ld-border-lt);
+        font-size: .82rem;
+        font-weight: 600;
+        cursor: pointer;
+        min-width: 42px;
+        height: 42px;
+        transition: var(--ld-transition);
+        border-radius: 4px;
+    }
+    .ld-cal-table td:hover:not(.cal-empty) {
+        transform: scale(1.08);
+        box-shadow: var(--ld-shadow);
+    }
+    .ld-cal-table td.cal-empty { background: transparent; border-color: transparent; cursor: default; }
+    .cal-available  { background: #DCFCE7; color: #15803D; }
+    .cal-approved   { background: #DBEAFE; color: #1D4ED8; }
+    .cal-pending    { background: #FEF3C7; color: #92400E; }
+    .cal-holiday    { background: #FEE2E2; color: #991B1B; }
+    .cal-event      { background: #EDE9FE; color: #6D28D9; }
+    .cal-today {
+        outline: 2.5px solid var(--ld-blue);
+        outline-offset: -2px;
+        font-weight: 800;
+    }
+
+    .ld-cal-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .75rem;
+        padding: 1rem 1.5rem;
+        background: #FAFBFD;
+        border-top: 1px solid var(--ld-border);
+    }
+    .ld-cal-legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        font-size: .72rem;
+        font-weight: 600;
+        color: var(--ld-text-secondary);
+    }
+    .ld-cal-swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        display: inline-block;
+    }
+
+    /* Leave Balance Progress Bars */
+    .ld-balance-list { display: flex; flex-direction: column; gap: 1.25rem; }
+    .ld-balance-item { }
+    .ld-balance-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: .5rem;
+    }
+    .ld-balance-name {
+        font-size: .85rem;
+        font-weight: 700;
+        color: var(--ld-text);
+    }
+    .ld-balance-pct {
+        font-size: .78rem;
+        font-weight: 700;
+    }
+    .ld-balance-bar {
+        height: 10px;
+        background: var(--ld-border-lt);
+        border-radius: 999px;
+        overflow: hidden;
+    }
+    .ld-balance-fill {
+        height: 100%;
+        border-radius: 999px;
+        transition: width .6s ease;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       FOURTH ROW — Activity Timeline
+       ══════════════════════════════════════════════════════════════ */
+    .ld-timeline { display: flex; flex-direction: column; gap: 0; }
+    .ld-timeline-item {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem 1.5rem;
+        align-items: flex-start;
+        border-bottom: 1px solid var(--ld-border-lt);
+        transition: var(--ld-transition);
+    }
+    .ld-timeline-item:last-child { border-bottom: none; }
+    .ld-timeline-item:hover { background: var(--ld-surface); }
+    .ld-timeline-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: .9rem;
+    }
+    .ld-timeline-icon.success { background: var(--ld-emerald-xlt); color: var(--ld-emerald); }
+    .ld-timeline-icon.info    { background: var(--ld-blue-xlt); color: var(--ld-blue); }
+    .ld-timeline-icon.warning { background: var(--ld-orange-xlt); color: var(--ld-orange); }
+    .ld-timeline-icon.danger  { background: var(--ld-red-xlt); color: var(--ld-red); }
+    .ld-timeline-icon.purple  { background: var(--ld-violet-xlt); color: var(--ld-violet); }
+    .ld-timeline-content { flex: 1; }
+    .ld-timeline-msg {
+        font-size: .875rem;
+        color: var(--ld-text);
+        line-height: 1.5;
+        margin: 0;
+    }
+    .ld-timeline-msg strong { font-weight: 700; }
+    .ld-timeline-time {
+        font-size: .72rem;
+        color: var(--ld-muted);
+        margin-top: .2rem;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       FIFTH ROW — Department Chart
+       ══════════════════════════════════════════════════════════════ */
+    .ld-chart-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem 1rem;
+        color: var(--ld-muted);
+        font-size: .85rem;
+        gap: .6rem;
+    }
+    .ld-chart-empty i { font-size: 2.5rem; opacity: .25; }
+
+    /* ══════════════════════════════════════════════════════════════
+       QUICK ACTIONS (BOTTOM)
+       ══════════════════════════════════════════════════════════════ */
+    .ld-actions-row {
+        display: flex;
+        gap: .85rem;
+        flex-wrap: wrap;
+    }
+    .ld-action-btn {
+        padding: .75rem 1.5rem;
+        border-radius: var(--ld-radius-sm);
+        font-size: .85rem;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        transition: var(--ld-transition);
+        color: #fff;
+    }
+    .ld-action-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--ld-shadow-md);
+    }
+    .ld-action-btn.blue   { background: linear-gradient(135deg, #2563EB, #1D4ED8); }
+    .ld-action-btn.green  { background: linear-gradient(135deg, #10B981, #059669); }
+    .ld-action-btn.violet { background: linear-gradient(135deg, #7C3AED, #6D28D9); }
+    .ld-action-btn.orange { background: linear-gradient(135deg, #F59E0B, #D97706); color: #1C1917; }
+    .ld-action-btn.slate  { background: linear-gradient(135deg, #475569, #334155); }
+
+    /* ══════════════════════════════════════════════════════════════
+       FLOATING ALERTS PANEL
+       ══════════════════════════════════════════════════════════════ */
+    .ld-floating-panel {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        width: 340px;
+        max-height: 420px;
+        background: var(--ld-card);
+        border: 1px solid var(--ld-border);
+        border-radius: var(--ld-radius);
+        box-shadow: var(--ld-shadow-lg), var(--ld-shadow-glow);
+        z-index: 1000;
+        overflow: hidden;
+        transform: translateY(0);
+        transition: var(--ld-transition);
+    }
+    .ld-floating-panel.hidden {
+        transform: translateY(120%);
+        pointer-events: none;
+        opacity: 0;
+    }
+    .ld-floating-header {
+        padding: .85rem 1.25rem;
+        background: linear-gradient(135deg, #1E40AF, #7C3AED);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .ld-floating-header h4 {
+        margin: 0;
+        font-size: .85rem;
+        font-weight: 700;
+        color: #fff;
+    }
+    .ld-floating-close {
+        background: rgba(255,255,255,.15);
+        border: none;
+        color: #fff;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--ld-transition);
+    }
+    .ld-floating-close:hover { background: rgba(255,255,255,.3); }
+    .ld-floating-body {
+        overflow-y: auto;
+        max-height: 340px;
+        padding: .5rem 0;
+    }
+    .ld-float-item {
+        display: flex;
+        gap: .75rem;
+        padding: .75rem 1.25rem;
+        align-items: flex-start;
+        border-bottom: 1px solid var(--ld-border-lt);
+        transition: var(--ld-transition);
+    }
+    .ld-float-item:last-child { border-bottom: none; }
+    .ld-float-item:hover { background: var(--ld-surface); }
+    .ld-float-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: .82rem;
+    }
+    .ld-float-msg {
+        font-size: .8rem;
+        color: var(--ld-text);
+        line-height: 1.45;
+        margin: 0;
+    }
+    .ld-float-time {
+        font-size: .68rem;
+        color: var(--ld-muted);
+        margin-top: .15rem;
+    }
+
+    /* Floating toggle button */
+    .ld-float-toggle {
+        position: fixed;
+        right: 24px;
+        bottom: 24px;
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #2563EB, #7C3AED);
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        box-shadow: var(--ld-shadow-md), var(--ld-shadow-glow);
+        z-index: 999;
+        transition: var(--ld-transition);
+    }
+    .ld-float-toggle:hover { transform: scale(1.08); }
+    .ld-float-toggle.active { display: none; }
+
+    /* Notification dot */
+    .ld-float-toggle .ld-notif-dot {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 12px;
+        height: 12px;
+        background: var(--ld-red);
+        border-radius: 50%;
+        border: 2px solid #fff;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       DATE FILTER STRIP
+       ══════════════════════════════════════════════════════════════ */
+    .ld-filter-strip {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+    @@media(max-width: 640px) { .ld-filter-strip { grid-template-columns: 1fr; } }
+    .ld-filter-card {
+        background: var(--ld-card);
+        border: 1px solid var(--ld-border);
+        border-radius: var(--ld-radius);
+        padding: 1.25rem 1.5rem;
+        box-shadow: var(--ld-shadow);
+        transition: var(--ld-transition);
+    }
+    .ld-filter-card:hover { box-shadow: var(--ld-shadow-md); }
+    .ld-filter-card label {
+        display: block;
+        font-size: .72rem;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: var(--ld-muted);
+        margin-bottom: .5rem;
+    }
+    .ld-filter-card .ld-input-row { display: flex; gap: .6rem; align-items: flex-end; }
+    .ld-filter-card input[type=date] {
+        flex: 1;
+        border: 1.5px solid var(--ld-border);
+        border-radius: var(--ld-radius-xs);
+        padding: .55rem .85rem;
+        font-size: .9rem;
+        color: var(--ld-text);
+        background: var(--ld-card);
+        transition: var(--ld-transition);
+        font-family: var(--font-body);
+    }
+    .ld-filter-card input[type=date]:focus {
+        outline: none;
+        border-color: var(--ld-blue);
+        box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+    }
+    .ld-btn-search {
+        background: linear-gradient(135deg, var(--ld-blue), var(--ld-blue-dk));
+        color: #fff;
+        border: none;
+        padding: .55rem 1.35rem;
+        border-radius: var(--ld-radius-xs);
+        font-size: .875rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: var(--ld-transition);
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+    }
+    .ld-btn-search:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(37,99,235,.25);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       EMPLOYEE FILTER ROW
+       ══════════════════════════════════════════════════════════════ */
+    .ld-filter-row {
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+        flex-wrap: wrap;
+    }
+    .ld-select-pill {
+        appearance: none;
+        -webkit-appearance: none;
+        border: 1.5px solid var(--ld-border);
+        border-radius: var(--ld-radius-xs);
+        padding: .5rem 2.2rem .5rem .85rem;
+        font-size: .85rem;
+        font-weight: 600;
+        color: var(--ld-text);
+        background: var(--ld-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E") no-repeat right .75rem center;
+        cursor: pointer;
+        transition: var(--ld-transition);
+        font-family: var(--font-body);
+    }
+    .ld-select-pill:focus { outline: none; border-color: var(--ld-blue); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
+
+    .ld-btn-pdf {
+        margin-left: auto;
+        background: linear-gradient(135deg, var(--ld-emerald), #059669);
+        color: #fff;
+        border: none;
+        padding: .55rem 1.15rem;
+        border-radius: var(--ld-radius-xs);
+        font-size: .82rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        transition: var(--ld-transition);
+    }
+    .ld-btn-pdf:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(16,185,129,.25); }
+
+    /* ══════════════════════════════════════════════════════════════
+       CHARTS ROW
+       ══════════════════════════════════════════════════════════════ */
+    .ld-charts-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.25rem;
+    }
+    @@media(max-width: 900px) { .ld-charts-row { grid-template-columns: 1fr; } }
+
+    /* ══════════════════════════════════════════════════════════════
+       MONTH NAV
+       ══════════════════════════════════════════════════════════════ */
+    .ld-month-nav {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+    }
+    .ld-month-label {
+        font-size: .82rem;
+        font-weight: 700;
+        color: var(--ld-text);
+        background: var(--ld-surface);
+        padding: .3rem .85rem;
+        border-radius: 8px;
+    }
+    .ld-month-btn {
+        background: var(--ld-surface);
+        border: 1px solid var(--ld-border);
+        border-radius: 8px;
+        width: 30px;
+        height: 30px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--ld-muted);
+        transition: var(--ld-transition);
+    }
+    .ld-month-btn:hover {
+        background: var(--ld-blue-xlt);
+        color: var(--ld-blue);
+        border-color: #BFDBFE;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       ANIMATIONS
+       ══════════════════════════════════════════════════════════════ */
+    @@keyframes ldFadeUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+    @@keyframes ldPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: .5; }
+    }
+    .ld-animate { animation: ldFadeUp .45s ease-out both; }
+    .ld-animate:nth-child(1) { animation-delay: .05s; }
+    .ld-animate:nth-child(2) { animation-delay: .10s; }
+    .ld-animate:nth-child(3) { animation-delay: .12s; }
+    .ld-animate:nth-child(4) { animation-delay: .15s; }
+    .ld-animate:nth-child(5) { animation-delay: .18s; }
+    .ld-animate:nth-child(6) { animation-delay: .22s; }
+    .ld-animate:nth-child(7) { animation-delay: .25s; }
+    .ld-animate:nth-child(8) { animation-delay: .28s; }
+
+    /* ── Responsive ────────────────────────────────────────────── */
+    @@media(max-width: 640px) {
+        .ld-hero { flex-direction: column; align-items: flex-start; padding: 1.5rem; }
+        .ld-hero h1 { font-size: 1.3rem; }
+        .ld-action-btns { flex-direction: column; }
+        .ld-filter-row { flex-direction: column; align-items: stretch; }
+        .ld-btn-pdf { margin-left: 0; }
+        .ld-actions-row { flex-direction: column; }
+        .ld-floating-panel { width: calc(100% - 32px); right: 16px; bottom: 16px; }
+    }
+
+    /* Premium HR SaaS Dashboard Styles */
+    .la-workspace {
+        background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #8b5cf6 100%);
+        border-radius: 20px;
+        padding: 2rem 2.5rem;
+        color: white;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 40px rgba(59, 130, 246, 0.2);
+    }
+    .la-workspace h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin: 0 0 0.5rem 0;
+    }
+    .la-workspace p {
+        margin: 0;
+        opacity: 0.9;
+        font-size: 0.95rem;
+    }
+    .la-workspace-badges {
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        flex-wrap: wrap;
+    }
+    .la-badge {
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(10px);
+        padding: 0.4rem 1rem;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .la-summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .la-summary-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        border: 1px solid #e5e7eb;
+        transition: all 0.3s ease;
+    }
+    .la-summary-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    }
+    .la-summary-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+    }
+    .la-summary-icon.pending { background: #fef3c7; color: #d97706; }
+    .la-summary-icon.today { background: #dbeafe; color: #2563eb; }
+    .la-summary-icon.conflict { background: #fee2e2; color: #dc2626; }
+    .la-summary-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #1f2937;
+        line-height: 1;
+        margin-bottom: 0.25rem;
+    }
+    .la-summary-label {
+        font-size: 0.875rem;
+        color: #6b7280;
+        font-weight: 500;
+    }
+    
+    .la-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        border: 1px solid #e5e7eb;
+        margin-bottom: 2rem;
+        overflow: hidden;
+    }
+    .la-card-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        background: #f9fafb;
+    }
+    .la-card-header h5 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1f2937;
+    }
+    .la-card-body {
+        padding: 1.5rem;
+    }
+    
+    .la-table-container {
+        overflow-x: auto;
+    }
+    .la-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .la-table thead {
+        position: sticky;
+        top: 0;
+        background: #f9fafb;
+        z-index: 10;
+    }
+    .la-table th {
+        text-align: left;
+        padding: 1rem 1.25rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #6b7280;
+        border-bottom: 2px solid #e5e7eb;
+    }
+    .la-table td {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #f3f4f6;
+        vertical-align: middle;
+    }
+    .la-table tbody tr {
+        transition: background-color 0.2s ease;
+    }
+    .la-table tbody tr:hover {
+        background-color: #f9fafb;
+    }
+    .la-employee-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .la-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+    .la-employee-info {
+        display: flex;
+        flex-direction: column;
+    }
+    .la-employee-name {
+        font-weight: 600;
+        color: #1f2937;
+        font-size: 0.875rem;
+    }
+    .la-employee-id {
+        font-size: 0.75rem;
+        color: #9ca3af;
+    }
+    
+    .la-search-bar {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        width: 100%;
+        max-width: 300px;
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+    }
+    .la-search-bar:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    .la-filter-select {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 0.75rem 2.5rem 0.75rem 1rem;
+        font-size: 0.875rem;
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236b7280' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+    }
+    .la-filter-select:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    .la-btn-edit {
+        background: white;
+        border: 1.5px solid #3b82f6;
+        color: #3b82f6;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .la-btn-edit:hover {
+        background: #3b82f6;
+        color: white;
+    }
+    
+    .la-calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.5rem;
+    }
+    .la-calendar-day {
+        aspect-ratio: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid #e5e7eb;
+        background: white;
+        position: relative;
+    }
+    .la-calendar-day:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    .la-calendar-day.today {
+        border: 2px solid #3b82f6;
+    }
+    .la-calendar-day.approved { background: #dbeafe; border-color: #93c5fd; }
+    .la-calendar-day.pending { background: #fef3c7; border-color: #fcd34d; }
+    .la-calendar-day.conflict { background: #fee2e2; border-color: #fca5a5; }
+    .la-calendar-day.holiday { background: #d1fae5; border-color: #6ee7b7; }
+    .la-calendar-day-number {
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: #1f2937;
+    }
+    .la-calendar-ot-count {
+        font-size: 0.7rem;
+        color: #6b7280;
+        margin-top: 0.25rem;
+    }
+    .la-calendar-header {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+    .la-calendar-header-cell {
+        text-align: center;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: #6b7280;
+    }
+    
+    .la-export-section {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 2rem;
+        flex-wrap: wrap;
+    }
+    .la-date-range {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+    }
+    .la-date-input {
+        padding: 0.75rem 1rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 0.875rem;
+        background: #f9fafb;
+    }
+    .la-date-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    .la-btn-export {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .la-btn-export:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+    }
+    
+    /* Modal Styles */
+    .la-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    .la-modal-overlay.active {
+        display: flex;
+    }
+    .la-modal {
+        background: white;
+        border-radius: 20px;
+        max-width: 500px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    }
+    .la-modal-header {
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .la-modal-header h3 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #1f2937;
+    }
+    .la-modal-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: #9ca3af;
+        transition: color 0.2s ease;
+    }
+    .la-modal-close:hover {
+        color: #6b7280;
+    }
+    .la-modal-body {
+        padding: 2rem;
+    }
+    .la-form-group {
+        margin-bottom: 1.25rem;
+    }
+    .la-form-label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 0.5rem;
+    }
+    .la-form-input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        font-size: 0.875rem;
+        transition: all 0.2s ease;
+    }
+    .la-form-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    .la-modal-footer {
+        padding: 1.5rem 2rem;
+        border-top: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+    .la-btn-secondary {
+        background: #f3f4f6;
+        color: #4b5563;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .la-btn-secondary:hover {
+        background: #e5e7eb;
+    }
+    .la-btn-primary {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 10px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .la-btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+    }
+</style>
+
+<div class="ld-page">
+
+    <!-- Leave Agent Workspace Header -->
+    <div class="la-workspace">
+        <h1>OT Management Workspace</h1>
+        <p>Manage overtime requests, approvals, and employee availability</p>
+        <div class="la-workspace-badges">
+            <span class="la-badge"><i class="bi bi-calendar3 me-1"></i> @today.ToString("MMMM yyyy")</span>
+            <span class="la-badge"><i class="bi bi-people me-1"></i> @(employees?.Count() ?? 0) Employees</span>
+            <span class="la-badge"><i class="bi bi-clock-history me-1"></i> @(Math.Round(summary.TotalOTHours, 1))h Total OT</span>
+        </div>
+    </div>
+
+    <!-- Operational Summary Cards -->
+    <div class="la-summary-cards">
+        <div class="la-summary-card">
+            <div class="la-summary-icon pending">
+                <i class="bi bi-clock"></i>
+            </div>
+            <div class="la-summary-value">@pendingCount</div>
+            <div class="la-summary-label">Pending OT Requests</div>
+        </div>
+        <div class="la-summary-card">
+            <div class="la-summary-icon today">
+                <i class="bi bi-calendar-check"></i>
+            </div>
+            <div class="la-summary-value">@(Model.MonthlyPresentCount)</div>
+            <div class="la-summary-label">Today's OT</div>
+        </div>
+        <div class="la-summary-card">
+            <div class="la-summary-icon conflict">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="la-summary-value">@(summary.EmployeesAbove100)</div>
+            <div class="la-summary-label">OT Conflicts</div>
+        </div>
+    </div>
+
+    <!-- OT Queue with Search and Filters -->
+    <div class="la-card">
+        <div class="la-card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <h5>OT Queue</h5>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                <input type="text" class="la-search-bar" placeholder="Search employees..." id="otSearchInput">
+                <select class="la-filter-select" id="otFilterSelect">
+                    <option value="all">All Departments</option>
+                    <option value="IT">IT</option>
+                    <option value="Engineering">Engineering</option>
+                    <option value="Operations">Operations</option>
+                </select>
+                <select class="la-filter-select" id="otPercentageFilter">
+                    <option value="all">All OT %</option>
+                    <option value="70">70%</option>
+                    <option value="80">80%</option>
+                    <option value="100">100%</option>
+                    <option value="above100">Above 100%</option>
+                </select>
+            </div>
+        </div>
+        <div class="la-card-body">
+            <div class="la-table-container">
+                <table class="la-table" id="otQueueTable">
+                    <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Department</th>
+                            <th>OT Date</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>OT Hours</th>
+                            <th>Edit</th>
+                        </tr>
+                    </thead>
+                    <tbody id="otQueueTableBody">
+                        @if (employees.Any())
+                        {
+                            var idx = 0;
+                            foreach (var emp in employees)
+                            {
+                                var avatarClass = $"v{(idx % 5) + 1}";
+                                var fromDate = today.AddDays(idx);
+                                <tr data-name="@($"{emp.FirstName} {emp.LastName}")" data-department="@emp.Department" data-ot-percentage="@emp.OTAllocationPercentage">
+                                    <td>
+                                        <div class="la-employee-cell">
+                                            <div class="la-avatar">@emp.Initials</div>
+                                            <div class="la-employee-info">
+                                                <span class="la-employee-name">@emp.FirstName @emp.LastName</span>
+                                                <span class="la-employee-id">@emp.ServiceId</span>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>@emp.Department</td>
+                                    <td>@fromDate.ToString("dd/MM/yyyy")</td>
+                                    <td>18:00</td>
+                                    <td>22:00</td>
+                                    <td>@emp.TotalOTHours.ToString("0.0")h</td>
+                                    <td>
+                                        <button type="button" class="la-btn-edit" onclick="openEditModal('@emp.ServiceId', '@emp.FirstName', '@emp.LastName', '@emp.Department')">
+                                            <i class="bi bi-pencil"></i> Edit
+                                        </button>
+                                    </td>
+                                </tr>
+                                idx++;
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <div style="color: #9ca3af;">
+                                        <i class="bi bi-inbox" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                                        <span>No OT requests found</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly OT Calendar -->
+    <div class="la-card">
+        <div class="la-card-header d-flex justify-content-between align-items-center">
+            <h5>Monthly OT Calendar - @monthLabel</h5>
+            <div class="btn-group">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="navigateCalendar(-1)">
+                    <i class="bi bi-chevron-left"></i> Previous
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="navigateCalendar(1)">
+                    Next <i class="bi bi-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+        <div class="la-card-body">
+            <!-- Calendar Legend -->
+            <div class="d-flex gap-3 mb-3 flex-wrap">
+                <div class="d-flex align-items-center">
+                    <span style="width: 12px; height: 12px; background: #dbeafe; border: 1px solid #93c5fd; border-radius: 3px; display: inline-block;"></span>
+                    <small class="ms-1">Approved OT</small>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span style="width: 12px; height: 12px; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 3px; display: inline-block;"></span>
+                    <small class="ms-1">Pending OT</small>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span style="width: 12px; height: 12px; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 3px; display: inline-block;"></span>
+                    <small class="ms-1">OT Conflict</small>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span style="width: 12px; height: 12px; background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 3px; display: inline-block;"></span>
+                    <small class="ms-1">Holiday</small>
+                </div>
+            </div>
+
+            <!-- Calendar Grid -->
+            <div class="la-calendar-header">
+                <div class="la-calendar-header-cell">Sun</div>
+                <div class="la-calendar-header-cell">Mon</div>
+                <div class="la-calendar-header-cell">Tue</div>
+                <div class="la-calendar-header-cell">Wed</div>
+                <div class="la-calendar-header-cell">Thu</div>
+                <div class="la-calendar-header-cell">Fri</div>
+                <div class="la-calendar-header-cell">Sat</div>
+            </div>
+            <div class="la-calendar-grid">
+                @{
+                    var calMonth = Model.OTCurrentMonthStart != default ? Model.OTCurrentMonthStart : new DateTime(today.Year, today.Month, 1);
+                    var firstDayOfWeek = (int)calMonth.DayOfWeek;
+                    var daysInMonth = DateTime.DaysInMonth(calMonth.Year, calMonth.Month);
+                    var totalCells = firstDayOfWeek + daysInMonth;
+                    var calDayMap = calDays.GroupBy(d => d.Day).ToDictionary(g => g.Key, g => g.First());
+                    int cellIndex = 0;
+                    int dayNum = 1;
+                }
+                @for (int i = 0; i < totalCells; i++)
+                {
+                    if (cellIndex < firstDayOfWeek || dayNum > daysInMonth)
+                    {
+                        <div class="la-calendar-day" style="opacity: 0.3; cursor: default; border-color: transparent;"></div>
+                    }
+                    else
+                    {
+                        var calDay = calDayMap.ContainsKey(dayNum) ? calDayMap[dayNum] : null;
+                        var statusClass = calDay?.OTStatus switch
+                        {
+                            "above100" => "conflict",
+                            "95-100"   => "pending",
+                            "80-95"    => "approved",
+                            _          => ""
+                        };
+                        var isToday = calDay?.IsToday == true;
+                        <div class="la-calendar-day @statusClass @(isToday ? "today" : "")"
+                             title="@dayNum: @(calDay?.EmployeesOnOT ?? 0) on OT"
+                             onclick="loadOTDataForDate('@calMonth.Year-@calMonth.Month.ToString("00")-@dayNum.ToString("00")')">
+                            <span class="la-calendar-day-number">@dayNum</span>
+                            @if (calDay != null && calDay.EmployeesOnOT > 0)
+                            {
+                                <span class="la-calendar-ot-count">@calDay.EmployeesOnOT</span>
+                            }
+                        </div>
+                        dayNum++;
+                    }
+                    cellIndex++;
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Export OT Data -->
+    <div class="la-card">
+        <div class="la-card-body">
+            <div class="la-export-section">
+                <div>
+                    <h5 class="mb-1">Export OT Data</h5>
+                    <p class="text-muted mb-0 small">Export OT records for selected date range to PDF.</p>
+                </div>
+                <div class="la-date-range">
+                    <input type="date" class="la-date-input" id="exportFromDate" placeholder="From">
+                    <span style="color: #9ca3af;">to</span>
+                    <input type="date" class="la-date-input" id="exportToDate" placeholder="To">
+                    <button type="button" class="la-btn-export" onclick="exportToPDF()">
+                        <i class="bi bi-file-earmark-pdf"></i> Export PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit OT Modal -->
+    <div class="la-modal-overlay" id="editOTModal">
+        <div class="la-modal">
+            <div class="la-modal-header">
+                <h3>Edit OT Request</h3>
+                <button class="la-modal-close" onclick="closeEditModal()">&times;</button>
+            </div>
+            <div class="la-modal-body">
+                <form id="editOTForm">
+                    <input type="hidden" id="editServiceId">
+                    <div class="la-form-group">
+                        <label class="la-form-label">Employee</label>
+                        <input type="text" class="la-form-input" id="editEmployeeName" readonly>
+                    </div>
+                    <div class="la-form-group">
+                        <label class="la-form-label">Department</label>
+                        <input type="text" class="la-form-input" id="editDepartment" readonly>
+                    </div>
+                    <div class="la-form-group">
+                        <label class="la-form-label">OT Date</label>
+                        <input type="date" class="la-form-input" id="editOTDate">
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="la-form-group">
+                                <label class="la-form-label">Start Time</label>
+                                <input type="time" class="la-form-input" id="editStartTime">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="la-form-group">
+                                <label class="la-form-label">End Time</label>
+                                <input type="time" class="la-form-input" id="editEndTime">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="la-form-group">
+                        <label class="la-form-label">OT Hours</label>
+                        <input type="number" step="0.5" class="la-form-input" id="editOTHours">
+                    </div>
+                </form>
+            </div>
+            <div class="la-modal-footer">
+                <button type="button" class="la-btn-secondary" onclick="closeEditModal()">Cancel</button>
+                <button type="button" class="la-btn-primary" onclick="saveOTRequest()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // OT Calendar Navigation
+        function navigateCalendar(delta) {
+            console.log("Navigate calendar by", delta);
+        }
+
+        function loadOTDataForDate(dateStr) {
+            console.log("Load OT data for date:", dateStr);
+        }
+
+        // Edit OT Modal Functions
+        function openEditModal(serviceId, firstName, lastName, department) {
+            document.getElementById('editServiceId').value = serviceId;
+            document.getElementById('editEmployeeName').value = firstName + ' ' + lastName;
+            document.getElementById('editDepartment').value = department;
+            document.getElementById('editOTDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('editStartTime').value = '18:00';
+            document.getElementById('editEndTime').value = '22:00';
+            document.getElementById('editOTHours').value = '4.0';
+            document.getElementById('editOTModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editOTModal').classList.remove('active');
+        }
+
+        function saveOTRequest() {
+            const serviceId = document.getElementById('editServiceId').value;
+            const otDate = document.getElementById('editOTDate').value;
+            const startTime = document.getElementById('editStartTime').value;
+            const endTime = document.getElementById('editEndTime').value;
+            const otHours = document.getElementById('editOTHours').value;
+            
+            console.log('Saving OT request:', { serviceId, otDate, startTime, endTime, otHours });
+            closeEditModal();
+        }
+
+        // Export OT Data
+        function exportOTData() {
+            console.log("Export OT data to Excel");
+        }
+
+        // Export to PDF
+        function exportToPDF() {
+            const fromDate = document.getElementById('exportFromDate').value;
+            const toDate = document.getElementById('exportToDate').value;
+            console.log('Export to PDF:', { fromDate, toDate });
+            // Placeholder for PDF export functionality
+            alert('PDF export functionality will be implemented with the selected date range.');
+        }
+
+        // Search and Filter Functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('otSearchInput');
+            const filterSelect = document.getElementById('otFilterSelect');
+            const otPercentageFilter = document.getElementById('otPercentageFilter');
+            const tableBody = document.getElementById('otQueueTableBody');
+            
+            if (searchInput && tableBody) {
+                searchInput.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    filterTable(searchTerm, filterSelect ? filterSelect.value : 'all', otPercentageFilter ? otPercentageFilter.value : 'all');
+                });
+            }
+            
+            if (filterSelect && tableBody) {
+                filterSelect.addEventListener('change', function() {
+                    const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+                    filterTable(searchTerm, this.value, otPercentageFilter ? otPercentageFilter.value : 'all');
+                });
+            }
+            
+            if (otPercentageFilter && tableBody) {
+                otPercentageFilter.addEventListener('change', function() {
+                    const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
+                    filterTable(searchTerm, filterSelect ? filterSelect.value : 'all', this.value);
+                });
+            }
+            
+            function filterTable(searchTerm, departmentFilter, otPercentageFilter) {
+                const rows = tableBody.querySelectorAll('tr');
+                
+                rows.forEach(row => {
+                    const name = row.dataset.name?.toLowerCase() || '';
+                    const department = row.dataset.department?.toLowerCase() || '';
+                    const otPercentage = parseFloat(row.dataset.otPercentage) || 0;
+                    
+                    const matchesSearch = name.includes(searchTerm) || department.includes(searchTerm);
+                    const matchesDepartment = departmentFilter === 'all' || department === departmentFilter.toLowerCase();
+                    
+                    let matchesOTPercentage = true;
+                    if (otPercentageFilter !== 'all') {
+                        if (otPercentageFilter === 'above100') {
+                            matchesOTPercentage = otPercentage > 100;
+                        } else {
+                            const threshold = parseFloat(otPercentageFilter);
+                            matchesOTPercentage = otPercentage >= threshold;
+                        }
+                    }
+                    
+                    row.style.display = matchesSearch && matchesDepartment && matchesOTPercentage ? '' : 'none';
+                });
+            }
+            
+            // Close modal when clicking outside
+            const modalOverlay = document.getElementById('editOTModal');
+            if (modalOverlay) {
+                modalOverlay.addEventListener('click', function(e) {
+                    if (e.target === modalOverlay) {
+                        closeEditModal();
+                    }
+                });
+            }
+        });
+    </script>
+}

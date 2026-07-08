@@ -33,7 +33,10 @@ namespace AttendanceManagementSystem.Models
 
         public static bool HasEngineerPrivileges(string? roleName)
         {
-            return roleName == Engineer || roleName == LeaveAgent;
+            return roleName == Engineer || 
+                   roleName == LeaveAgent || 
+                   roleName == "Leave Agent" || 
+                   roleName == "LeaveAgent";
         }
     }
 }

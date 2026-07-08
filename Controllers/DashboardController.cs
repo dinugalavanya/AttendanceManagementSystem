@@ -62,12 +62,13 @@ namespace AttendanceManagementSystem.Controllers
             var monthEndExclusive = monthStart.AddMonths(1);
 
             var roleName = currentUser.Role.Name;
-            var isSuperAdmin = roleName == RoleNames.SuperAdmin;
-            var isAdmin = roleName == RoleNames.Admin;
-            var isGM = roleName == RoleNames.GM;
-            var isDGM = roleName == RoleNames.DGM;
+            var isSuperAdmin = roleName == "SuperAdmin" || roleName == "superadmin" || roleName == "Super Admin" || roleName == "Super admin";
+            var isAdmin = roleName == "Admin" || roleName == "admin";
+            var isGM = roleName == "GM" || roleName == "gm";
+            var isDGM = roleName == "DGM" || roleName == "dgm";
             var isEngineer = RoleNames.HasEngineerPrivileges(roleName);
-            var isWorker = roleName == RoleNames.Worker;
+            var isWorker = roleName == "Worker" || roleName == "worker";
+            var isLeaveAgent = roleName == "Leave Agent" || roleName == "Leave agent" || roleName == "LeaveAgent";
 
             var userScope = _context.Users.AsNoTracking().Where(u => u.IsActive);
             var attendanceScope = _context.Attendances.AsNoTracking().AsQueryable();
@@ -76,6 +77,14 @@ namespace AttendanceManagementSystem.Controllers
             {
                 userScope = userScope.Where(u => u.Id == currentUser.Id);
                 attendanceScope = attendanceScope.Where(a => a.UserId == currentUser.Id);
+            }
+            else if (isLeaveAgent)
+            {
+                if (currentUser.SectionId.HasValue && currentUser.SectionId.Value > 0)
+                {
+                    userScope = userScope.Where(u => u.SectionId == currentUser.SectionId.Value);
+                    attendanceScope = attendanceScope.Where(a => a.User.SectionId == currentUser.SectionId.Value);
+                }
             }
             else if (isAdmin || isEngineer)
             {
@@ -471,12 +480,16 @@ namespace AttendanceManagementSystem.Controllers
                     ? "Organization-wide attendance"
                     : isGM
                         ? "All Sections (View Only)"
-                        : isAdmin
-                            ? $"{currentUser.Section?.Name ?? "Section"} attendance"
-                            : "My attendance overview",
+                        : isLeaveAgent
+                            ? $"{currentUser.Section?.Name ?? "Section"} Overview"
+                            : isAdmin
+                                ? $"{currentUser.Section?.Name ?? "Section"} attendance"
+                                : "My attendance overview",
                 IsSuperAdmin = isSuperAdmin || isGM,
                 IsAdmin = isAdmin,
                 IsWorker = isWorker,
+                IsGM = isGM,
+                IsLeaveAgent = isLeaveAgent,
                 TrendLabels = trendLabels,
                 PresentTrend = presentTrend,
                 LateTrend = lateTrend,
@@ -506,6 +519,15 @@ namespace AttendanceManagementSystem.Controllers
                 WorkerHistorySearchResult = workerHistorySearchResult,
                 SelectedDateAttendance = selectedDateAttendance
             };
+
+            // Build OT dashboard data for Admin/SuperAdmin/GM/LeaveAgent
+            await BuildOTDashboardViewModelAsync(currentUser, today, viewModel);
+
+            // Leave Agents get a dedicated focused dashboard view
+            if (isLeaveAgent)
+            {
+                return View("LeaveAgentDashboard", viewModel);
+            }
 
             return View(viewModel);
         }
@@ -1467,6 +1489,393 @@ namespace AttendanceManagementSystem.Controllers
             }
 
             return "Completed";
+        }
+
+        private async Task BuildLeaveAgentDashboardViewModelAsync(User currentUser, DateTime today, DashboardViewModel model)
+        {
+            var monthStart = new DateTime(today.Year, today.Month, 1);
+            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+
+            model.OTCurrentMonthStart = monthStart;
+            model.OTCurrentMonthEnd = monthEnd;
+            model.OTCurrentMonthLabel = today.ToString("MMMM yyyy");
+            model.IsLeaveAgent = true;
+            model.IsGM = false;
+
+            // Get users in scope based on role
+            var userScope = _context.Users
+                .AsNoTracking()
+                .Include(u => u.Section)
+                .Where(u => u.IsActive && (u.Role.Name == RoleNames.Worker || u.Role.Name == "Worker"));
+
+            if (currentUser.SectionId.HasValue && currentUser.SectionId.Value > 0)
+            {
+                userScope = userScope.Where(u => u.SectionId == currentUser.SectionId.Value);
+            }
+
+            var employees = await userScope.ToListAsync();
+
+            // Calculate OT data for each employee
+            var employeeData = new List<OTEmployeeViewModel>();
+            var totalOTHours = 0m;
+
+            foreach (var employee in employees)
+            {
+                var otRecords = await _context.Attendances
+                    .AsNoTracking()
+                    .Where(a => a.UserId == employee.Id
+                        && a.AttendanceDate >= monthStart
+                        && a.AttendanceDate <= monthEnd
+                        && a.OvertimeMinutes > 0)
+                    .ToListAsync();
+
+                var totalOTMinutes = otRecords.Sum(a => a.OvertimeMinutes);
+                totalOTHours += totalOTMinutes / 60m;
+
+                // Calculate OT allocation percentage (assuming 160 working hours per month as baseline)
+                var baselineHours = 160m;
+                var otAllocationPercentage = baselineHours > 0
+                    ? ((totalOTMinutes / 60m) / baselineHours) * 100m
+                    : 0m;
+
+                var status = otAllocationPercentage switch
+                {
+                    <= 75 => "Below 75%",
+                    <= 80 => "75-80%",
+                    <= 95 => "80-95%",
+                    <= 100 => "95-100%",
+                    _ => "Above 100%"
+                };
+
+                employeeData.Add(new OTEmployeeViewModel
+                {
+                    Id = employee.Id,
+                    FirstName = employee.FirstName,
+                    LastName = employee.LastName,
+                    ServiceId = employee.ServiceId,
+                    Department = employee.Section?.Name ?? "Not Assigned",
+                    OTAllocationPercentage = Math.Round(otAllocationPercentage, 2),
+                    TotalOTHours = Math.Round(totalOTMinutes / 60m, 2),
+                    Status = status,
+                    Initials = BuildInitials(employee.FirstName, employee.LastName)
+                });
+            }
+
+            model.OTEmployees = employeeData;
+
+            // Generate OT calendar data
+            model.OTCalendarDays = GenerateOTCalendarData(monthStart, employees);
+
+            // Calculate OT summary
+            var summary = new OTSummaryViewModel
+            {
+                TotalEmployees = employees.Count,
+                EmployeesAbove100 = employeeData.Count(e => e.OTAllocationPercentage > 100),
+                Employees95to100 = employeeData.Count(e => e.OTAllocationPercentage >= 95 && e.OTAllocationPercentage <= 100),
+                Employees80to95 = employeeData.Count(e => e.OTAllocationPercentage >= 80 && e.OTAllocationPercentage < 95),
+                EmployeesBelow80 = employeeData.Count(e => e.OTAllocationPercentage < 80),
+                AverageOTAllocation = employees.Any() ? employeeData.Average(e => e.OTAllocationPercentage) : 0,
+                TotalOTHours = totalOTHours
+            };
+            model.OTSummary = summary;
+
+            // Generate OT alerts
+            var alerts = new List<OTAlertViewModel>();
+            foreach (var emp in employeeData.Where(e => e.OTAllocationPercentage > 100))
+            {
+                alerts.Add(new OTAlertViewModel
+                {
+                    EmployeeId = emp.Id,
+                    EmployeeName = $"{emp.FirstName} {emp.LastName}",
+                    Department = emp.Department,
+                    Reason = $"OT allocation exceeds 100% ({emp.OTAllocationPercentage}%)",
+                    AlertType = "danger"
+                });
+            }
+            model.OTAlerts = alerts;
+
+            // Today's OT status
+            var todayAttendance = await _context.Attendances
+                .AsNoTracking()
+                .Where(a => a.AttendanceDate == today)
+                .ToListAsync();
+
+            model.TodayOTStatus = new TodayOTStatusViewModel
+            {
+                Date = today,
+                EmployeesOnLeave = todayAttendance.Count(a => a.Status == AttendanceStatus.Leave),
+                EmployeesWorking = todayAttendance.Count(a => a.Status == AttendanceStatus.Present || a.Status == AttendanceStatus.Late),
+                EmployeesScheduledOT = todayAttendance.Count(a => a.OvertimeMinutes > 0),
+                EmployeesAbove100 = summary.EmployeesAbove100
+            };
+
+            // Department OT data for chart
+            var departmentOTData = employeeData
+                .GroupBy(e => e.Department)
+                .Select(g => new
+                {
+                    Department = g.Key,
+                    AvgOTAllocation = g.Average(e => e.OTAllocationPercentage)
+                })
+                .OrderBy(g => g.Department)
+                .ToList();
+
+            model.DepartmentOTLabels = departmentOTData.Select(d => d.Department).ToList();
+            model.DepartmentOTValues = departmentOTData.Select(d => d.AvgOTAllocation).ToList();
+
+            // Daily OT data for chart
+            var dailyOTData = await _context.Attendances
+                .AsNoTracking()
+                .Where(a => a.AttendanceDate >= monthStart && a.AttendanceDate <= monthEnd && a.OvertimeMinutes > 0)
+                .GroupBy(a => a.AttendanceDate)
+                .Select(g => new
+                {
+                    Date = g.Key,
+                    TotalOTHours = g.Sum(a => a.OvertimeMinutes) / 60m
+                })
+                .OrderBy(g => g.Date)
+                .ToListAsync();
+
+            model.DailyOTLabels = dailyOTData.Select(d => d.Date.ToString("dd MMM")).ToList();
+            model.DailyOTValues = dailyOTData.Select(d => d.TotalOTHours).ToList();
+
+            // OT distribution for doughnut chart
+            model.OTDistributionLabels = new List<string> { "Below 80%", "80-95%", "95-100%", "Above 100%" };
+            model.OTDistributionValues = new List<int>
+            {
+                summary.EmployeesBelow80,
+                summary.Employees80to95,
+                summary.Employees95to100,
+                summary.EmployeesAbove100
+            };
+        }
+
+        private async Task BuildOTDashboardViewModelAsync(User currentUser, DateTime today, DashboardViewModel model)
+        {
+            var monthStart = new DateTime(today.Year, today.Month, 1);
+            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+
+            model.OTCurrentMonthStart = monthStart;
+            model.OTCurrentMonthEnd = monthEnd;
+            model.OTCurrentMonthLabel = today.ToString("MMMM yyyy");
+
+            // Get users in scope based on role
+            var userScope = _context.Users
+                .AsNoTracking()
+                .Include(u => u.Section)
+                .Where(u => u.IsActive && (u.Role.Name == RoleNames.Worker || u.Role.Name == "Worker"));
+
+            if (currentUser.SectionId.HasValue && currentUser.SectionId.Value > 0)
+            {
+                userScope = userScope.Where(u => u.SectionId == currentUser.SectionId.Value);
+            }
+
+            var employees = await userScope.ToListAsync();
+
+            // Calculate OT data for each employee
+            var employeeData = new List<OTEmployeeViewModel>();
+            var totalOTHours = 0m;
+
+            foreach (var employee in employees)
+            {
+                var otRecords = await _context.Attendances
+                    .AsNoTracking()
+                    .Where(a => a.UserId == employee.Id
+                        && a.AttendanceDate >= monthStart
+                        && a.AttendanceDate <= monthEnd
+                        && a.OvertimeMinutes > 0)
+                    .ToListAsync();
+
+                var totalOTMinutes = otRecords.Sum(a => a.OvertimeMinutes);
+                totalOTHours += totalOTMinutes / 60m;
+
+                // Calculate OT allocation percentage (assuming 160 working hours per month as baseline)
+                var baselineHours = 160m;
+                var otAllocationPercentage = baselineHours > 0
+                    ? ((totalOTMinutes / 60m) / baselineHours) * 100m
+                    : 0m;
+
+                var status = otAllocationPercentage switch
+                {
+                    <= 75 => "Below 75%",
+                    <= 80 => "75-80%",
+                    <= 95 => "80-95%",
+                    <= 100 => "95-100%",
+                    _ => "Above 100%"
+                };
+
+                employeeData.Add(new OTEmployeeViewModel
+                {
+                    Id = employee.Id,
+                    FirstName = employee.FirstName,
+                    LastName = employee.LastName,
+                    ServiceId = employee.ServiceId,
+                    Department = employee.Section?.Name ?? "Not Assigned",
+                    OTAllocationPercentage = Math.Round(otAllocationPercentage, 2),
+                    TotalOTHours = Math.Round(totalOTMinutes / 60m, 2),
+                    Status = status,
+                    Initials = BuildInitials(employee.FirstName, employee.LastName)
+                });
+            }
+
+            model.OTEmployees = employeeData;
+
+            // Generate OT calendar data
+            model.OTCalendarDays = GenerateOTCalendarData(monthStart, employees);
+
+            // Calculate OT summary
+            var summary = new OTSummaryViewModel
+            {
+                TotalEmployees = employees.Count,
+                EmployeesAbove100 = employeeData.Count(e => e.OTAllocationPercentage > 100),
+                Employees95to100 = employeeData.Count(e => e.OTAllocationPercentage >= 95 && e.OTAllocationPercentage <= 100),
+                Employees80to95 = employeeData.Count(e => e.OTAllocationPercentage >= 80 && e.OTAllocationPercentage < 95),
+                EmployeesBelow80 = employeeData.Count(e => e.OTAllocationPercentage < 80),
+                AverageOTAllocation = employees.Any() ? employeeData.Average(e => e.OTAllocationPercentage) : 0,
+                TotalOTHours = totalOTHours
+            };
+            model.OTSummary = summary;
+
+            // Generate OT alerts
+            var alerts = new List<OTAlertViewModel>();
+            foreach (var emp in employeeData.Where(e => e.OTAllocationPercentage > 100))
+            {
+                alerts.Add(new OTAlertViewModel
+                {
+                    EmployeeId = emp.Id,
+                    EmployeeName = $"{emp.FirstName} {emp.LastName}",
+                    Department = emp.Department,
+                    Reason = $"OT allocation exceeds 100% ({emp.OTAllocationPercentage}%)",
+                    AlertType = "danger"
+                });
+            }
+            model.OTAlerts = alerts;
+
+            // Today's OT status
+            var todayAttendance = await _context.Attendances
+                .AsNoTracking()
+                .Where(a => a.AttendanceDate == today)
+                .ToListAsync();
+
+            model.TodayOTStatus = new TodayOTStatusViewModel
+            {
+                Date = today,
+                EmployeesOnLeave = todayAttendance.Count(a => a.Status == AttendanceStatus.Leave),
+                EmployeesWorking = todayAttendance.Count(a => a.Status == AttendanceStatus.Present || a.Status == AttendanceStatus.Late),
+                EmployeesScheduledOT = todayAttendance.Count(a => a.OvertimeMinutes > 0),
+                EmployeesAbove100 = summary.EmployeesAbove100
+            };
+
+            // Department OT data for chart
+            var departmentOTData = employeeData
+                .GroupBy(e => e.Department)
+                .Select(g => new
+                {
+                    Department = g.Key,
+                    AvgOTAllocation = g.Average(e => e.OTAllocationPercentage)
+                })
+                .OrderBy(g => g.Department)
+                .ToList();
+
+            model.DepartmentOTLabels = departmentOTData.Select(d => d.Department).ToList();
+            model.DepartmentOTValues = departmentOTData.Select(d => d.AvgOTAllocation).ToList();
+
+            // Daily OT data for chart
+            var dailyOTData = await _context.Attendances
+                .AsNoTracking()
+                .Where(a => a.AttendanceDate >= monthStart && a.AttendanceDate <= monthEnd && a.OvertimeMinutes > 0)
+                .GroupBy(a => a.AttendanceDate)
+                .Select(g => new
+                {
+                    Date = g.Key,
+                    TotalOTHours = g.Sum(a => a.OvertimeMinutes) / 60m
+                })
+                .OrderBy(g => g.Date)
+                .ToListAsync();
+
+            model.DailyOTLabels = dailyOTData.Select(d => d.Date.ToString("dd MMM")).ToList();
+            model.DailyOTValues = dailyOTData.Select(d => d.TotalOTHours).ToList();
+
+            // OT distribution for doughnut chart
+            model.OTDistributionLabels = new List<string> { "Below 80%", "80-95%", "95-100%", "Above 100%" };
+            model.OTDistributionValues = new List<int>
+            {
+                summary.EmployeesBelow80,
+                summary.Employees80to95,
+                summary.Employees95to100,
+                summary.EmployeesAbove100
+            };
+        }
+
+        private List<OTCalendarDayViewModel> GenerateOTCalendarData(DateTime monthStart, List<User> employees)
+        {
+            var calendarDays = new List<OTCalendarDayViewModel>();
+            var firstDayOfMonth = monthStart;
+            var lastDayOfMonth = firstDayOfMonth.AddMonths(1).AddDays(-1);
+            var startDate = firstDayOfMonth.AddDays(-(int)firstDayOfMonth.DayOfWeek); // Start from Sunday
+            var today = DateTime.Today;
+
+            for (var date = startDate; date <= startDate.AddDays(41); date = date.AddDays(1))
+            {
+                var isCurrentMonth = date.Month == monthStart.Month && date.Year == monthStart.Year;
+                var isToday = date.Date == today.Date;
+
+                if (isCurrentMonth)
+                {
+                    var employeeIds = employees.Select(e => e.Id).ToList();
+                    var otRecords = _context.Attendances
+                        .AsNoTracking()
+                        .Where(a => employeeIds.Contains(a.UserId)
+                            && a.AttendanceDate == date
+                            && a.OvertimeMinutes > 0)
+                        .ToList();
+
+                    var employeesOnOT = otRecords.Select(a => a.UserId).Distinct().Count();
+                    var totalEmployees = employees.Count;
+                    var avgOTAllocation = totalEmployees > 0
+                        ? (employeesOnOT * 100m / totalEmployees)
+                        : 0m;
+
+                    var otStatus = avgOTAllocation switch
+                    {
+                        <= 75 => "below75",
+                        <= 80 => "75-80",
+                        <= 95 => "80-95",
+                        <= 100 => "95-100",
+                        _ => "above100"
+                    };
+
+                    calendarDays.Add(new OTCalendarDayViewModel
+                    {
+                        Day = date.Day,
+                        Month = date.Month,
+                        Year = date.Year,
+                        IsCurrentMonth = isCurrentMonth,
+                        IsToday = isToday,
+                        EmployeesOnOT = employeesOnOT,
+                        TotalEmployees = totalEmployees,
+                        AverageOTAllocation = avgOTAllocation,
+                        OTStatus = otStatus
+                    });
+                }
+                else
+                {
+                    calendarDays.Add(new OTCalendarDayViewModel
+                    {
+                        Day = date.Day,
+                        Month = date.Month,
+                        Year = date.Year,
+                        IsCurrentMonth = isCurrentMonth,
+                        IsToday = isToday,
+                        EmployeesOnOT = 0,
+                        TotalEmployees = 0,
+                        AverageOTAllocation = 0,
+                        OTStatus = "below75"
+                    });
+                }
+            }
+
+            return calendarDays;
         }
     }
 }

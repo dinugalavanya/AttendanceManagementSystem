@@ -24,6 +24,25 @@ namespace AttendanceManagementSystem.ViewModels
         public bool IsSuperAdmin { get; set; }
         public bool IsAdmin { get; set; }
         public bool IsWorker { get; set; }
+        public bool IsLeaveAgent { get; set; }
+        public bool IsGM { get; set; }
+
+        // OT Dashboard properties
+        public DateTime OTCurrentMonthStart { get; set; }
+        public DateTime OTCurrentMonthEnd { get; set; }
+        public string OTCurrentMonthLabel { get; set; } = string.Empty;
+        public List<OTCalendarDayViewModel> OTCalendarDays { get; set; } = new();
+        public List<OTEmployeeViewModel> OTEmployees { get; set; } = new();
+        public string OTSelectedFilter { get; set; } = "all";
+        public OTSummaryViewModel OTSummary { get; set; } = new();
+        public List<OTAlertViewModel> OTAlerts { get; set; } = new();
+        public TodayOTStatusViewModel TodayOTStatus { get; set; } = new();
+        public List<string> DepartmentOTLabels { get; set; } = new();
+        public List<decimal> DepartmentOTValues { get; set; } = new();
+        public List<string> DailyOTLabels { get; set; } = new();
+        public List<decimal> DailyOTValues { get; set; } = new();
+        public List<string> OTDistributionLabels { get; set; } = new();
+        public List<int> OTDistributionValues { get; set; } = new();
 
         public List<string> TrendLabels { get; set; } = new();
         public List<int> PresentTrend { get; set; } = new();
@@ -117,5 +136,61 @@ namespace AttendanceManagementSystem.ViewModels
         public string OtInTime { get; set; } = "-";
         public string OtOutTime { get; set; } = "-";
         public string OtDuration { get; set; } = "-";
+    }
+
+    // OT Dashboard ViewModel classes
+    public class OTCalendarDayViewModel
+    {
+        public int Day { get; set; }
+        public int Month { get; set; }
+        public int Year { get; set; }
+        public bool IsCurrentMonth { get; set; }
+        public bool IsToday { get; set; }
+        public int EmployeesOnOT { get; set; }
+        public int TotalEmployees { get; set; }
+        public decimal AverageOTAllocation { get; set; }
+        public string OTStatus { get; set; } = "below75"; // below75, 75-80, 80-95, 95-100, above100
+    }
+
+    public class OTEmployeeViewModel
+    {
+        public int Id { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string ServiceId { get; set; } = string.Empty;
+        public string Department { get; set; } = string.Empty;
+        public decimal OTAllocationPercentage { get; set; }
+        public decimal TotalOTHours { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string Initials { get; set; } = string.Empty;
+    }
+
+    public class OTSummaryViewModel
+    {
+        public int TotalEmployees { get; set; }
+        public int EmployeesAbove100 { get; set; }
+        public int Employees95to100 { get; set; }
+        public int Employees80to95 { get; set; }
+        public int EmployeesBelow80 { get; set; }
+        public decimal AverageOTAllocation { get; set; }
+        public decimal TotalOTHours { get; set; }
+    }
+
+    public class OTAlertViewModel
+    {
+        public int EmployeeId { get; set; }
+        public string EmployeeName { get; set; } = string.Empty;
+        public string Department { get; set; } = string.Empty;
+        public string Reason { get; set; } = string.Empty;
+        public string AlertType { get; set; } = "danger"; // danger, warning
+    }
+
+    public class TodayOTStatusViewModel
+    {
+        public DateTime Date { get; set; }
+        public int EmployeesOnLeave { get; set; }
+        public int EmployeesWorking { get; set; }
+        public int EmployeesScheduledOT { get; set; }
+        public int EmployeesAbove100 { get; set; }
     }
 }
