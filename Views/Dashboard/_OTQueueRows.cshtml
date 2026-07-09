@@ -1,0 +1,46 @@
+@model List<AttendanceManagementSystem.ViewModels.OTEmployeeViewModel>
+@{
+    var selectedDate = ViewData["SelectedDate"] as DateTime? ?? DateTime.Today;
+}
+
+@if (Model.Any())
+{
+    var idx = 0;
+    foreach (var emp in Model)
+    {
+        var fromDate = selectedDate.AddDays(idx);
+        <tr data-name="@($"{emp.FirstName} {emp.LastName}")" data-ot-percentage="@emp.OTAllocationPercentage">
+            <td>
+                <div class="la-employee-cell">
+                    <div class="la-avatar">@emp.Initials</div>
+                    <div class="la-employee-info">
+                        <span class="la-employee-name">@emp.FirstName @emp.LastName</span>
+                        <span class="la-employee-id">@emp.ServiceId</span>
+                    </div>
+                </div>
+            </td>
+            <td>@emp.Department</td>
+            <td>@fromDate.ToString("dd/MM/yyyy")</td>
+            <td>18:00</td>
+            <td>22:00</td>
+            <td>@emp.TotalOTHours.ToString("0.0")h</td>
+            <td>
+                <button type="button" class="la-btn-edit" onclick="openEditModal('@emp.ServiceId', '@emp.FirstName', '@emp.LastName', '@emp.Department')">
+                    <i class="bi bi-pencil"></i> Edit
+                </button>
+            </td>
+        </tr>
+        idx++;
+    }
+}
+else
+{
+    <tr>
+        <td colspan="7" class="text-center py-5">
+            <div style="color: #9ca3af;">
+                <i class="bi bi-inbox" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
+                <span>No OT requests found</span>
+            </div>
+        </td>
+    </tr>
+}

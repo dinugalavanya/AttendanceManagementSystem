@@ -219,5 +219,76 @@ namespace AttendanceManagementSystem.Services
 
             return sanitized.ToString();
         }
+
+        public static byte[] BuildOTExportPdf(AttendanceManagementSystem.Models.User user, List<AttendanceManagementSystem.Models.Attendance> records, DateTime from, DateTime to, DateTime generatedAt)
+        {
+            var validDurationRecords = records
+                .Where(a => a.InTime.HasValue && a.OutTime.HasValue)
+                .Select(a => new
+                {
+                    Record = a,
+                    DurationMinutes = CalculateDurationMinutes(a.InTime, a.OutTime)
+                })
+                .Where(x => x.DurationMinutes > 0)
+                .ToList();
+
+            var totalOtMinutes = validDurationRecords.Sum(x => x.DurationMinutes);
+            var otDays = validDurationRecords.Count;
+            var averageOtHoursPerDay = otDays == 0
+                ? 0
+                : Math.Round((totalOtMinutes / 60m) / otDays, 2);
+
+            var model = new WorkerOtDashboardViewModel
+            {
+                MonthStartDate = from,
+                SearchDate = to,
+                Initials = BuildInitials(user.FirstName, user.LastName),
+                FullName = user.FullName,
+                Email = user.Email,
+                SectionName = user.Section?.Name ?? "Unassigned",
+                ServiceId = user.ServiceId ?? "-",
+                TotalOtMinutes = totalOtMinutes,
+                OtDays = otDays,
+                AverageOtHoursPerDay = averageOtHoursPerDay,
+                TotalRecords = records.Count,
+                TotalOtDurationDisplay = FormatDurationMinutes(totalOtMinutes),
+                RecentOtRecords = records
+                    .OrderByDescending(a => a.AttendanceDate)
+                    .ThenByDescending(a => a.OutTime)
+                    .Select(a => new WorkerOtRecordRowViewModel
+                    {
+                        Date = a.AttendanceDate.Date,
+                        OtInTime = a.InTime?.ToString(@"hh\:mm") ?? "-",
+                        OtOutTime = a.OutTime?.ToString(@"hh\:mm") ?? "-",
+                        OtDuration = a.InTime.HasValue && a.OutTime.HasValue
+                            ? FormatDurationMinutes(CalculateDurationMinutes(a.InTime, a.OutTime))
+                            : "-"
+                    })
+                    .ToList()
+            };
+
+            return BuildRecentOtRecordsPdf(model, generatedAt);
+        }
+
+        private static int CalculateDurationMinutes(TimeSpan? inTime, TimeSpan? outTime)
+        {
+            if (!inTime.HasValue || !outTime.HasValue) return 0;
+            var safeOutTime = outTime.Value;
+            if (safeOutTime < inTime.Value) safeOutTime = safeOutTime.Add(TimeSpan.FromDays(1));
+            return Math.Max(0, (int)(safeOutTime - inTime.Value).TotalMinutes);
+        }
+
+        private static string FormatDurationMinutes(int minutes)
+        {
+            if (minutes <= 0) return "0h 0m";
+            return $"{minutes / 60}h {minutes % 60}m";
+        }
+
+        private static string BuildInitials(string firstName, string lastName)
+        {
+            var firstInitial = string.IsNullOrWhiteSpace(firstName) ? 'A' : char.ToUpperInvariant(firstName.Trim()[0]);
+            var lastInitial = string.IsNullOrWhiteSpace(lastName) ? 'U' : char.ToUpperInvariant(lastName.Trim()[0]);
+            return $"{firstInitial}{lastInitial}";
+        }
     }
 }

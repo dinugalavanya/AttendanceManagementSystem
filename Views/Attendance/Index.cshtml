@@ -926,6 +926,38 @@
             </div>
         </div>
     </div>
+
+    <!-- Export OT Data Section -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-download me-2"></i>Export OT Data</h5>
+                </div>
+                <div class="card-body">
+                    <form id="exportOTForm" method="get" asp-action="ExportOTDataPdf">
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-4">
+                                <label for="exportFromDate" class="form-label">From Date <span class="text-danger">*</span></label>
+                                <input type="date" id="exportFromDate" name="fromDate" class="form-control" required />
+                                <span class="text-danger small" id="fromDateError"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="exportToDate" class="form-label">To Date <span class="text-danger">*</span></label>
+                                <input type="date" id="exportToDate" name="toDate" class="form-control" required />
+                                <span class="text-danger small" id="toDateError"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-file-earmark-pdf me-2"></i>Download Selected as PDF
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
@@ -947,6 +979,36 @@
 
         updateAttendanceClock();
         setInterval(updateAttendanceClock, 1000);
+
+        // Export OT Data Form Validation
+        document.getElementById('exportOTForm')?.addEventListener('submit', function(e) {
+            const fromDate = document.getElementById('exportFromDate').value;
+            const toDate = document.getElementById('exportToDate').value;
+            let isValid = true;
+
+            // Clear previous errors
+            document.getElementById('fromDateError').textContent = '';
+            document.getElementById('toDateError').textContent = '';
+
+            if (!fromDate) {
+                document.getElementById('fromDateError').textContent = 'From Date is required';
+                isValid = false;
+            }
+
+            if (!toDate) {
+                document.getElementById('toDateError').textContent = 'To Date is required';
+                isValid = false;
+            }
+
+            if (fromDate && toDate && new Date(fromDate) > new Date(toDate)) {
+                document.getElementById('fromDateError').textContent = 'From Date must be before To Date';
+                isValid = false;
+            }
+
+            if (!isValid) {
+                e.preventDefault();
+            }
+        });
 
         // Add some interactive effects
         document.addEventListener('DOMContentLoaded', function() {

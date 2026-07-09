@@ -1014,5 +1014,50 @@ namespace AttendanceManagementSystem.Controllers
                 return Json(new { success = false, message = $"An error occurred while updating attendance: {ex.Message}" });
             }
         }
+
+        [Authorize]
+        public async Task<IActionResult> ExportOTDataPdf(DateTime? fromDate, DateTime? toDate)
+        {
+            try
+            {
+                var currentUser = _authService.GetCurrentUser();
+                if (currentUser == null)
+                {
+                    return RedirectToAction("Login", "Account");
+                }
+
+                if (!fromDate.HasValue || !toDate.HasValue)
+                {
+                    TempData["Error"] = "Both From Date and To Date are required.";
+                    return RedirectToAction("Index");
+                }
+
+                var from = fromDate.Value.Date;
+                var to = toDate.Value.Date;
+
+                if (from > to)
+                {
+                    TempData["Error"] = "From Date must be before To Date.";
+                    return RedirectToAction("Index");
+                }
+
+                var records = await _context.Attendances
+                    .AsNoTracking()
+                    .Where(a => a.UserId == currentUser.Id && a.AttendanceDate.Date >= from && a.AttendanceDate.Date <= to)
+                    .OrderBy(a => a.AttendanceDate)
+                    .ToListAsync();
+
+                var pdfBytes = WorkerOtPdfReportBuilder.BuildOTExportPdf(currentUser, records, from, to, DateTime.Now);
+                var fileName = $"OT-Export-{from:yyyyMMdd}-{to:yyyyMMdd}.pdf";
+
+                return File(pdfBytes, "application/pdf", fileName);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] ExportOTDataPdf failed: {ex.Message}");
+                TempData["Error"] = "An error occurred while generating the PDF. Please try again.";
+                return RedirectToAction("Index");
+            }
+        }
     }
 }

@@ -4,8 +4,8 @@
 @{
     ViewData["Title"] = "Dashboard";
 
-    var roleLabel = Model.IsSuperAdmin ? "SuperAdmin" : Model.IsAdmin ? "Admin" : Model.IsLeaveAgent ? "Leave Agent" : Model.IsGM ? "GM" : "Worker";
-    var roleTone = Model.IsSuperAdmin ? "super" : Model.IsAdmin ? "admin" : Model.IsLeaveAgent ? "purple" : "worker";
+    var roleLabel = Model.IsSuperAdmin ? "SuperAdmin" : Model.IsAdmin ? "Admin" : "Worker";
+    var roleTone = Model.IsSuperAdmin ? "super" : Model.IsAdmin ? "admin" : "worker";
     var attendanceRate = Model.AttendanceTargetPercent;
     var monthlyLeaveCount = Model.DistributionValues.Count > 3 ? Model.DistributionValues[3] : 0;
     var currentMonthLabel = Model.SelectedDate.ToString("MMMM yyyy");
@@ -66,818 +66,582 @@
 
 }
 
-<partial name="_PageHeader" model="header" />
-
-<!-- OT Dashboard Section (for Leave Agent, Admin, SuperAdmin, GM) -->
-@if (Model.IsLeaveAgent || Model.IsSuperAdmin || Model.IsAdmin || Model.IsGM)
-{
-    <style>
-        /* Premium HR SaaS Dashboard Styles */
-        .la-workspace {
-            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #8b5cf6 100%);
-            border-radius: 20px;
-            padding: 2rem 2.5rem;
-            color: white;
-            margin-bottom: 2rem;
-            box-shadow: 0 10px 40px rgba(59, 130, 246, 0.2);
-        }
-        .la-workspace h1 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            margin: 0 0 0.5rem 0;
-        }
-        .la-workspace p {
-            margin: 0;
-            opacity: 0.9;
-            font-size: 0.95rem;
-        }
-        .la-workspace-badges {
-            display: flex;
-            gap: 0.75rem;
-            margin-top: 1rem;
-            flex-wrap: wrap;
-        }
-        .la-badge {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            padding: 0.4rem 1rem;
-            border-radius: 50px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .la-summary-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        .la-summary-card {
-            background: white;
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-            border: 1px solid #e5e7eb;
-            transition: all 0.3s ease;
-        }
-        .la-summary-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-        }
-        .la-summary-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.25rem;
-            margin-bottom: 1rem;
-        }
-        .la-summary-icon.pending { background: #fef3c7; color: #d97706; }
-        .la-summary-icon.today { background: #dbeafe; color: #2563eb; }
-        .la-summary-icon.conflict { background: #fee2e2; color: #dc2626; }
-        .la-summary-value {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #1f2937;
-            line-height: 1;
-            margin-bottom: 0.25rem;
-        }
-        .la-summary-label {
-            font-size: 0.875rem;
-            color: #6b7280;
-            font-weight: 500;
-        }
-        
-        .la-card {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-            border: 1px solid #e5e7eb;
-            margin-bottom: 2rem;
-            overflow: hidden;
-        }
-        .la-card-header {
-            padding: 1.25rem 1.5rem;
-            border-bottom: 1px solid #e5e7eb;
-            background: #f9fafb;
-        }
-        .la-card-header h5 {
-            margin: 0;
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #1f2937;
-        }
-        .la-card-body {
-            padding: 1.5rem;
-        }
-        
-        .la-table-container {
-            overflow-x: auto;
-        }
-        .la-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .la-table thead {
-            position: sticky;
-            top: 0;
-            background: #f9fafb;
-            z-index: 10;
-        }
-        .la-table th {
-            text-align: left;
-            padding: 1rem 1.25rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #6b7280;
-            border-bottom: 2px solid #e5e7eb;
-        }
-        .la-table td {
-            padding: 1rem 1.25rem;
-            border-bottom: 1px solid #f3f4f6;
-            vertical-align: middle;
-        }
-        .la-table tbody tr {
-            transition: background-color 0.2s ease;
-        }
-        .la-table tbody tr:hover {
-            background-color: #f9fafb;
-        }
-        .la-employee-cell {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-        .la-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            font-size: 0.875rem;
-        }
-        .la-employee-info {
-            display: flex;
-            flex-direction: column;
-        }
-        .la-employee-name {
-            font-weight: 600;
-            color: #1f2937;
-            font-size: 0.875rem;
-        }
-        .la-employee-id {
-            font-size: 0.75rem;
-            color: #9ca3af;
-        }
-        
-        .la-search-bar {
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 0.75rem 1rem;
-            width: 100%;
-            max-width: 300px;
-            font-size: 0.875rem;
-            transition: all 0.2s ease;
-        }
-        .la-search-bar:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-        .la-filter-select {
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 0.75rem 2.5rem 0.75rem 1rem;
-            font-size: 0.875rem;
-            cursor: pointer;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236b7280' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 1rem center;
-        }
-        .la-filter-select:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-        .la-btn-edit {
-            background: white;
-            border: 1.5px solid #3b82f6;
-            color: #3b82f6;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .la-btn-edit:hover {
-            background: #3b82f6;
-            color: white;
-        }
-        
-        .la-calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 0.5rem;
-        }
-        .la-calendar-day {
-            aspect-ratio: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            border: 1px solid #e5e7eb;
-            background: white;
-            position: relative;
-        }
-        .la-calendar-day:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        .la-calendar-day.today {
-            border: 2px solid #3b82f6;
-        }
-        .la-calendar-day.approved { background: #dbeafe; border-color: #93c5fd; }
-        .la-calendar-day.pending { background: #fef3c7; border-color: #fcd34d; }
-        .la-calendar-day.conflict { background: #fee2e2; border-color: #fca5a5; }
-        .la-calendar-day.holiday { background: #d1fae5; border-color: #6ee7b7; }
-        .la-calendar-day-number {
-            font-weight: 600;
-            font-size: 0.875rem;
-            color: #1f2937;
-        }
-        .la-calendar-ot-count {
-            font-size: 0.7rem;
-            color: #6b7280;
-            margin-top: 0.25rem;
-        }
-        .la-calendar-header {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 0.5rem;
-            margin-bottom: 0.75rem;
-        }
-        .la-calendar-header-cell {
-            text-align: center;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            color: #6b7280;
-        }
-        
-        .la-export-section {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 2rem;
-            flex-wrap: wrap;
-        }
-        .la-date-range {
-            display: flex;
-            gap: 0.75rem;
-            align-items: center;
-        }
-        .la-date-input {
-            padding: 0.75rem 1rem;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            font-size: 0.875rem;
-            background: #f9fafb;
-        }
-        .la-date-input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-        .la-btn-export {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 10px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .la-btn-export:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
-        }
-        
-        /* Modal Styles */
-        .la-modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-        .la-modal-overlay.active {
-            display: flex;
-        }
-        .la-modal {
-            background: white;
-            border-radius: 20px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-        }
-        .la-modal-header {
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid #e5e7eb;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .la-modal-header h3 {
-            margin: 0;
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: #1f2937;
-        }
-        .la-modal-close {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: #9ca3af;
-            transition: color 0.2s ease;
-        }
-        .la-modal-close:hover {
-            color: #6b7280;
-        }
-        .la-modal-body {
-            padding: 2rem;
-        }
-        .la-form-group {
-            margin-bottom: 1.25rem;
-        }
-        .la-form-label {
-            display: block;
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 0.5rem;
-        }
-        .la-form-input {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            font-size: 0.875rem;
-            transition: all 0.2s ease;
-        }
-        .la-form-input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-        .la-modal-footer {
-            padding: 1.5rem 2rem;
-            border-top: 1px solid #e5e7eb;
-            display: flex;
-            justify-content: flex-end;
-            gap: 0.75rem;
-        }
-        .la-btn-secondary {
-            background: #f3f4f6;
-            color: #4b5563;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 10px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .la-btn-secondary:hover {
-            background: #e5e7eb;
-        }
-        .la-btn-primary {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 10px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .la-btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
-        }
-    </style>
-
-    <section class="dashboard-shell mt-5">
-        <!-- Leave Agent Workspace Header -->
-        <div class="la-workspace">
-            <h1>OT Management Workspace</h1>
-            <p>Manage overtime requests, approvals, and employee availability</p>
-            <div class="la-workspace-badges">
-                <span class="la-badge"><i class="bi bi-calendar3 me-1"></i> @DateTime.Now.ToString("MMMM yyyy")</span>
-                <span class="la-badge"><i class="bi bi-people me-1"></i> @(Model.OTEmployees?.Count ?? 0) Employees</span>
-                <span class="la-badge"><i class="bi bi-clock-history me-1"></i> @(Model.OTSummary?.TotalOTHours.ToString("0.0") ?? "0")h Total OT</span>
+<section class="dashboard-shell">
+    <!-- Premium Hero Section -->
+    <div class="dashboard-hero">
+        <div class="dashboard-hero-content">
+            <div class="dashboard-hero-text">
+                <h1>@(DateTime.Now.Hour < 12 ? "Good Morning" : DateTime.Now.Hour < 17 ? "Good Afternoon" : "Good Evening"), @(User.Identity?.Name?.Split(' ')[0] ?? "User") 👋</h1>
+                <p>Here's your OT overview and performance summary.</p>
+            </div>
+            <div class="dashboard-hero-illustration">
+                <i class="bi bi-graph-up"></i>
             </div>
         </div>
+    </div>
 
-        <!-- Operational Summary Cards -->
-        <div class="la-summary-cards">
-            <div class="la-summary-card">
-                <div class="la-summary-icon pending">
-                    <i class="bi bi-clock"></i>
-                </div>
-                <div class="la-summary-value">@(Model.OTSummary?.Employees95to100 + Model.OTSummary?.EmployeesAbove100 ?? 0)</div>
-                <div class="la-summary-label">Pending OT Requests</div>
+    <partial name="_PageHeader" model="header" />
+
+    <!-- Date Filter Form -->
+    <form method="get" asp-action="Index" class="dashboard-date-filter mb-4">
+        <div class="row align-items-center">
+            <div class="col-auto">
+                <label for="selectedDate" class="form-label mb-0 fw-semibold">View OT Dashboard Date:</label>
             </div>
-            <div class="la-summary-card">
-                <div class="la-summary-icon today">
-                    <i class="bi bi-calendar-check"></i>
-                </div>
-                <div class="la-summary-value">@(Model.TodayOTStatus?.EmployeesScheduledOT ?? 0)</div>
-                <div class="la-summary-label">Today's OT</div>
-            </div>
-            <div class="la-summary-card">
-                <div class="la-summary-icon conflict">
-                    <i class="bi bi-exclamation-triangle"></i>
-                </div>
-                <div class="la-summary-value">@(Model.OTSummary?.EmployeesAbove100 ?? 0)</div>
-                <div class="la-summary-label">OT Conflicts</div>
+            <div class="col-auto">
+                <input type="date"
+                       id="selectedDate"
+                       name="selectedDate"
+                       class="form-control"
+                       value="@Model.SelectedDate.ToString("yyyy-MM-dd")"
+                       onchange="this.form.submit()" />
             </div>
         </div>
+    </form>
 
-        <!-- OT Queue with Search and Filters -->
-        <div class="la-card">
-            <div class="la-card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
-                <h5>OT Queue</h5>
-                <div class="d-flex gap-2 align-items-center flex-wrap">
-                    <input type="text" class="la-search-bar" placeholder="Search employees..." id="otSearchInput">
-                    <select class="la-filter-select" id="otFilterSelect">
-                        <option value="all">All Departments</option>
-                        <option value="IT">IT</option>
-                        <option value="Engineering">Engineering</option>
-                        <option value="Operations">Operations</option>
-                    </select>
-                    <select class="la-filter-select" id="otPercentageFilter">
-                        <option value="all">All OT %</option>
-                        <option value="70">70%</option>
-                        <option value="80">80%</option>
-                        <option value="100">100%</option>
-                        <option value="above100">Above 100%</option>
-                    </select>
-                </div>
+    @if (!string.IsNullOrWhiteSpace(Model.WorkerSearchMessage))
+    {
+        <div class="alert alert-info mt-3">
+            @Model.WorkerSearchMessage
+        </div>
+    }
+
+    @if (Model.WorkerHistorySearchResult != null)
+    {
+        var worker = Model.WorkerHistorySearchResult;
+
+        <div class="card mt-3 shadow-sm border-0">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Worker OT History</h5>
+                <small>Service ID: @worker.ServiceId</small>
             </div>
-            <div class="la-card-body">
-                <div class="la-table-container">
-                    <table class="la-table" id="otQueueTable">
-                        <thead>
-                            <tr>
-                                <th>Employee</th>
-                                <th>Department</th>
-                                <th>OT Date</th>
-                                <th>Start Time</th>
-                                <th>End Time</th>
-                                <th>OT Hours</th>
-                                <th>Edit</th>
-                            </tr>
-                        </thead>
-                        <tbody id="otQueueTableBody">
-                            @if (Model.OTEmployees != null && Model.OTEmployees.Any())
-                            {
-                                foreach (var employee in Model.OTEmployees)
+
+            <div class="card-body">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-2">
+                        <strong>Worker ID</strong>
+                        <div>@worker.WorkerId</div>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Name</strong>
+                        <div>@worker.FullName</div>
+                    </div>
+                    <div class="col-md-3">
+                        <strong>Email</strong>
+                        <div>@worker.Email</div>
+                    </div>
+                    <div class="col-md-2">
+                        <strong>Section</strong>
+                        <div>@worker.SectionName</div>
+                    </div>
+                    <div class="col-md-1">
+                        <strong>Worked</strong>
+                        <div>@worker.TotalWorkedHours h</div>
+                    </div>
+                    <div class="col-md-1">
+                        <strong>OT</strong>
+                        <div>@worker.TotalOTHours h</div>
+                    </div>
+                </div>
+
+                @if (worker.History.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                        <th>OT In Time</th>
+                                    <th>OT Out Time</th>
+                                    <th>OT Duration</th>
+                                    <th>OT Hours</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in worker.History)
                                 {
-                                    <tr data-name="@($"{employee.FirstName} {employee.LastName}")" data-department="@employee.Department" data-ot-percentage="@employee.TotalOTHours">
-                                        <td>
-                                            <div class="la-employee-cell">
-                                                <div class="la-avatar">@employee.Initials</div>
-                                                <div class="la-employee-info">
-                                                    <span class="la-employee-name">@employee.FirstName @employee.LastName</span>
-                                                    <span class="la-employee-id">@employee.ServiceId</span>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>@employee.Department</td>
-                                        <td>@DateTime.Now.ToString("dd/MM/yyyy")</td>
-                                        <td>18:00</td>
-                                        <td>22:00</td>
-                                        <td>@employee.TotalOTHours.ToString("0.0")h</td>
-                                        <td>
-                                            <button type="button" class="la-btn-edit" onclick="openEditModal('@employee.ServiceId', '@employee.FirstName', '@employee.LastName', '@employee.Department')">
-                                                <i class="bi bi-pencil"></i> Edit
-                                            </button>
-                                        </td>
+                                    <tr>
+                                        <td>@row.Date.ToString("dd MMM yyyy")</td>
+                                        <td>@row.InTime</td>
+                                        <td>@row.OutTime</td>
+                                        <td>@row.WorkedHours</td>
+                                        <td>@row.OTHours</td>
                                     </tr>
                                 }
-                            }
-                            else
-                            {
-                                <tr>
-                                    <td colspan="7" class="text-center py-5">
-                                        <div style="color: #9ca3af;">
-                                            <i class="bi bi-inbox" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
-                                            <span>No OT requests found</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
+                            </tbody>
+                        </table>
+                    </div>
+                }
             </div>
         </div>
+    }
 
-        <!-- Monthly OT Calendar -->
-        <div class="la-card">
-            <div class="la-card-header d-flex justify-content-between align-items-center">
-                <h5>Monthly OT Calendar - @Model.OTCurrentMonthLabel</h5>
-                <div class="btn-group">
-                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="changeOTMonth(-1)">
-                        <i class="bi bi-chevron-left"></i> Previous
-                    </button>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="changeOTMonth(1)">
-                        Next <i class="bi bi-chevron-right"></i>
-                    </button>
+    @if (Model.IsWorker)
+    {
+        <section class="ot-hours-card mb-4">
+            <div class="ot-card-content">
+                <div class="ot-card-left">
+                    <div class="ot-icon-badge">
+                        <i class="bi bi-hourglass-split"></i>
+                    </div>
+                    <div class="ot-mini-stat">
+                        <div class="ot-mini-label">This Month OT</div>
+                        <div class="ot-mini-value">@Math.Round(Model.OvertimeMinutesMonth / 60m, 1).ToString("0.0") hrs</div>
+                    </div>
+                </div>
+                <div class="ot-card-right">
+                    <div class="ot-card-header">
+                        <h2 class="ot-card-title">OT Hours Trend</h2>
+                        <p class="ot-card-subtitle">Daily trend of overtime hours</p>
+                    </div>
+                    <div class="ot-card-body">
+                        <div class="ot-chart-container">
+                            <canvas id="otHoursChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="la-card-body">
-                <!-- Calendar Legend -->
-                <div class="d-flex gap-3 mb-3 flex-wrap">
-                    <div class="d-flex align-items-center">
-                        <span style="width: 12px; height: 12px; background: #dbeafe; border: 1px solid #93c5fd; border-radius: 3px; display: inline-block;"></span>
-                        <small class="ms-1">Approved OT</small>
-                    </div>
-                    <div class="d-flex align-items-center">
-                        <span style="width: 12px; height: 12px; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 3px; display: inline-block;"></span>
-                        <small class="ms-1">Pending OT</small>
-                    </div>
-                    <div class="d-flex align-items-center">
-                        <span style="width: 12px; height: 12px; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 3px; display: inline-block;"></span>
-                        <small class="ms-1">OT Conflict</small>
-                    </div>
-                    <div class="d-flex align-items-center">
-                        <span style="width: 12px; height: 12px; background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 3px; display: inline-block;"></span>
-                        <small class="ms-1">Holiday</small>
+        </section>
+    }
+    else
+    {
+        <section class="premium-summary-grid">
+            @foreach (var card in cards)
+            {
+                <div class="premium-card @(card.Tone == "success" ? "success" : card.Tone == "purple" ? "purple" : "")">
+                    <div class="premium-card-body">
+                        <div class="premium-icon-wrapper @(card.Tone == "success" ? "success" : card.Tone == "purple" ? "purple" : "")">
+                            <i class="bi @card.Icon"></i>
+                        </div>
+                        <div class="premium-content">
+                            <div class="premium-label">@card.Label</div>
+                            <div class="premium-value">@card.Value</div>
+                            <div class="premium-helper">@card.HelperText</div>
+                        </div>
                     </div>
                 </div>
+            }
+        </section>
+    }
 
-                <!-- Calendar Grid -->
-                <div class="la-calendar-header">
-                    <div class="la-calendar-header-cell">Sun</div>
-                    <div class="la-calendar-header-cell">Mon</div>
-                    <div class="la-calendar-header-cell">Tue</div>
-                    <div class="la-calendar-header-cell">Wed</div>
-                    <div class="la-calendar-header-cell">Thu</div>
-                    <div class="la-calendar-header-cell">Fri</div>
-                    <div class="la-calendar-header-cell">Sat</div>
+    @if (!Model.IsWorker)
+    {
+        <section class="dashboard-analytics-grid">
+            <div class="analytics-main">
+                <div class="premium-chart-panel">
+                    <div class="premium-chart-header">
+                        <h2 class="premium-chart-title">Monthly OT Trend</h2>
+                        <p class="premium-chart-subtitle">Daily movement of OT records and OT hours</p>
+                    </div>
+                    <div class="premium-chart-body">
+                        <div class="premium-chart-container">
+                            <canvas id="attendanceTrendChart"></canvas>
+                        </div>
+                    </div>
                 </div>
-                <div class="la-calendar-grid">
-                    @if (Model.OTCalendarDays != null)
-                    {
-                        foreach (var day in Model.OTCalendarDays)
-                        {
-                            var dayClass = day.IsCurrentMonth ? "" : "opacity-50";
-                            var statusClass = day.OTStatus switch
-                            {
-                                "approved" => "approved",
-                                "pending" => "pending",
-                                "conflict" => "conflict",
-                                "holiday" => "holiday",
-                                _ => ""
-                            };
-                            <div class="la-calendar-day @dayClass @statusClass @(day.IsToday ? "today" : "")"
-                                 title="@day.EmployeesOnOT/@day.TotalEmployees on OT (@day.AverageOTAllocation.ToString("0.0")%)"
-                                 onclick="loadOTDataForDate('@day.Year-@day.Month.ToString("00")-@day.Day.ToString("00")')">
-                                <span class="la-calendar-day-number">@day.Day</span>
-                                @if (day.IsCurrentMonth && day.EmployeesOnOT > 0)
-                                {
-                                    <span class="la-calendar-ot-count">@day.EmployeesOnOT</span>
-                                }
+            </div>
+            <aside class="analytics-side">
+                <div class="premium-chart-panel">
+                    <div class="premium-chart-header">
+                        <h2 class="premium-chart-title">Monthly Progress</h2>
+                        <p class="premium-chart-subtitle">Working-day performance and attendance reliability</p>
+                        <span class="panel-meta">@currentMonthLabel</span>
+                    </div>
+                    <div class="premium-chart-body">
+                        <div class="progress-hero">
+                            <div>
+                                <p class="tiny-label">OT Coverage</p>
+                                <h3 class="metric-large">@attendanceRate.ToString("0.0")%</h3>
                             </div>
-                        }
+                            <div>
+                                <p class="tiny-label">OT Hours</p>
+                                <h3 class="metric-large">@Math.Round(Model.OvertimeMinutesMonth / 60m, 1).ToString("0.0")h</h3>
+                            </div>
+                        </div>
+                        <div class="premium-progress" role="progressbar" aria-label="Monthly OT coverage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@attendanceRate">
+                            <div class="premium-progress-bar" style="width:@attendanceRate%;"></div>
+                        </div>
+
+                        <div class="mini-stats-grid">
+                            <div class="mini-stat">
+                                <p class="mini-stats-label">Working Days</p>
+                                <h4>@Model.WorkingDaysToDate</h4>
+                            </div>
+                            <div class="mini-stat">
+                                <p class="mini-stats-label">OT Days</p>
+                                <h4>@Model.AttendedDaysToDate</h4>
+                            </div>
+                            <div class="mini-stat">
+                                <p class="mini-stats-label">OT Records</p>
+                                <h4>@Model.MonthlyPresentCount</h4>
+                            </div>
+                            <div class="mini-stat">
+                                <p class="mini-stats-label">Review</p>
+                                <h4>@Model.MonthlyLateCount</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </section>
+
+        <section class="dashboard-charts-grid">
+            <div class="premium-chart-panel">
+                <div class="premium-chart-header">
+                    <h2 class="premium-chart-title">@dailyStatusPanel.Title</h2>
+                    <p class="premium-chart-subtitle">@dailyStatusPanel.Subtitle</p>
+                </div>
+                <div class="premium-chart-body">
+                    <div class="premium-chart-container">
+                        <canvas id="@dailyStatusPanel.CanvasId"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="premium-chart-panel">
+                <div class="premium-chart-header">
+                    <h2 class="premium-chart-title">OT Distribution</h2>
+                    <p class="premium-chart-subtitle">OT record split for the current month</p>
+                </div>
+                <div class="premium-chart-body">
+                    <div class="premium-chart-container">
+                        <canvas id="distributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+    }
+
+    <section class="dashboard-insights-grid">
+        @if (!Model.IsWorker)
+        {
+            <article class="panel-card">
+                <header class="panel-header">
+                    <div>
+                        <h2>Section OT Summary</h2>
+                        <p class="panel-subtitle">Today by section with OT record totals</p>
+                    </div>
+                </header>
+                <div class="panel-body">
+                    @if (Model.SectionSnapshots.Any())
+                    {
+                        <div class="table-responsive insight-table-wrap">
+                            <table class="table table-modern mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Section</th>
+                                        <th>OT Records</th>
+                                        <th>Review</th>
+                                        <th>No OT</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in Model.SectionSnapshots)
+                                    {
+                                        <tr>
+                                            <td class="fw-semibold">@item.SectionName</td>
+                                            <td><span class="badge-soft badge-soft-success">@item.PresentCount</span></td>
+                                            <td><span class="badge-soft badge-soft-warning">@item.LateCount</span></td>
+                                            <td><span class="badge-soft badge-soft-danger">@item.AbsentCount</span></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <partial name="_EmptyState" model="noSectionData" />
                     }
                 </div>
-            </div>
-        </div>
+            </article>
+        }
 
-        <!-- Export OT Data -->
-        <div class="la-card">
-            <div class="la-card-body">
-                <div class="la-export-section">
-                    <div>
-                        <h5 class="mb-1">Export OT Data</h5>
-                        <p class="text-muted mb-0 small">Export OT records for selected date range to PDF.</p>
-                    </div>
-                    <div class="la-date-range">
-                        <input type="date" class="la-date-input" id="exportFromDate" placeholder="From">
-                        <span style="color: #9ca3af;">to</span>
-                        <input type="date" class="la-date-input" id="exportToDate" placeholder="To">
-                        <button type="button" class="la-btn-export" onclick="exportToPDF()">
-                            <i class="bi bi-file-earmark-pdf"></i> Export PDF
-                        </button>
-                    </div>
+        <article class="panel-card">
+            <header class="panel-header">
+                <div>
+                    <h2>@(Model.IsWorker ? "My Recent OT Activity" : "Recent OT Activity")</h2>
+                    <p class="panel-subtitle">Most recent OT updates from today's records</p>
                 </div>
-            </div>
-        </div>
+            </header>
+            <div class="panel-body">
+                @if (Model.RecentAttendance.Any())
+                {
+                    <div class="premium-activity-list">
+                        @foreach (var item in Model.RecentAttendance)
+                        {
+                            var statusBadge = new StatusBadgeViewModel { Status = "Recorded OT", Tone = "success" };
 
-        <!-- Edit OT Modal -->
-        <div class="la-modal-overlay" id="editOTModal">
-            <div class="la-modal">
-                <div class="la-modal-header">
-                    <h3>Edit OT Request</h3>
-                    <button class="la-modal-close" onclick="closeEditModal()">&times;</button>
-                </div>
-                <div class="la-modal-body">
-                    <form id="editOTForm">
-                        <input type="hidden" id="editServiceId">
-                        <div class="la-form-group">
-                            <label class="la-form-label">Employee</label>
-                            <input type="text" class="la-form-input" id="editEmployeeName" readonly>
-                        </div>
-                        <div class="la-form-group">
-                            <label class="la-form-label">Department</label>
-                            <input type="text" class="la-form-input" id="editDepartment" readonly>
-                        </div>
-                        <div class="la-form-group">
-                            <label class="la-form-label">OT Date</label>
-                            <input type="date" class="la-form-input" id="editOTDate">
-                        </div>
-                        <div class="row">
-                            <div class="col-6">
-                                <div class="la-form-group">
-                                    <label class="la-form-label">Start Time</label>
-                                    <input type="time" class="la-form-input" id="editStartTime">
+                            <div class="premium-activity-item">
+                                <div class="premium-activity-info">
+                                    <h4>@item.EmployeeName</h4>
+                                    <p>Section: @(item.SectionName ?? "N/A") | In: @(item.InTime?.ToString(@"hh\:mm") ?? "-") | Out: @(item.OutTime?.ToString(@"hh\:mm") ?? "-")</p>
                                 </div>
+                                <span class="premium-status-badge @statusBadge.Tone">@statusBadge.Status</span>
                             </div>
-                            <div class="col-6">
-                                <div class="la-form-group">
-                                    <label class="la-form-label">End Time</label>
-                                    <input type="time" class="la-form-input" id="editEndTime">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="la-form-group">
-                            <label class="la-form-label">OT Hours</label>
-                            <input type="number" step="0.5" class="la-form-input" id="editOTHours">
-                        </div>
-                    </form>
-                </div>
-                <div class="la-modal-footer">
-                    <button type="button" class="la-btn-secondary" onclick="closeEditModal()">Cancel</button>
-                    <button type="button" class="la-btn-primary" onclick="saveOTRequest()">Save Changes</button>
-                </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <partial name="_EmptyState" model="noActivityData" />
+                }
             </div>
-        </div>
+        </article>
     </section>
-}
+</section>
 
 @section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script>
-        // OT Calendar Navigation
-        function changeOTMonth(delta) {
-            // Placeholder for month navigation - would need AJAX call
-            console.log("Change month by", delta);
-        }
+        const labels = @Html.Raw(JsonSerializer.Serialize(Model.TrendLabels));
+        const presentData = @Html.Raw(JsonSerializer.Serialize(Model.PresentTrend));
+        const lateData = @Html.Raw(JsonSerializer.Serialize(Model.LateTrend));
+        const absentData = @Html.Raw(JsonSerializer.Serialize(Model.AbsentTrend));
+        const overtimeData = @Html.Raw(JsonSerializer.Serialize(Model.OvertimeTrendHours));
+        const distributionLabels = @Html.Raw(JsonSerializer.Serialize(Model.DistributionLabels));
+        const distributionValues = @Html.Raw(JsonSerializer.Serialize(Model.DistributionValues));
 
-        function loadOTDataForDate(dateStr) {
-            // Placeholder for loading date-specific data
-            console.log("Load OT data for date:", dateStr);
-        }
-
-        // Edit OT Modal Functions
-        function openEditModal(serviceId, firstName, lastName, department) {
-            document.getElementById('editServiceId').value = serviceId;
-            document.getElementById('editEmployeeName').value = firstName + ' ' + lastName;
-            document.getElementById('editDepartment').value = department;
-            document.getElementById('editOTDate').value = new Date().toISOString().split('T')[0];
-            document.getElementById('editStartTime').value = '18:00';
-            document.getElementById('editEndTime').value = '22:00';
-            document.getElementById('editOTHours').value = '4.0';
-            document.getElementById('editOTModal').classList.add('active');
-        }
-
-        function closeEditModal() {
-            document.getElementById('editOTModal').classList.remove('active');
-        }
-
-        function saveOTRequest() {
-            const serviceId = document.getElementById('editServiceId').value;
-            const otDate = document.getElementById('editOTDate').value;
-            const startTime = document.getElementById('editStartTime').value;
-            const endTime = document.getElementById('editEndTime').value;
-            const otHours = document.getElementById('editOTHours').value;
-            
-            console.log('Saving OT request:', { serviceId, otDate, startTime, endTime, otHours });
-            // Placeholder for AJAX call to save OT request
-            closeEditModal();
-        }
-
-        // Export OT Data
-        function exportOTData() {
-            // Placeholder for exporting OT data to Excel
-            console.log("Export OT data to Excel");
-        }
-
-        // Export to PDF
-        function exportToPDF() {
-            const fromDate = document.getElementById('exportFromDate').value;
-            const toDate = document.getElementById('exportToDate').value;
-            console.log('Export to PDF:', { fromDate, toDate });
-            // Placeholder for PDF export functionality
-            alert('PDF export functionality will be implemented with the selected date range.');
-        }
-
-        // Search and Filter Functionality
-        document.addEventListener('DOMContentLoaded', function() {
-            const searchInput = document.getElementById('otSearchInput');
-            const filterSelect = document.getElementById('otFilterSelect');
-            const otPercentageFilter = document.getElementById('otPercentageFilter');
-            const tableBody = document.getElementById('otQueueTableBody');
-            
-            if (searchInput && tableBody) {
-                searchInput.addEventListener('input', function() {
-                    const searchTerm = this.value.toLowerCase();
-                    filterTable(searchTerm, filterSelect ? filterSelect.value : 'all', otPercentageFilter ? otPercentageFilter.value : 'all');
-                });
+        const commonGridColor = "rgba(95, 122, 160, 0.18)";
+        const commonTickColor = "#5f6f87";
+        const commonLegend = {
+            position: "bottom",
+            labels: {
+                usePointStyle: true,
+                pointStyle: "circle",
+                boxWidth: 10,
+                color: "#34415a",
+                font: {
+                    family: "Public Sans",
+                    size: 12
+                }
             }
-            
-            if (filterSelect && tableBody) {
-                filterSelect.addEventListener('change', function() {
-                    const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
-                    filterTable(searchTerm, this.value, otPercentageFilter ? otPercentageFilter.value : 'all');
-                });
+        };
+
+        const commonScales = {
+            x: {
+                ticks: { color: commonTickColor, maxRotation: 0, autoSkipPadding: 18 },
+                grid: { display: false }
+            },
+            y: {
+                beginAtZero: true,
+                ticks: { precision: 0, color: commonTickColor },
+                grid: { color: commonGridColor }
             }
-            
-            if (otPercentageFilter && tableBody) {
-                otPercentageFilter.addEventListener('change', function() {
-                    const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
-                    filterTable(searchTerm, filterSelect ? filterSelect.value : 'all', this.value);
-                });
-            }
-            
-            function filterTable(searchTerm, departmentFilter, otPercentageFilter) {
-                const rows = tableBody.querySelectorAll('tr');
-                
-                rows.forEach(row => {
-                    const name = row.dataset.name?.toLowerCase() || '';
-                    const department = row.dataset.department?.toLowerCase() || '';
-                    const otPercentage = parseFloat(row.dataset.otPercentage) || 0;
-                    
-                    const matchesSearch = name.includes(searchTerm) || department.includes(searchTerm);
-                    const matchesDepartment = departmentFilter === 'all' || department === departmentFilter.toLowerCase();
-                    
-                    let matchesOTPercentage = true;
-                    if (otPercentageFilter !== 'all') {
-                        if (otPercentageFilter === 'above100') {
-                            matchesOTPercentage = otPercentage > 100;
-                        } else {
-                            const threshold = parseFloat(otPercentageFilter);
-                            matchesOTPercentage = otPercentage >= threshold;
+        };
+
+        // OT Hours Chart for Workers - Only shows OT data
+        const otHoursElement = document.getElementById("otHoursChart");
+        if (otHoursElement) {
+            new Chart(otHoursElement, {
+                type: "line",
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: "OT Hours",
+                            data: overtimeData,
+                            borderColor: "#8b5cf6",
+                            backgroundColor: "rgba(139, 92, 246, 0.1)",
+                            pointRadius: 4,
+                            pointHoverRadius: 6,
+                            pointBackgroundColor: "#8b5cf6",
+                            pointBorderColor: "#fff",
+                            pointBorderWidth: 2,
+                            fill: true,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: "index",
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: "#10233f",
+                            titleFont: { family: "Outfit" },
+                            bodyFont: { family: "Public Sans" },
+                            callbacks: {
+                                label: function(context) {
+                                    return `OT Hours: ${context.parsed.y.toFixed(1)} hrs`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: commonTickColor, maxRotation: 0, autoSkipPadding: 18 },
+                            grid: { display: false }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: { 
+                                precision: 1, 
+                                color: commonTickColor,
+                                callback: function(value) {
+                                    return value.toFixed(1) + 'h';
+                                }
+                            },
+                            grid: { color: commonGridColor }
                         }
                     }
-                    
-                    row.style.display = matchesSearch && matchesDepartment && matchesOTPercentage ? '' : 'none';
-                });
-            }
-            
-            // Close modal when clicking outside
-            const modalOverlay = document.getElementById('editOTModal');
-            if (modalOverlay) {
-                modalOverlay.addEventListener('click', function(e) {
-                    if (e.target === modalOverlay) {
-                        closeEditModal();
+                }
+            });
+        }
+
+        // Admin-only charts
+        const trendElement = document.getElementById("attendanceTrendChart");
+        if (trendElement) {
+            new Chart(trendElement, {
+                type: "line",
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: "OT Records",
+                            data: presentData,
+                            borderColor: "#0b9967",
+                            backgroundColor: "rgba(11, 153, 103, 0.14)",
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            fill: true,
+                            tension: 0.34
+                        },
+                        {
+                            label: "Review",
+                            data: lateData,
+                            borderColor: "#d08910",
+                            backgroundColor: "rgba(208, 137, 16, 0.08)",
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            fill: false,
+                            tension: 0.32
+                        },
+                        {
+                            label: "No OT",
+                            data: absentData,
+                            borderColor: "#cd3246",
+                            backgroundColor: "rgba(205, 50, 70, 0.09)",
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            fill: false,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: "index",
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: commonLegend,
+                        tooltip: {
+                            backgroundColor: "#10233f",
+                            titleFont: { family: "Outfit" },
+                            bodyFont: { family: "Public Sans" }
+                        }
+                    },
+                    scales: commonScales
+                }
+            });
+        }
+
+        const statusElement = document.getElementById("statusBarChart");
+        if (statusElement) {
+            new Chart(statusElement, {
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            type: "bar",
+                            label: "OT Records",
+                            data: presentData,
+                            backgroundColor: "rgba(11, 153, 103, 0.82)",
+                            borderRadius: 8
+                        },
+                        {
+                            type: "bar",
+                            label: "Review",
+                            data: lateData,
+                            backgroundColor: "rgba(208, 137, 16, 0.78)",
+                            borderRadius: 8
+                        },
+                        {
+                            type: "bar",
+                            label: "No OT",
+                            data: absentData,
+                            backgroundColor: "rgba(205, 50, 70, 0.78)",
+                            borderRadius: 8
+                        },
+                        {
+                            type: "line",
+                            label: "OT Hours",
+                            data: overtimeData,
+                            borderColor: "#275fd0",
+                            backgroundColor: "rgba(39, 95, 208, 0.10)",
+                            yAxisID: "y1",
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: "index",
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: commonLegend
+                    },
+                    scales: {
+                        ...commonScales,
+                        y1: {
+                            beginAtZero: true,
+                            position: "right",
+                            grid: { drawOnChartArea: false },
+                            ticks: { precision: 0, color: commonTickColor }
+                        }
                     }
-                });
-            }
-        });
+                }
+            });
+        }
+
+        const distributionElement = document.getElementById("distributionChart");
+        if (distributionElement) {
+            new Chart(distributionElement, {
+                type: "doughnut",
+                data: {
+                    labels: distributionLabels,
+                    datasets: [
+                        {
+                            data: distributionValues,
+                            borderWidth: 0,
+                            backgroundColor: ["#0b9967", "#d08910", "#cd3246", "#6e7f99"],
+                            hoverOffset: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "65%",
+                    plugins: {
+                        legend: commonLegend
+                    }
+                }
+            });
+        }
     </script>
 }

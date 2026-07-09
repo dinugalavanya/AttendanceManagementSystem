@@ -33,7 +33,6 @@ namespace AttendanceManagementSystem.ViewModels
         public string OTCurrentMonthLabel { get; set; } = string.Empty;
         public List<OTCalendarDayViewModel> OTCalendarDays { get; set; } = new();
         public List<OTEmployeeViewModel> OTEmployees { get; set; } = new();
-        public string OTSelectedFilter { get; set; } = "all";
         public OTSummaryViewModel OTSummary { get; set; } = new();
         public List<OTAlertViewModel> OTAlerts { get; set; } = new();
         public TodayOTStatusViewModel TodayOTStatus { get; set; } = new();
@@ -158,6 +157,7 @@ namespace AttendanceManagementSystem.ViewModels
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
         public string ServiceId { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
         public string Department { get; set; } = string.Empty;
         public decimal OTAllocationPercentage { get; set; }
         public decimal TotalOTHours { get; set; }

@@ -1428,12 +1428,6 @@
             <h5>OT Queue</h5>
             <div class="d-flex gap-2 align-items-center flex-wrap">
                 <input type="text" class="la-search-bar" placeholder="Search employees..." id="otSearchInput">
-                <select class="la-filter-select" id="otFilterSelect">
-                    <option value="all">All Departments</option>
-                    <option value="IT">IT</option>
-                    <option value="Engineering">Engineering</option>
-                    <option value="Operations">Operations</option>
-                </select>
                 <select class="la-filter-select" id="otPercentageFilter">
                     <option value="all">All OT %</option>
                     <option value="70">70%</option>
@@ -1458,48 +1452,10 @@
                         </tr>
                     </thead>
                     <tbody id="otQueueTableBody">
-                        @if (employees.Any())
-                        {
-                            var idx = 0;
-                            foreach (var emp in employees)
-                            {
-                                var avatarClass = $"v{(idx % 5) + 1}";
-                                var fromDate = today.AddDays(idx);
-                                <tr data-name="@($"{emp.FirstName} {emp.LastName}")" data-department="@emp.Department" data-ot-percentage="@emp.OTAllocationPercentage">
-                                    <td>
-                                        <div class="la-employee-cell">
-                                            <div class="la-avatar">@emp.Initials</div>
-                                            <div class="la-employee-info">
-                                                <span class="la-employee-name">@emp.FirstName @emp.LastName</span>
-                                                <span class="la-employee-id">@emp.ServiceId</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>@emp.Department</td>
-                                    <td>@fromDate.ToString("dd/MM/yyyy")</td>
-                                    <td>18:00</td>
-                                    <td>22:00</td>
-                                    <td>@emp.TotalOTHours.ToString("0.0")h</td>
-                                    <td>
-                                        <button type="button" class="la-btn-edit" onclick="openEditModal('@emp.ServiceId', '@emp.FirstName', '@emp.LastName', '@emp.Department')">
-                                            <i class="bi bi-pencil"></i> Edit
-                                        </button>
-                                    </td>
-                                </tr>
-                                idx++;
-                            }
+                        @{
+                            ViewData["SelectedDate"] = today;
                         }
-                        else
-                        {
-                            <tr>
-                                <td colspan="7" class="text-center py-5">
-                                    <div style="color: #9ca3af;">
-                                        <i class="bi bi-inbox" style="font-size: 2rem; margin-bottom: 0.5rem; display: block;"></i>
-                                        <span>No OT requests found</span>
-                                    </div>
-                                </td>
-                            </tr>
-                        }
+                        <partial name="_OTQueueRows" model="employees" />
                     </tbody>
                 </table>
             </div>
@@ -1600,16 +1556,67 @@
             <div class="la-export-section">
                 <div>
                     <h5 class="mb-1">Export OT Data</h5>
-                    <p class="text-muted mb-0 small">Export OT records for selected date range to PDF.</p>
+                    <p class="text-muted mb-0 small">Export OT records for selected date range and percentage to PDF.</p>
                 </div>
                 <div class="la-date-range">
                     <input type="date" class="la-date-input" id="exportFromDate" placeholder="From">
                     <span style="color: #9ca3af;">to</span>
                     <input type="date" class="la-date-input" id="exportToDate" placeholder="To">
+                    <select class="la-filter-select" id="exportOtPercentageFilter">
+                        <option value="all">All OT %</option>
+                        <option value="below75">Below 75%</option>
+                        <option value="75-80">75% - 80%</option>
+                        <option value="80-95">80% - 95%</option>
+                        <option value="95-100">95% - 100%</option>
+                        <option value="above100">Above 100%</option>
+                    </select>
                     <button type="button" class="la-btn-export" onclick="exportToPDF()">
                         <i class="bi bi-file-earmark-pdf"></i> Export PDF
                     </button>
                 </div>
+            </div>
+            
+            <div id="exportPreviewSection" style="display: none; border-top: 1px solid #e5e7eb; margin-top: 20px; padding-top: 20px;">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0 text-secondary" style="font-weight: 600;">Filtered Records Preview</h6>
+                    <span class="badge bg-secondary text-light" id="previewRecordCount" style="font-size: 0.8rem; padding: 0.4em 0.8em; border-radius: 4px;">0 records</span>
+                </div>
+                <div id="exportPreviewTableContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF Preview Modal -->
+    <div class="la-modal-overlay" id="pdfPreviewModal">
+        <div class="la-modal" style="max-width: 900px; width: 90%;">
+            <div class="la-modal-header">
+                <h3>PDF Export Preview</h3>
+                <button class="la-modal-close" onclick="closePdfPreviewModal()">&times;</button>
+            </div>
+            <div class="la-modal-body" style="background-color: #f3f4f6; max-height: 60vh; overflow-y: auto; padding: 25px;">
+                <!-- Simulated PDF Report Layout -->
+                <div style="background-color: #ffffff; border: 1px solid #d1d5db; border-radius: 8px; padding: 30px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                    <div class="d-flex justify-content-between align-items-start border-bottom pb-3 mb-4">
+                        <div>
+                            <h4 style="color: #1e3a8a; margin: 0; font-weight: 700; font-family: sans-serif;">PulseHR / OT Management System</h4>
+                            <p class="text-muted small mb-0" style="margin-top: 5px; font-family: sans-serif;">OT Allocation Report</p>
+                        </div>
+                        <div class="text-end text-muted small" style="font-family: sans-serif;">
+                            <div><strong>Report Date Range:</strong> <span id="pdfPreviewDateRange"></span></div>
+                            <div><strong>Generated:</strong> @DateTime.Now.ToString("dd MMM yyyy")</div>
+                        </div>
+                    </div>
+                    
+                    <div id="pdfPreviewContent" class="mb-4">
+                        <!-- Preview Table goes here -->
+                    </div>
+                </div>
+            </div>
+            <div class="la-modal-footer">
+                <button type="button" class="la-btn-secondary" onclick="closePdfPreviewModal()">Close Preview</button>
+                <button type="button" class="la-btn-primary" onclick="downloadPDF()">
+                    <i class="bi bi-download"></i> Download PDF
+                </button>
             </div>
         </div>
     </div>
@@ -1702,79 +1709,166 @@
             closeEditModal();
         }
 
-        // Export OT Data
-        function exportOTData() {
-            console.log("Export OT data to Excel");
-        }
+        // Export to PDF with Preview Modal (Tasks 1, 3)
+        let lastPreviewHtml = "";
 
-        // Export to PDF
         function exportToPDF() {
             const fromDate = document.getElementById('exportFromDate').value;
             const toDate = document.getElementById('exportToDate').value;
-            console.log('Export to PDF:', { fromDate, toDate });
-            // Placeholder for PDF export functionality
-            alert('PDF export functionality will be implemented with the selected date range.');
+            const otPercentage = document.getElementById('exportOtPercentageFilter').value;
+            
+            if (!fromDate || !toDate) {
+                alert('Please select both From Date and To Date before exporting.');
+                return;
+            }
+            
+            if (new Date(fromDate) > new Date(toDate)) {
+                alert('From Date must be before or equal to To Date.');
+                return;
+            }
+
+            // Open preview modal and copy preview content
+            document.getElementById('pdfPreviewDateRange').innerText = `${formatDateString(fromDate)} to ${formatDateString(toDate)}`;
+            document.getElementById('pdfPreviewContent').innerHTML = lastPreviewHtml;
+            document.getElementById('pdfPreviewModal').classList.add('active');
         }
 
-        // Search and Filter Functionality
+        function formatDateString(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            const options = { day: '2-digit', month: 'short', year: 'numeric' };
+            return d.toLocaleDateString('en-GB', options);
+        }
+
+        function closePdfPreviewModal() {
+            document.getElementById('pdfPreviewModal').classList.remove('active');
+        }
+
+        function downloadPDF() {
+            const fromDate = document.getElementById('exportFromDate').value;
+            const toDate = document.getElementById('exportToDate').value;
+            const otPercentage = document.getElementById('exportOtPercentageFilter').value;
+            
+            window.location.href = `/Dashboard/ExportOTData?fromDate=${fromDate}&toDate=${toDate}&otPercentage=${otPercentage}`;
+            closePdfPreviewModal();
+        }
+
+        // Live Preview Loader for Export card (Task 2)
+        function loadExportPreview() {
+            const fromDate = document.getElementById('exportFromDate').value;
+            const toDate = document.getElementById('exportToDate').value;
+            const otPercentage = document.getElementById('exportOtPercentageFilter').value;
+
+            if (!fromDate || !toDate) {
+                document.getElementById('exportPreviewSection').style.display = 'none';
+                return;
+            }
+
+            if (new Date(fromDate) > new Date(toDate)) {
+                document.getElementById('exportPreviewSection').style.display = 'none';
+                return;
+            }
+
+            const url = `/Dashboard/GetExportPreviewData?fromDate=${fromDate}&toDate=${toDate}&otPercentage=${otPercentage}`;
+
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) throw new Error('Preview load failed');
+                    return response.text();
+                })
+                .then(html => {
+                    lastPreviewHtml = html;
+                    document.getElementById('exportPreviewTableContainer').innerHTML = html;
+                    
+                    // Count records
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = html;
+                    const rows = tempDiv.querySelectorAll('tbody tr');
+                    const isNoRecord = tempDiv.querySelector('.bi-inbox');
+                    const recordCount = isNoRecord ? 0 : rows.length;
+                    
+                    document.getElementById('previewRecordCount').innerText = `${recordCount} records`;
+                    document.getElementById('exportPreviewSection').style.display = 'block';
+                })
+                .catch(err => {
+                    console.error('Error loading export preview:', err);
+                });
+        }
+
+        // Search and Filter Functionality (Tasks 2, 3, 4, 5, 6)
+        let searchTimeout = null;
+
+        function fetchOTQueue() {
+            const searchTerm = document.getElementById('otSearchInput')?.value || '';
+            const otPercentage = document.getElementById('otPercentageFilter')?.value || 'all';
+            const selectedDate = '@Model.SelectedDate.ToString("yyyy-MM-dd")';
+
+            const url = `/Dashboard/GetOTQueueRows?searchTerm=${encodeURIComponent(searchTerm)}&otPercentage=${encodeURIComponent(otPercentage)}&selectedDate=${selectedDate}`;
+
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(html => {
+                    const tableBody = document.getElementById('otQueueTableBody');
+                    if (tableBody) {
+                        tableBody.innerHTML = html;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching OT queue:', error);
+                });
+        }
+
+        function onSearchInput() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(fetchOTQueue, 300); // 300ms debounce
+        }
+
+        function onPercentageFilterChange() {
+            fetchOTQueue();
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             const searchInput = document.getElementById('otSearchInput');
-            const filterSelect = document.getElementById('otFilterSelect');
             const otPercentageFilter = document.getElementById('otPercentageFilter');
-            const tableBody = document.getElementById('otQueueTableBody');
             
-            if (searchInput && tableBody) {
-                searchInput.addEventListener('input', function() {
-                    const searchTerm = this.value.toLowerCase();
-                    filterTable(searchTerm, filterSelect ? filterSelect.value : 'all', otPercentageFilter ? otPercentageFilter.value : 'all');
-                });
+            if (searchInput) {
+                searchInput.addEventListener('input', onSearchInput);
             }
             
-            if (filterSelect && tableBody) {
-                filterSelect.addEventListener('change', function() {
-                    const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
-                    filterTable(searchTerm, this.value, otPercentageFilter ? otPercentageFilter.value : 'all');
-                });
+            if (otPercentageFilter) {
+                otPercentageFilter.addEventListener('change', onPercentageFilterChange);
             }
+
+            // Export Preview listeners
+            const exportFrom = document.getElementById('exportFromDate');
+            const exportTo = document.getElementById('exportToDate');
+            const exportOtPercent = document.getElementById('exportOtPercentageFilter');
+
+            if (exportFrom) exportFrom.addEventListener('change', loadExportPreview);
+            if (exportTo) exportTo.addEventListener('change', loadExportPreview);
+            if (exportOtPercent) exportOtPercent.addEventListener('change', loadExportPreview);
             
-            if (otPercentageFilter && tableBody) {
-                otPercentageFilter.addEventListener('change', function() {
-                    const searchTerm = searchInput ? searchInput.value.toLowerCase() : '';
-                    filterTable(searchTerm, filterSelect ? filterSelect.value : 'all', this.value);
-                });
-            }
-            
-            function filterTable(searchTerm, departmentFilter, otPercentageFilter) {
-                const rows = tableBody.querySelectorAll('tr');
-                
-                rows.forEach(row => {
-                    const name = row.dataset.name?.toLowerCase() || '';
-                    const department = row.dataset.department?.toLowerCase() || '';
-                    const otPercentage = parseFloat(row.dataset.otPercentage) || 0;
-                    
-                    const matchesSearch = name.includes(searchTerm) || department.includes(searchTerm);
-                    const matchesDepartment = departmentFilter === 'all' || department === departmentFilter.toLowerCase();
-                    
-                    let matchesOTPercentage = true;
-                    if (otPercentageFilter !== 'all') {
-                        if (otPercentageFilter === 'above100') {
-                            matchesOTPercentage = otPercentage > 100;
-                        } else {
-                            const threshold = parseFloat(otPercentageFilter);
-                            matchesOTPercentage = otPercentage >= threshold;
-                        }
-                    }
-                    
-                    row.style.display = matchesSearch && matchesDepartment && matchesOTPercentage ? '' : 'none';
-                });
-            }
-            
-            // Close modal when clicking outside
-            const modalOverlay = document.getElementById('editOTModal');
-            if (modalOverlay) {
-                modalOverlay.addEventListener('click', function(e) {
-                    if (e.target === modalOverlay) {
+            // Close edit modal when clicking outside
+            const editModalOverlay = document.getElementById('editOTModal');
+            if (editModalOverlay) {
+                editModalOverlay.addEventListener('click', function(e) {
+                    if (e.target === editModalOverlay) {
                         closeEditModal();
+                    }
+                });
+            }
+
+            // Close pdf preview modal when clicking outside
+            const previewOverlay = document.getElementById('pdfPreviewModal');
+            if (previewOverlay) {
+                previewOverlay.addEventListener('click', function(e) {
+                    if (e.target === previewOverlay) {
+                        closePdfPreviewModal();
                     }
                 });
             }
