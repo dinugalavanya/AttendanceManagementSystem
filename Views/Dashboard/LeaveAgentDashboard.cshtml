@@ -9,1277 +9,599 @@
     var monthLabel = Model.OTCurrentMonthLabel != string.Empty ? Model.OTCurrentMonthLabel : today.ToString("MMMM yyyy");
     var sectionName = Model.ScopeTitle.Replace(" Overview", "").Trim();
 
-    // Chart data serialisation
-    var deptLabelsJson  = JsonSerializer.Serialize(Model.DepartmentOTLabels ?? new());
-    var deptValuesJson  = JsonSerializer.Serialize(Model.DepartmentOTValues  ?? new());
-    var dailyLabelsJson = JsonSerializer.Serialize(Model.DailyOTLabels       ?? new());
-    var dailyValuesJson = JsonSerializer.Serialize(Model.DailyOTValues       ?? new());
-    var distLabelsJson  = JsonSerializer.Serialize(Model.OTDistributionLabels ?? new());
-    var distValuesJson  = JsonSerializer.Serialize(Model.OTDistributionValues  ?? new());
-
     // Calendar data
     var calDays = Model.OTCalendarDays ?? new();
     var employees = Model.OTEmployees  ?? new();
-    var alerts    = Model.OTAlerts     ?? new();
     var summary   = Model.OTSummary    ?? new();
     var todayStatus = Model.TodayOTStatus ?? new();
 
     // Derived stats
     var pendingCount = summary.Employees95to100 + summary.EmployeesAbove100;
-    var approvedToday = Model.PresentCount;
     var onLeaveToday = todayStatus.EmployeesOnLeave;
-    var urgentCount = summary.EmployeesAbove100;
 }
-
-<!-- ═══════════════════════════════════════════════════════════════
-     LEAVE AGENT DASHBOARD  –  Premium Enterprise HR Dashboard
-     ═══════════════════════════════════════════════════════════════ -->
 
 <style>
     /* ══════════════════════════════════════════════════════════════
-       DESIGN TOKENS
+       DESIGN SYSTEM & HR THEME TOKENS
        ══════════════════════════════════════════════════════════════ */
     :root {
-        --ld-blue:        #2563EB;
-        --ld-blue-lt:     #3B82F6;
-        --ld-blue-xlt:    #EFF6FF;
-        --ld-blue-dk:     #1D4ED8;
-        --ld-emerald:     #10B981;
-        --ld-emerald-lt:  #34D399;
-        --ld-emerald-xlt: #ECFDF5;
-        --ld-violet:      #7C3AED;
-        --ld-violet-lt:   #8B5CF6;
-        --ld-violet-xlt:  #EDE9FE;
-        --ld-orange:      #F59E0B;
-        --ld-orange-lt:   #FBBF24;
-        --ld-orange-xlt:  #FEF3C7;
-        --ld-red:         #EF4444;
-        --ld-red-lt:      #F87171;
-        --ld-red-xlt:     #FEE2E2;
-        --ld-green:       #16A34A;
-        --ld-surface:     #F8FAFC;
-        --ld-card:        #FFFFFF;
-        --ld-border:      #E2E8F0;
-        --ld-border-lt:   #F1F5F9;
-        --ld-text:        #0F172A;
-        --ld-text-secondary: #475569;
-        --ld-muted:       #94A3B8;
-        --ld-radius:      20px;
-        --ld-radius-sm:   14px;
-        --ld-radius-xs:   10px;
-        --ld-shadow:      0 1px 3px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.06);
-        --ld-shadow-md:   0 4px 6px -1px rgba(0,0,0,.07), 0 10px 30px -4px rgba(0,0,0,.08);
-        --ld-shadow-lg:   0 10px 40px -8px rgba(0,0,0,.12);
-        --ld-shadow-glow: 0 0 40px rgba(37,99,235,.12);
-        --ld-transition:  all .25s cubic-bezier(.4,0,.2,1);
+        --hr-primary: #0f172a;
+        --hr-primary-light: #1e293b;
+        --hr-accent: #2563eb;
+        --hr-accent-light: #eff6ff;
+        --hr-accent-hover: #1d4ed8;
+        --hr-bg: #f8fafc;
+        --hr-card: #ffffff;
+        --hr-border: #e2e8f0;
+        --hr-border-light: #f1f5f9;
+        
+        --hr-text: #0f172a;
+        --hr-text-secondary: #475569;
+        --hr-muted: #94a3b8;
+        
+        --hr-success: #10b981;
+        --hr-success-bg: #ecfdf5;
+        --hr-success-text: #065f46;
+        
+        --hr-warning: #f59e0b;
+        --hr-warning-bg: #fffbeb;
+        --hr-warning-text: #92400e;
+        
+        --hr-danger: #ef4444;
+        --hr-danger-bg: #fef2f2;
+        --hr-danger-text: #991b1b;
+        
+        --hr-radius: 12px;
+        --hr-radius-sm: 8px;
+        --hr-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+        --hr-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+        --hr-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
     }
 
     /* ══════════════════════════════════════════════════════════════
-       PAGE LAYOUT
+       MAIN WORKSPACE LAYOUT
        ══════════════════════════════════════════════════════════════ */
-    .ld-page {
-        display: flex;
-        flex-direction: column;
-        gap: 1.75rem;
-        padding-bottom: 3rem;
+    .la-page-wrapper {
         max-width: 1600px;
         margin: 0 auto;
+        padding: 1.5rem;
+        background-color: var(--hr-bg);
+        color: var(--hr-text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
 
-    /* ══════════════════════════════════════════════════════════════
-       HERO BANNER
-       ══════════════════════════════════════════════════════════════ */
-    .ld-hero {
-        background: linear-gradient(135deg, #1E40AF 0%, #2563EB 30%, #7C3AED 70%, #6D28D9 100%);
-        border-radius: var(--ld-radius);
-        padding: 2rem 2.5rem;
-        color: #fff;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1.5rem;
-        box-shadow: var(--ld-shadow-lg), 0 0 60px rgba(37,99,235,.15);
-        position: relative;
-        overflow: hidden;
-    }
-    .ld-hero::before {
-        content: '';
-        position: absolute;
-        top: -50%;
-        right: -10%;
-        width: 400px;
-        height: 400px;
-        background: radial-gradient(circle, rgba(255,255,255,.08) 0%, transparent 70%);
-        border-radius: 50%;
-    }
-    .ld-hero::after {
-        content: '';
-        position: absolute;
-        bottom: -30%;
-        left: 20%;
-        width: 300px;
-        height: 300px;
-        background: radial-gradient(circle, rgba(16,185,129,.15) 0%, transparent 70%);
-        border-radius: 50%;
-    }
-    .ld-hero-left { position: relative; z-index: 2; }
-    .ld-hero-eyebrow {
-        font-size: .72rem;
-        font-weight: 700;
-        letter-spacing: .14em;
-        text-transform: uppercase;
-        opacity: .75;
-        margin-bottom: .5rem;
-        display: flex;
-        align-items: center;
-        gap: .4rem;
-    }
-    .ld-hero h1 {
-        font-size: 1.75rem;
-        font-weight: 800;
-        margin: 0 0 .35rem;
-        letter-spacing: -.02em;
-    }
-    .ld-hero-sub { font-size: .9rem; opacity: .8; margin: 0; }
-    .ld-hero-right { position: relative; z-index: 2; display: flex; gap: .75rem; flex-wrap: wrap; }
-    .ld-hero-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: .45rem;
-        background: rgba(255,255,255,.12);
-        border: 1px solid rgba(255,255,255,.18);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        padding: .45rem 1rem;
-        border-radius: 999px;
-        font-size: .82rem;
-        font-weight: 600;
-        color: #fff;
-        transition: var(--ld-transition);
-    }
-    .ld-hero-badge:hover {
-        background: rgba(255,255,255,.2);
-        transform: translateY(-1px);
-    }
-
-    /* ══════════════════════════════════════════════════════════════
-       ANALYTICS CARDS (ROW 1)
-       ══════════════════════════════════════════════════════════════ */
-    .ld-stats-row {
+    /* Banner & Metrics Row */
+    .la-header-section {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: 2.2fr 1fr;
         gap: 1.25rem;
-    }
-    @@media(max-width: 1024px) { .ld-stats-row { grid-template-columns: repeat(2, 1fr); } }
-    @@media(max-width: 540px) { .ld-stats-row { grid-template-columns: 1fr; } }
-
-    .ld-stat-card {
-        background: var(--ld-card);
-        border: 1px solid var(--ld-border);
-        border-radius: var(--ld-radius);
-        padding: 1.5rem 1.75rem;
-        box-shadow: var(--ld-shadow);
-        display: flex;
-        align-items: flex-start;
-        gap: 1.15rem;
-        transition: var(--ld-transition);
-        position: relative;
-        overflow: hidden;
-    }
-    .ld-stat-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        border-radius: var(--ld-radius) var(--ld-radius) 0 0;
-    }
-    .ld-stat-card:hover {
-        transform: translateY(-3px);
-        box-shadow: var(--ld-shadow-md);
-    }
-    .ld-stat-card.orange::before { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
-    .ld-stat-card.green::before  { background: linear-gradient(90deg, #10B981, #34D399); }
-    .ld-stat-card.blue::before   { background: linear-gradient(90deg, #2563EB, #3B82F6); }
-    .ld-stat-card.red::before    { background: linear-gradient(90deg, #EF4444, #F87171); }
-
-    .ld-stat-icon {
-        width: 52px;
-        height: 52px;
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.35rem;
-        flex-shrink: 0;
-    }
-    .ld-stat-icon.orange { background: var(--ld-orange-xlt); color: var(--ld-orange); }
-    .ld-stat-icon.green  { background: var(--ld-emerald-xlt); color: var(--ld-emerald); }
-    .ld-stat-icon.blue   { background: var(--ld-blue-xlt); color: var(--ld-blue); }
-    .ld-stat-icon.red    { background: var(--ld-red-xlt); color: var(--ld-red); }
-
-    .ld-stat-info { flex: 1; }
-    .ld-stat-label {
-        font-size: .78rem;
-        font-weight: 600;
-        color: var(--ld-muted);
-        text-transform: uppercase;
-        letter-spacing: .06em;
-        margin-bottom: .3rem;
-    }
-    .ld-stat-value {
-        font-size: 2rem;
-        font-weight: 800;
-        color: var(--ld-text);
-        line-height: 1.1;
-        font-family: var(--font-heading);
-    }
-    .ld-stat-change {
-        display: inline-flex;
-        align-items: center;
-        gap: .25rem;
-        font-size: .72rem;
-        font-weight: 700;
-        margin-top: .35rem;
-        padding: .2rem .55rem;
-        border-radius: 999px;
-    }
-    .ld-stat-change.up   { background: #DCFCE7; color: #15803D; }
-    .ld-stat-change.down { background: #FEE2E2; color: #991B1B; }
-
-    /* ══════════════════════════════════════════════════════════════
-       SHARED CARD COMPONENT
-       ══════════════════════════════════════════════════════════════ */
-    .ld-card {
-        background: var(--ld-card);
-        border: 1px solid var(--ld-border);
-        border-radius: var(--ld-radius);
-        box-shadow: var(--ld-shadow);
-        overflow: hidden;
-        transition: var(--ld-transition);
-    }
-    .ld-card:hover {
-        box-shadow: var(--ld-shadow-md);
-    }
-    .ld-card-header {
-        padding: 1.1rem 1.5rem;
-        border-bottom: 1px solid var(--ld-border);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: .75rem;
-        background: linear-gradient(180deg, rgba(248,250,252,.7), rgba(255,255,255,0));
-    }
-    .ld-card-title {
-        font-size: .95rem;
-        font-weight: 700;
-        color: var(--ld-text);
-        margin: 0;
-        display: flex;
-        align-items: center;
-        gap: .5rem;
-    }
-    .ld-card-title i { font-size: 1.1rem; }
-    .ld-card-body { padding: 1.5rem; }
-
-    /* ══════════════════════════════════════════════════════════════
-       SECOND ROW (Table 70% + Summary 30%)
-       ══════════════════════════════════════════════════════════════ */
-    .ld-row-2 {
-        display: grid;
-        grid-template-columns: 7fr 3fr;
-        gap: 1.25rem;
-        align-items: start;
-    }
-    @@media(max-width: 1100px) { .ld-row-2 { grid-template-columns: 1fr; } }
-
-    /* ── Leave Approval Queue Table ────────────────────────────── */
-    .ld-table-wrap { overflow-x: auto; }
-    .ld-table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0;
-    }
-    .ld-table thead th {
-        text-align: left;
-        font-size: .72rem;
-        font-weight: 700;
-        letter-spacing: .07em;
-        text-transform: uppercase;
-        color: var(--ld-muted);
-        padding: .85rem 1rem;
-        border-bottom: 2px solid var(--ld-border);
-        background: #FAFBFD;
-        position: sticky;
-        top: 0;
-        z-index: 5;
-        white-space: nowrap;
-    }
-    .ld-table tbody tr {
-        transition: var(--ld-transition);
-        border-bottom: 1px solid var(--ld-border-lt);
-    }
-    .ld-table tbody tr:hover {
-        background: linear-gradient(90deg, #EFF6FF 0%, #EDE9FE 100%);
-    }
-    .ld-table td {
-        padding: .85rem 1rem;
-        vertical-align: middle;
-        font-size: .875rem;
-        color: var(--ld-text-secondary);
-        white-space: nowrap;
-    }
-
-    /* Avatar + Name cell */
-    .ld-emp-cell {
-        display: flex;
-        align-items: center;
-        gap: .75rem;
-    }
-    .ld-avatar {
-        width: 38px;
-        height: 38px;
-        border-radius: 50%;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        color: #fff;
-        font-size: .78rem;
-        font-weight: 700;
-        flex-shrink: 0;
-    }
-    .ld-avatar.v1 { background: linear-gradient(135deg, #2563EB, #3B82F6); }
-    .ld-avatar.v2 { background: linear-gradient(135deg, #7C3AED, #8B5CF6); }
-    .ld-avatar.v3 { background: linear-gradient(135deg, #10B981, #34D399); }
-    .ld-avatar.v4 { background: linear-gradient(135deg, #F59E0B, #FBBF24); }
-    .ld-avatar.v5 { background: linear-gradient(135deg, #EF4444, #F87171); }
-    .ld-emp-name { font-weight: 700; color: var(--ld-text); font-size: .875rem; }
-    .ld-emp-id { font-size: .72rem; color: var(--ld-muted); }
-
-    /* Status badges */
-    .ld-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: .3rem;
-        padding: .28rem .7rem;
-        border-radius: 999px;
-        font-size: .72rem;
-        font-weight: 700;
-        letter-spacing: .02em;
-    }
-    .ld-badge.pending  { background: var(--ld-orange-xlt); color: #92400E; }
-    .ld-badge.approved { background: var(--ld-emerald-xlt); color: #065F46; }
-    .ld-badge.rejected { background: var(--ld-red-xlt); color: #991B1B; }
-    .ld-badge.urgent   { background: var(--ld-red-xlt); color: #991B1B; }
-
-    /* Priority badges */
-    .ld-priority {
-        display: inline-flex;
-        align-items: center;
-        gap: .25rem;
-        padding: .2rem .6rem;
-        border-radius: 6px;
-        font-size: .7rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: .04em;
-    }
-    .ld-priority.high   { background: #FEE2E2; color: #DC2626; }
-    .ld-priority.medium { background: #FEF3C7; color: #D97706; }
-    .ld-priority.low    { background: #DCFCE7; color: #16A34A; }
-
-    /* Action buttons */
-    .ld-action-btns { display: flex; gap: .4rem; }
-    .ld-btn-sm {
-        padding: .35rem .65rem;
-        border-radius: 8px;
-        font-size: .72rem;
-        font-weight: 700;
-        border: none;
-        cursor: pointer;
-        transition: var(--ld-transition);
-        display: inline-flex;
-        align-items: center;
-        gap: .3rem;
-    }
-    .ld-btn-sm:hover { transform: translateY(-1px); }
-    .ld-btn-approve {
-        background: linear-gradient(135deg, #10B981, #059669);
-        color: #fff;
-    }
-    .ld-btn-approve:hover { box-shadow: 0 4px 12px rgba(16,185,129,.3); }
-    .ld-btn-reject {
-        background: linear-gradient(135deg, #EF4444, #DC2626);
-        color: #fff;
-    }
-    .ld-btn-reject:hover { box-shadow: 0 4px 12px rgba(239,68,68,.3); }
-    .ld-btn-view {
-        background: var(--ld-blue-xlt);
-        color: var(--ld-blue);
-        border: 1px solid #BFDBFE;
-    }
-    .ld-btn-view:hover { background: #DBEAFE; }
-
-    /* ── Summary Card (Right 30%) ─────────────────────────────── */
-    .ld-summary-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: .85rem;
         margin-bottom: 1.25rem;
     }
-    .ld-summary-item {
-        background: var(--ld-surface);
-        border-radius: var(--ld-radius-xs);
-        padding: 1rem;
-        text-align: center;
-        transition: var(--ld-transition);
-    }
-    .ld-summary-item:hover { background: var(--ld-blue-xlt); }
-    .ld-summary-value {
-        font-size: 1.6rem;
-        font-weight: 800;
-        line-height: 1.1;
-        font-family: var(--font-heading);
-    }
-    .ld-summary-label {
-        font-size: .7rem;
-        font-weight: 600;
-        color: var(--ld-muted);
-        margin-top: .25rem;
-        text-transform: uppercase;
-        letter-spacing: .04em;
-    }
-    .ld-donut-wrap {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: .5rem 0;
+    @@media (max-width: 1024px) {
+        .la-header-section {
+            grid-template-columns: 1fr;
+        }
     }
 
-    /* ══════════════════════════════════════════════════════════════
-       THIRD ROW (Calendar + Leave Balance)
-       ══════════════════════════════════════════════════════════════ */
-    .ld-row-3 {
-        display: grid;
-        grid-template-columns: 6fr 4fr;
-        gap: 1.25rem;
-        align-items: start;
-    }
-    @@media(max-width: 1100px) { .ld-row-3 { grid-template-columns: 1fr; } }
-
-    /* Calendar */
-    .ld-cal-grid-wrap { overflow-x: auto; }
-    .ld-cal-table { width: 100%; border-collapse: collapse; }
-    .ld-cal-table th {
-        text-align: center;
-        font-size: .72rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: .08em;
-        color: var(--ld-muted);
-        padding: .6rem .25rem;
-        border-bottom: 2px solid var(--ld-border);
-    }
-    .ld-cal-table td {
-        text-align: center;
-        padding: .5rem .3rem;
-        border: 1px solid var(--ld-border-lt);
-        font-size: .82rem;
-        font-weight: 600;
-        cursor: pointer;
-        min-width: 42px;
-        height: 42px;
-        transition: var(--ld-transition);
-        border-radius: 4px;
-    }
-    .ld-cal-table td:hover:not(.cal-empty) {
-        transform: scale(1.08);
-        box-shadow: var(--ld-shadow);
-    }
-    .ld-cal-table td.cal-empty { background: transparent; border-color: transparent; cursor: default; }
-    .cal-available  { background: #DCFCE7; color: #15803D; }
-    .cal-approved   { background: #DBEAFE; color: #1D4ED8; }
-    .cal-pending    { background: #FEF3C7; color: #92400E; }
-    .cal-holiday    { background: #FEE2E2; color: #991B1B; }
-    .cal-event      { background: #EDE9FE; color: #6D28D9; }
-    .cal-today {
-        outline: 2.5px solid var(--ld-blue);
-        outline-offset: -2px;
-        font-weight: 800;
-    }
-
-    .ld-cal-legend {
-        display: flex;
-        flex-wrap: wrap;
-        gap: .75rem;
-        padding: 1rem 1.5rem;
-        background: #FAFBFD;
-        border-top: 1px solid var(--ld-border);
-    }
-    .ld-cal-legend-item {
-        display: inline-flex;
-        align-items: center;
-        gap: .35rem;
-        font-size: .72rem;
-        font-weight: 600;
-        color: var(--ld-text-secondary);
-    }
-    .ld-cal-swatch {
-        width: 12px;
-        height: 12px;
-        border-radius: 3px;
-        display: inline-block;
-    }
-
-    /* Leave Balance Progress Bars */
-    .ld-balance-list { display: flex; flex-direction: column; gap: 1.25rem; }
-    .ld-balance-item { }
-    .ld-balance-top {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: .5rem;
-    }
-    .ld-balance-name {
-        font-size: .85rem;
-        font-weight: 700;
-        color: var(--ld-text);
-    }
-    .ld-balance-pct {
-        font-size: .78rem;
-        font-weight: 700;
-    }
-    .ld-balance-bar {
-        height: 10px;
-        background: var(--ld-border-lt);
-        border-radius: 999px;
-        overflow: hidden;
-    }
-    .ld-balance-fill {
-        height: 100%;
-        border-radius: 999px;
-        transition: width .6s ease;
-    }
-
-    /* ══════════════════════════════════════════════════════════════
-       FOURTH ROW — Activity Timeline
-       ══════════════════════════════════════════════════════════════ */
-    .ld-timeline { display: flex; flex-direction: column; gap: 0; }
-    .ld-timeline-item {
-        display: flex;
-        gap: 1rem;
-        padding: 1rem 1.5rem;
-        align-items: flex-start;
-        border-bottom: 1px solid var(--ld-border-lt);
-        transition: var(--ld-transition);
-    }
-    .ld-timeline-item:last-child { border-bottom: none; }
-    .ld-timeline-item:hover { background: var(--ld-surface); }
-    .ld-timeline-icon {
-        width: 36px;
-        height: 36px;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        font-size: .9rem;
-    }
-    .ld-timeline-icon.success { background: var(--ld-emerald-xlt); color: var(--ld-emerald); }
-    .ld-timeline-icon.info    { background: var(--ld-blue-xlt); color: var(--ld-blue); }
-    .ld-timeline-icon.warning { background: var(--ld-orange-xlt); color: var(--ld-orange); }
-    .ld-timeline-icon.danger  { background: var(--ld-red-xlt); color: var(--ld-red); }
-    .ld-timeline-icon.purple  { background: var(--ld-violet-xlt); color: var(--ld-violet); }
-    .ld-timeline-content { flex: 1; }
-    .ld-timeline-msg {
-        font-size: .875rem;
-        color: var(--ld-text);
-        line-height: 1.5;
-        margin: 0;
-    }
-    .ld-timeline-msg strong { font-weight: 700; }
-    .ld-timeline-time {
-        font-size: .72rem;
-        color: var(--ld-muted);
-        margin-top: .2rem;
-    }
-
-    /* ══════════════════════════════════════════════════════════════
-       FIFTH ROW — Department Chart
-       ══════════════════════════════════════════════════════════════ */
-    .ld-chart-empty {
+    /* Workspace Banner */
+    .la-workspace-banner {
+        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #2563eb 100%);
+        border-radius: var(--hr-radius);
+        padding: 2rem;
+        color: white;
+        box-shadow: var(--hr-shadow-md);
         display: flex;
         flex-direction: column;
-        align-items: center;
         justify-content: center;
-        padding: 3rem 1rem;
-        color: var(--ld-muted);
-        font-size: .85rem;
-        gap: .6rem;
     }
-    .ld-chart-empty i { font-size: 2.5rem; opacity: .25; }
-
-    /* ══════════════════════════════════════════════════════════════
-       QUICK ACTIONS (BOTTOM)
-       ══════════════════════════════════════════════════════════════ */
-    .ld-actions-row {
-        display: flex;
-        gap: .85rem;
-        flex-wrap: wrap;
-    }
-    .ld-action-btn {
-        padding: .75rem 1.5rem;
-        border-radius: var(--ld-radius-sm);
-        font-size: .85rem;
-        font-weight: 700;
-        border: none;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: .5rem;
-        transition: var(--ld-transition);
-        color: #fff;
-    }
-    .ld-action-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--ld-shadow-md);
-    }
-    .ld-action-btn.blue   { background: linear-gradient(135deg, #2563EB, #1D4ED8); }
-    .ld-action-btn.green  { background: linear-gradient(135deg, #10B981, #059669); }
-    .ld-action-btn.violet { background: linear-gradient(135deg, #7C3AED, #6D28D9); }
-    .ld-action-btn.orange { background: linear-gradient(135deg, #F59E0B, #D97706); color: #1C1917; }
-    .ld-action-btn.slate  { background: linear-gradient(135deg, #475569, #334155); }
-
-    /* ══════════════════════════════════════════════════════════════
-       FLOATING ALERTS PANEL
-       ══════════════════════════════════════════════════════════════ */
-    .ld-floating-panel {
-        position: fixed;
-        right: 24px;
-        bottom: 24px;
-        width: 340px;
-        max-height: 420px;
-        background: var(--ld-card);
-        border: 1px solid var(--ld-border);
-        border-radius: var(--ld-radius);
-        box-shadow: var(--ld-shadow-lg), var(--ld-shadow-glow);
-        z-index: 1000;
-        overflow: hidden;
-        transform: translateY(0);
-        transition: var(--ld-transition);
-    }
-    .ld-floating-panel.hidden {
-        transform: translateY(120%);
-        pointer-events: none;
-        opacity: 0;
-    }
-    .ld-floating-header {
-        padding: .85rem 1.25rem;
-        background: linear-gradient(135deg, #1E40AF, #7C3AED);
-        color: #fff;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-    .ld-floating-header h4 {
-        margin: 0;
-        font-size: .85rem;
-        font-weight: 700;
-        color: #fff;
-    }
-    .ld-floating-close {
-        background: rgba(255,255,255,.15);
-        border: none;
-        color: #fff;
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: var(--ld-transition);
-    }
-    .ld-floating-close:hover { background: rgba(255,255,255,.3); }
-    .ld-floating-body {
-        overflow-y: auto;
-        max-height: 340px;
-        padding: .5rem 0;
-    }
-    .ld-float-item {
-        display: flex;
-        gap: .75rem;
-        padding: .75rem 1.25rem;
-        align-items: flex-start;
-        border-bottom: 1px solid var(--ld-border-lt);
-        transition: var(--ld-transition);
-    }
-    .ld-float-item:last-child { border-bottom: none; }
-    .ld-float-item:hover { background: var(--ld-surface); }
-    .ld-float-icon {
-        width: 32px;
-        height: 32px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        font-size: .82rem;
-    }
-    .ld-float-msg {
-        font-size: .8rem;
-        color: var(--ld-text);
-        line-height: 1.45;
-        margin: 0;
-    }
-    .ld-float-time {
-        font-size: .68rem;
-        color: var(--ld-muted);
-        margin-top: .15rem;
-    }
-
-    /* Floating toggle button */
-    .ld-float-toggle {
-        position: fixed;
-        right: 24px;
-        bottom: 24px;
-        width: 52px;
-        height: 52px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #2563EB, #7C3AED);
-        color: #fff;
-        border: none;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.25rem;
-        box-shadow: var(--ld-shadow-md), var(--ld-shadow-glow);
-        z-index: 999;
-        transition: var(--ld-transition);
-    }
-    .ld-float-toggle:hover { transform: scale(1.08); }
-    .ld-float-toggle.active { display: none; }
-
-    /* Notification dot */
-    .ld-float-toggle .ld-notif-dot {
-        position: absolute;
-        top: 6px;
-        right: 6px;
-        width: 12px;
-        height: 12px;
-        background: var(--ld-red);
-        border-radius: 50%;
-        border: 2px solid #fff;
-    }
-
-    /* ══════════════════════════════════════════════════════════════
-       DATE FILTER STRIP
-       ══════════════════════════════════════════════════════════════ */
-    .ld-filter-strip {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
-    }
-    @@media(max-width: 640px) { .ld-filter-strip { grid-template-columns: 1fr; } }
-    .ld-filter-card {
-        background: var(--ld-card);
-        border: 1px solid var(--ld-border);
-        border-radius: var(--ld-radius);
-        padding: 1.25rem 1.5rem;
-        box-shadow: var(--ld-shadow);
-        transition: var(--ld-transition);
-    }
-    .ld-filter-card:hover { box-shadow: var(--ld-shadow-md); }
-    .ld-filter-card label {
-        display: block;
-        font-size: .72rem;
-        font-weight: 700;
-        letter-spacing: .08em;
-        text-transform: uppercase;
-        color: var(--ld-muted);
-        margin-bottom: .5rem;
-    }
-    .ld-filter-card .ld-input-row { display: flex; gap: .6rem; align-items: flex-end; }
-    .ld-filter-card input[type=date] {
-        flex: 1;
-        border: 1.5px solid var(--ld-border);
-        border-radius: var(--ld-radius-xs);
-        padding: .55rem .85rem;
-        font-size: .9rem;
-        color: var(--ld-text);
-        background: var(--ld-card);
-        transition: var(--ld-transition);
-        font-family: var(--font-body);
-    }
-    .ld-filter-card input[type=date]:focus {
-        outline: none;
-        border-color: var(--ld-blue);
-        box-shadow: 0 0 0 3px rgba(37,99,235,.1);
-    }
-    .ld-btn-search {
-        background: linear-gradient(135deg, var(--ld-blue), var(--ld-blue-dk));
-        color: #fff;
-        border: none;
-        padding: .55rem 1.35rem;
-        border-radius: var(--ld-radius-xs);
-        font-size: .875rem;
-        font-weight: 700;
-        cursor: pointer;
-        transition: var(--ld-transition);
-        white-space: nowrap;
-        display: inline-flex;
-        align-items: center;
-        gap: .4rem;
-    }
-    .ld-btn-search:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 16px rgba(37,99,235,.25);
-    }
-
-    /* ══════════════════════════════════════════════════════════════
-       EMPLOYEE FILTER ROW
-       ══════════════════════════════════════════════════════════════ */
-    .ld-filter-row {
-        display: flex;
-        align-items: center;
-        gap: .75rem;
-        flex-wrap: wrap;
-    }
-    .ld-select-pill {
-        appearance: none;
-        -webkit-appearance: none;
-        border: 1.5px solid var(--ld-border);
-        border-radius: var(--ld-radius-xs);
-        padding: .5rem 2.2rem .5rem .85rem;
-        font-size: .85rem;
-        font-weight: 600;
-        color: var(--ld-text);
-        background: var(--ld-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E") no-repeat right .75rem center;
-        cursor: pointer;
-        transition: var(--ld-transition);
-        font-family: var(--font-body);
-    }
-    .ld-select-pill:focus { outline: none; border-color: var(--ld-blue); box-shadow: 0 0 0 3px rgba(37,99,235,.1); }
-
-    .ld-btn-pdf {
-        margin-left: auto;
-        background: linear-gradient(135deg, var(--ld-emerald), #059669);
-        color: #fff;
-        border: none;
-        padding: .55rem 1.15rem;
-        border-radius: var(--ld-radius-xs);
-        font-size: .82rem;
-        font-weight: 700;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: .4rem;
-        transition: var(--ld-transition);
-    }
-    .ld-btn-pdf:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(16,185,129,.25); }
-
-    /* ══════════════════════════════════════════════════════════════
-       CHARTS ROW
-       ══════════════════════════════════════════════════════════════ */
-    .ld-charts-row {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 1.25rem;
-    }
-    @@media(max-width: 900px) { .ld-charts-row { grid-template-columns: 1fr; } }
-
-    /* ══════════════════════════════════════════════════════════════
-       MONTH NAV
-       ══════════════════════════════════════════════════════════════ */
-    .ld-month-nav {
-        display: flex;
-        align-items: center;
-        gap: .5rem;
-    }
-    .ld-month-label {
-        font-size: .82rem;
-        font-weight: 700;
-        color: var(--ld-text);
-        background: var(--ld-surface);
-        padding: .3rem .85rem;
-        border-radius: 8px;
-    }
-    .ld-month-btn {
-        background: var(--ld-surface);
-        border: 1px solid var(--ld-border);
-        border-radius: 8px;
-        width: 30px;
-        height: 30px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--ld-muted);
-        transition: var(--ld-transition);
-    }
-    .ld-month-btn:hover {
-        background: var(--ld-blue-xlt);
-        color: var(--ld-blue);
-        border-color: #BFDBFE;
-    }
-
-    /* ══════════════════════════════════════════════════════════════
-       ANIMATIONS
-       ══════════════════════════════════════════════════════════════ */
-    @@keyframes ldFadeUp {
-        from { opacity: 0; transform: translateY(20px); }
-        to   { opacity: 1; transform: translateY(0); }
-    }
-    @@keyframes ldPulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: .5; }
-    }
-    .ld-animate { animation: ldFadeUp .45s ease-out both; }
-    .ld-animate:nth-child(1) { animation-delay: .05s; }
-    .ld-animate:nth-child(2) { animation-delay: .10s; }
-    .ld-animate:nth-child(3) { animation-delay: .12s; }
-    .ld-animate:nth-child(4) { animation-delay: .15s; }
-    .ld-animate:nth-child(5) { animation-delay: .18s; }
-    .ld-animate:nth-child(6) { animation-delay: .22s; }
-    .ld-animate:nth-child(7) { animation-delay: .25s; }
-    .ld-animate:nth-child(8) { animation-delay: .28s; }
-
-    /* ── Responsive ────────────────────────────────────────────── */
-    @@media(max-width: 640px) {
-        .ld-hero { flex-direction: column; align-items: flex-start; padding: 1.5rem; }
-        .ld-hero h1 { font-size: 1.3rem; }
-        .ld-action-btns { flex-direction: column; }
-        .ld-filter-row { flex-direction: column; align-items: stretch; }
-        .ld-btn-pdf { margin-left: 0; }
-        .ld-actions-row { flex-direction: column; }
-        .ld-floating-panel { width: calc(100% - 32px); right: 16px; bottom: 16px; }
-    }
-
-    /* Premium HR SaaS Dashboard Styles */
-    .la-workspace {
-        background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #8b5cf6 100%);
-        border-radius: 20px;
-        padding: 2rem 2.5rem;
-        color: white;
-        margin-bottom: 2rem;
-        box-shadow: 0 10px 40px rgba(59, 130, 246, 0.2);
-    }
-    .la-workspace h1 {
+    .la-workspace-banner h1 {
         font-size: 1.75rem;
         font-weight: 700;
         margin: 0 0 0.5rem 0;
+        letter-spacing: -0.02em;
     }
-    .la-workspace p {
-        margin: 0;
+    .la-workspace-banner p {
+        margin: 0 0 1.25rem 0;
         opacity: 0.9;
         font-size: 0.95rem;
     }
     .la-workspace-badges {
         display: flex;
-        gap: 0.75rem;
-        margin-top: 1rem;
+        gap: 0.5rem;
         flex-wrap: wrap;
     }
-    .la-badge {
+    .la-badge-item {
         background: rgba(255, 255, 255, 0.15);
-        backdrop-filter: blur(10px);
-        padding: 0.4rem 1rem;
+        backdrop-filter: blur(8px);
+        padding: 0.35rem 0.85rem;
         border-radius: 50px;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         font-weight: 600;
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
     }
-    
-    .la-summary-cards {
+
+    /* Metrics Right Column */
+    .la-metrics-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 2rem;
+        grid-template-columns: 1fr;
+        gap: 0.65rem;
     }
-    .la-summary-card {
-        background: white;
-        border-radius: 16px;
-        padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-        border: 1px solid #e5e7eb;
-        transition: all 0.3s ease;
+    @@media (max-width: 1024px) {
+        .la-metrics-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
     }
-    .la-summary-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    @@media (max-width: 640px) {
+        .la-metrics-grid {
+            grid-template-columns: 1fr;
+        }
     }
-    .la-summary-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
+
+    .la-metric-card {
+        background: var(--hr-card);
+        border-radius: var(--hr-radius);
+        border: 1px solid var(--hr-border);
+        padding: 1rem 1.25rem;
+        box-shadow: var(--hr-shadow);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .la-metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--hr-shadow-md);
+    }
+    .la-metric-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.25rem;
-        margin-bottom: 1rem;
+        font-size: 1.15rem;
+        flex-shrink: 0;
     }
-    .la-summary-icon.pending { background: #fef3c7; color: #d97706; }
-    .la-summary-icon.today { background: #dbeafe; color: #2563eb; }
-    .la-summary-icon.conflict { background: #fee2e2; color: #dc2626; }
-    .la-summary-value {
-        font-size: 2rem;
-        font-weight: 700;
-        color: #1f2937;
-        line-height: 1;
-        margin-bottom: 0.25rem;
-    }
-    .la-summary-label {
-        font-size: 0.875rem;
-        color: #6b7280;
-        font-weight: 500;
-    }
+    .la-metric-card.pending .la-metric-icon { background: var(--hr-warning-bg); color: var(--hr-warning-text); }
+    .la-metric-card.today .la-metric-icon { background: var(--hr-accent-light); color: var(--hr-accent); }
+    .la-metric-card.conflict .la-metric-icon { background: var(--hr-danger-bg); color: var(--hr-danger-text); }
     
+    .la-metric-info {
+        display: flex;
+        flex-direction: column;
+    }
+    .la-metric-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--hr-text);
+        line-height: 1.1;
+    }
+    .la-metric-label {
+        font-size: 0.75rem;
+        color: var(--hr-text-secondary);
+        font-weight: 500;
+        margin-top: 0.15rem;
+    }
+
+    /* Column Split Layout */
+    .la-dashboard-grid {
+        display: grid;
+        grid-template-columns: 1.9fr 1.1fr;
+        gap: 1.25rem;
+        margin-bottom: 1.25rem;
+        align-items: start;
+    }
+    @@media (max-width: 1200px) {
+        .la-dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       CARD COMPONENT
+       ══════════════════════════════════════════════════════════════ */
     .la-card {
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-        border: 1px solid #e5e7eb;
-        margin-bottom: 2rem;
+        background: var(--hr-card);
+        border: 1px solid var(--hr-border);
+        border-radius: var(--hr-radius);
+        box-shadow: var(--hr-shadow);
         overflow: hidden;
     }
     .la-card-header {
-        padding: 1.25rem 1.5rem;
-        border-bottom: 1px solid #e5e7eb;
-        background: #f9fafb;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--hr-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: #fafbfc;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    .la-card-title-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .la-card-title-group i {
+        font-size: 1.1rem;
+        color: var(--hr-accent);
     }
     .la-card-header h5 {
         margin: 0;
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #1f2937;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--hr-text);
     }
     .la-card-body {
-        padding: 1.5rem;
+        padding: 1.25rem;
     }
-    
+
+    /* ══════════════════════════════════════════════════════════════
+       EMPLOYEE OT QUEUE SECTION
+       ══════════════════════════════════════════════════════════════ */
+    .la-card-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+    }
+    .la-search-wrapper {
+        position: relative;
+        width: 100%;
+        max-width: 240px;
+    }
+    .la-search-wrapper i {
+        position: absolute;
+        left: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--hr-muted);
+        font-size: 0.85rem;
+    }
+    .la-search-bar {
+        border: 1.5px solid var(--hr-border);
+        border-radius: var(--hr-radius-sm);
+        padding: 0.45rem 0.75rem 0.45rem 2rem;
+        font-size: 0.82rem;
+        width: 100%;
+        color: var(--hr-text);
+        background: var(--hr-card);
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .la-search-bar:focus {
+        outline: none;
+        border-color: var(--hr-accent);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+    }
+    .la-filter-select {
+        border: 1.5px solid var(--hr-border);
+        border-radius: var(--hr-radius-sm);
+        padding: 0.45rem 2.25rem 0.45rem 0.75rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--hr-text-secondary);
+        background: var(--hr-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E") no-repeat right 0.75rem center;
+        appearance: none;
+        -webkit-appearance: none;
+        cursor: pointer;
+        transition: border-color 0.2s;
+    }
+    .la-filter-select:focus {
+        outline: none;
+        border-color: var(--hr-accent);
+    }
+
+    /* Queue Table Styles */
     .la-table-container {
         overflow-x: auto;
     }
     .la-table {
         width: 100%;
-        border-collapse: collapse;
-    }
-    .la-table thead {
-        position: sticky;
-        top: 0;
-        background: #f9fafb;
-        z-index: 10;
+        border-collapse: separate;
+        border-spacing: 0;
     }
     .la-table th {
         text-align: left;
-        padding: 1rem 1.25rem;
-        font-size: 0.75rem;
-        font-weight: 600;
+        padding: 0.75rem 1rem;
+        font-size: 0.72rem;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: #6b7280;
-        border-bottom: 2px solid #e5e7eb;
+        color: var(--hr-muted);
+        border-bottom: 2px solid var(--hr-border);
+        background: #fafbfc;
+        white-space: nowrap;
     }
     .la-table td {
-        padding: 1rem 1.25rem;
-        border-bottom: 1px solid #f3f4f6;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--hr-border-light);
         vertical-align: middle;
+        font-size: 0.85rem;
+        color: var(--hr-text-secondary);
+        white-space: nowrap;
     }
     .la-table tbody tr {
-        transition: background-color 0.2s ease;
+        transition: background-color 0.2s;
     }
     .la-table tbody tr:hover {
-        background-color: #f9fafb;
+        background-color: var(--hr-border-light);
     }
+
+    /* Avatars & Employee Labels */
     .la-employee-cell {
         display: flex;
         align-items: center;
         gap: 0.75rem;
     }
     .la-avatar {
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+        background: linear-gradient(135deg, var(--hr-accent) 0%, #60a5fa 100%);
         color: white;
-        display: flex;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        font-weight: 600;
-        font-size: 0.875rem;
+        font-weight: 700;
+        font-size: 0.8rem;
+        flex-shrink: 0;
+        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.1);
     }
     .la-employee-info {
         display: flex;
         flex-direction: column;
     }
     .la-employee-name {
-        font-weight: 600;
-        color: #1f2937;
-        font-size: 0.875rem;
+        font-weight: 700;
+        color: var(--hr-text);
+        font-size: 0.85rem;
     }
     .la-employee-id {
-        font-size: 0.75rem;
-        color: #9ca3af;
+        font-size: 0.72rem;
+        color: var(--hr-muted);
     }
-    
-    .la-search-bar {
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        padding: 0.75rem 1rem;
-        width: 100%;
-        max-width: 300px;
-        font-size: 0.875rem;
-        transition: all 0.2s ease;
-    }
-    .la-search-bar:focus {
-        outline: none;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-    .la-filter-select {
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        padding: 0.75rem 2.5rem 0.75rem 1rem;
-        font-size: 0.875rem;
-        cursor: pointer;
-        appearance: none;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236b7280' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
-        background-repeat: no-repeat;
-        background-position: right 1rem center;
-    }
-    .la-filter-select:focus {
-        outline: none;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
+
+    /* Edit action button */
     .la-btn-edit {
-        background: white;
-        border: 1.5px solid #3b82f6;
-        color: #3b82f6;
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        font-size: 0.875rem;
+        background: transparent;
+        border: 1px solid var(--hr-border);
+        color: var(--hr-text-secondary);
+        padding: 0.35rem 0.7rem;
+        border-radius: var(--hr-radius-sm);
+        font-size: 0.78rem;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: all 0.2s;
         display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    .la-btn-edit:hover {
+        background: var(--hr-accent-light);
+        color: var(--hr-accent);
+        border-color: var(--hr-accent);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       COMPACT CALENDAR CARD
+       ══════════════════════════════════════════════════════════════ */
+    .la-calendar-nav {
+        display: flex;
         align-items: center;
         gap: 0.5rem;
     }
-    .la-btn-edit:hover {
-        background: #3b82f6;
-        color: white;
+    .la-calendar-nav-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 1px solid var(--hr-border);
+        background: white;
+        color: var(--hr-text-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        padding: 0;
     }
-    
-    .la-calendar-grid {
+    .la-calendar-nav-btn:hover {
+        background: var(--hr-border-light);
+        color: var(--hr-text);
+    }
+    .la-calendar-month-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--hr-text);
+        padding: 0 0.25rem;
+        min-width: 95px;
+        text-align: center;
+    }
+    .calendar-body {
+        padding: 1rem !important;
+    }
+    .la-calendar-weekdays {
         display: grid;
         grid-template-columns: repeat(7, 1fr);
-        gap: 0.5rem;
+        text-align: center;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--hr-muted);
+        margin-bottom: 0.5rem;
+        letter-spacing: 0.05em;
     }
-    .la-calendar-day {
+    .la-calendar-days-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.35rem;
+    }
+    .la-calendar-day-cell {
         aspect-ratio: 1;
+        border-radius: 50%;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        border-radius: 10px;
+        font-size: 0.8rem;
+        font-weight: 600;
         cursor: pointer;
-        transition: all 0.2s ease;
-        border: 1px solid #e5e7eb;
-        background: white;
+        transition: all 0.2s;
+        border: 1px solid transparent;
         position: relative;
     }
-    .la-calendar-day:hover {
-        transform: scale(1.05);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    .la-calendar-day-cell:hover:not(.empty) {
+        background: var(--hr-border-light);
+        transform: scale(1.08);
     }
-    .la-calendar-day.today {
-        border: 2px solid #3b82f6;
+    .la-calendar-day-cell.today {
+        border-color: var(--hr-accent);
+        color: var(--hr-accent);
+        font-weight: 800;
     }
-    .la-calendar-day.approved { background: #dbeafe; border-color: #93c5fd; }
-    .la-calendar-day.pending { background: #fef3c7; border-color: #fcd34d; }
-    .la-calendar-day.conflict { background: #fee2e2; border-color: #fca5a5; }
-    .la-calendar-day.holiday { background: #d1fae5; border-color: #6ee7b7; }
-    .la-calendar-day-number {
-        font-weight: 600;
-        font-size: 0.875rem;
-        color: #1f2937;
+    .la-calendar-day-cell.empty {
+        cursor: default;
+        pointer-events: none;
+        opacity: 0.15;
     }
-    .la-calendar-ot-count {
-        font-size: 0.7rem;
-        color: #6b7280;
-        margin-top: 0.25rem;
-    }
-    .la-calendar-header {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 0.5rem;
-        margin-bottom: 0.75rem;
-    }
-    .la-calendar-header-cell {
-        text-align: center;
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        color: #6b7280;
-    }
+
+    /* Soft Pastel Calendar Highlights */
+    .la-calendar-day-cell.approved { background: var(--hr-accent-light); color: var(--hr-accent); }
+    .la-calendar-day-cell.pending { background: var(--hr-warning-bg); color: var(--hr-warning-text); }
+    .la-calendar-day-cell.conflict { background: var(--hr-danger-bg); color: var(--hr-danger-text); }
     
-    .la-export-section {
+    /* Small dot inside cell */
+    .la-calendar-dot {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        position: absolute;
+        bottom: 5px;
+    }
+    .la-calendar-dot.approved { background: var(--hr-accent); }
+    .la-calendar-dot.pending { background: var(--hr-warning); }
+    .la-calendar-dot.conflict { background: var(--hr-danger); }
+
+    /* Compact Legend */
+    .la-calendar-legend {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 2rem;
+        justify-content: center;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--hr-border-light);
         flex-wrap: wrap;
     }
-    .la-date-range {
+    .la-legend-item {
         display: flex;
-        gap: 0.75rem;
         align-items: center;
+        gap: 0.35rem;
+        font-size: 0.7rem;
+        color: var(--hr-text-secondary);
+        font-weight: 500;
+    }
+    .la-legend-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .la-legend-dot.approved { background: var(--hr-accent); }
+    .la-legend-dot.pending { background: var(--hr-warning); }
+    .la-legend-dot.conflict { background: var(--hr-danger); }
+
+    /* ══════════════════════════════════════════════════════════════
+       EXPORT OT CARD (Horizontal Alignment)
+       ══════════════════════════════════════════════════════════════ */
+    .la-export-form-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr) auto;
+        gap: 1rem;
+        align-items: flex-end;
+    }
+    @@media (max-width: 900px) {
+        .la-export-form-row {
+            grid-template-columns: 1fr;
+            align-items: stretch;
+        }
+    }
+    .la-form-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+    .la-form-field label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--hr-text-secondary);
+        letter-spacing: 0.05em;
     }
     .la-date-input {
-        padding: 0.75rem 1rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        font-size: 0.875rem;
-        background: #f9fafb;
+        border: 1.5px solid var(--hr-border);
+        border-radius: var(--hr-radius-sm);
+        padding: 0.45rem 0.75rem;
+        font-size: 0.85rem;
+        color: var(--hr-text);
+        background: var(--hr-card);
+        font-family: inherit;
+        transition: border-color 0.2s;
     }
     .la-date-input:focus {
         outline: none;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        border-color: var(--hr-accent);
     }
     .la-btn-export {
-        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        background: linear-gradient(135deg, var(--hr-accent), var(--hr-accent-hover));
         color: white;
         border: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 10px;
-        font-size: 0.875rem;
+        padding: 0.55rem 1.25rem;
+        border-radius: var(--hr-radius-sm);
+        font-size: 0.85rem;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.2s ease;
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 0.5rem;
+        transition: transform 0.2s, box-shadow 0.2s;
+        height: 38px;
     }
     .la-btn-export:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
     }
-    
-    /* Modal Styles */
+
+    /* Collapsible Preview Container */
+    .la-export-preview-container {
+        border-top: 1px dashed var(--hr-border);
+        margin-top: 1.25rem;
+        padding-top: 1.25rem;
+        animation: fadeIn 0.3s ease;
+    }
+    .la-preview-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.85rem;
+    }
+    .la-preview-header h6 {
+        margin: 0;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--hr-text-secondary);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       MODAL STYLING (HR SaaS Theme)
+       ══════════════════════════════════════════════════════════════ */
     .la-modal-overlay {
         display: none;
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.5);
+        inset: 0;
+        background: rgba(15, 23, 42, 0.3);
+        backdrop-filter: blur(4px);
         z-index: 1000;
         align-items: center;
         justify-content: center;
@@ -1288,300 +610,339 @@
         display: flex;
     }
     .la-modal {
-        background: white;
-        border-radius: 20px;
-        max-width: 500px;
+        background: var(--hr-card);
+        border-radius: var(--hr-radius);
+        max-width: 520px;
         width: 90%;
-        max-height: 90vh;
+        max-height: 85vh;
         overflow-y: auto;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+        box-shadow: var(--hr-shadow-lg);
+        border: 1px solid var(--hr-border);
+        animation: scaleUp 0.2s ease-out;
     }
     .la-modal-header {
-        padding: 1.5rem 2rem;
-        border-bottom: 1px solid #e5e7eb;
+        padding: 1.1rem 1.5rem;
+        border-bottom: 1px solid var(--hr-border);
         display: flex;
         align-items: center;
         justify-content: space-between;
+        background: #fafbfc;
     }
     .la-modal-header h3 {
         margin: 0;
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #1f2937;
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--hr-text);
     }
     .la-modal-close {
         background: none;
         border: none;
-        font-size: 1.5rem;
+        font-size: 1.35rem;
         cursor: pointer;
-        color: #9ca3af;
-        transition: color 0.2s ease;
+        color: var(--hr-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        transition: background 0.2s;
     }
     .la-modal-close:hover {
-        color: #6b7280;
+        background: var(--hr-border-light);
+        color: var(--hr-text-secondary);
     }
     .la-modal-body {
-        padding: 2rem;
+        padding: 1.5rem;
     }
     .la-form-group {
-        margin-bottom: 1.25rem;
+        margin-bottom: 1rem;
     }
     .la-form-label {
         display: block;
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: #374151;
-        margin-bottom: 0.5rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--hr-text-secondary);
+        margin-bottom: 0.4rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
     }
     .la-form-input {
         width: 100%;
-        padding: 0.75rem 1rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        font-size: 0.875rem;
-        transition: all 0.2s ease;
+        padding: 0.45rem 0.75rem;
+        border: 1.5px solid var(--hr-border);
+        border-radius: var(--hr-radius-sm);
+        font-size: 0.85rem;
+        color: var(--hr-text);
+        background: var(--hr-card);
+        transition: border-color 0.2s;
     }
     .la-form-input:focus {
         outline: none;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        border-color: var(--hr-accent);
+    }
+    .la-form-input[readonly] {
+        background-color: var(--hr-border-light);
+        color: var(--hr-text-secondary);
+        cursor: not-allowed;
     }
     .la-modal-footer {
-        padding: 1.5rem 2rem;
-        border-top: 1px solid #e5e7eb;
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--hr-border);
         display: flex;
         justify-content: flex-end;
-        gap: 0.75rem;
+        gap: 0.5rem;
+        background: #fafbfc;
     }
     .la-btn-secondary {
-        background: #f3f4f6;
-        color: #4b5563;
-        border: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 10px;
-        font-size: 0.875rem;
+        background: var(--hr-card);
+        border: 1px solid var(--hr-border);
+        color: var(--hr-text-secondary);
+        padding: 0.45rem 1rem;
+        border-radius: var(--hr-radius-sm);
+        font-size: 0.82rem;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: background 0.2s;
     }
     .la-btn-secondary:hover {
-        background: #e5e7eb;
+        background: var(--hr-border-light);
     }
     .la-btn-primary {
-        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        background: linear-gradient(135deg, var(--hr-accent), var(--hr-accent-hover));
         color: white;
         border: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 10px;
-        font-size: 0.875rem;
+        padding: 0.45rem 1.15rem;
+        border-radius: var(--hr-radius-sm);
+        font-size: 0.82rem;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: transform 0.2s, box-shadow 0.2s;
     }
     .la-btn-primary:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(59, 130, 246, 0.3);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    }
+
+    /* Keyframe Animations */
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes scaleUp {
+        from { transform: scale(0.96); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
     }
 </style>
 
-<div class="ld-page">
+<div class="la-page-wrapper">
 
-    <!-- Leave Agent Workspace Header -->
-    <div class="la-workspace">
-        <h1>OT Management Workspace</h1>
-        <p>Manage overtime requests, approvals, and employee availability</p>
-        <div class="la-workspace-badges">
-            <span class="la-badge"><i class="bi bi-calendar3 me-1"></i> @today.ToString("MMMM yyyy")</span>
-            <span class="la-badge"><i class="bi bi-people me-1"></i> @(employees?.Count() ?? 0) Employees</span>
-            <span class="la-badge"><i class="bi bi-clock-history me-1"></i> @(Math.Round(summary.TotalOTHours, 1))h Total OT</span>
-        </div>
-    </div>
-
-    <!-- Operational Summary Cards -->
-    <div class="la-summary-cards">
-        <div class="la-summary-card">
-            <div class="la-summary-icon pending">
-                <i class="bi bi-clock"></i>
-            </div>
-            <div class="la-summary-value">@pendingCount</div>
-            <div class="la-summary-label">Pending OT Requests</div>
-        </div>
-        <div class="la-summary-card">
-            <div class="la-summary-icon today">
-                <i class="bi bi-calendar-check"></i>
-            </div>
-            <div class="la-summary-value">@(Model.MonthlyPresentCount)</div>
-            <div class="la-summary-label">Today's OT</div>
-        </div>
-        <div class="la-summary-card">
-            <div class="la-summary-icon conflict">
-                <i class="bi bi-exclamation-triangle"></i>
-            </div>
-            <div class="la-summary-value">@(summary.EmployeesAbove100)</div>
-            <div class="la-summary-label">OT Conflicts</div>
-        </div>
-    </div>
-
-    <!-- OT Queue with Search and Filters -->
-    <div class="la-card">
-        <div class="la-card-header d-flex justify-content-between align-items-center flex-wrap gap-3">
-            <h5>OT Queue</h5>
-            <div class="d-flex gap-2 align-items-center flex-wrap">
-                <input type="text" class="la-search-bar" placeholder="Search employees..." id="otSearchInput">
-                <select class="la-filter-select" id="otPercentageFilter">
-                    <option value="all">All OT %</option>
-                    <option value="70">70%</option>
-                    <option value="80">80%</option>
-                    <option value="100">100%</option>
-                    <option value="above100">Above 100%</option>
-                </select>
+    <!-- Leave Agent Workspace Header & Metrics -->
+    <div class="la-header-section">
+        <div class="la-workspace-banner">
+            <h1>OT Management Workspace</h1>
+            <p>Manage overtime requests, approvals, and employee availability for @sectionName</p>
+            <div class="la-workspace-badges">
+                <span class="la-badge-item"><i class="bi bi-calendar3"></i> @today.ToString("MMMM yyyy")</span>
+                <span class="la-badge-item"><i class="bi bi-people"></i> @(employees?.Count() ?? 0) Employees</span>
+                <span class="la-badge-item"><i class="bi bi-clock-history"></i> @(Math.Round(summary.TotalOTHours, 1))h Total OT</span>
             </div>
         </div>
-        <div class="la-card-body">
-            <div class="la-table-container">
-                <table class="la-table" id="otQueueTable">
-                    <thead>
-                        <tr>
-                            <th>Employee</th>
-                            <th>Department</th>
-                            <th>OT Date</th>
-                            <th>Start Time</th>
-                            <th>End Time</th>
-                            <th>OT Hours</th>
-                            <th>Edit</th>
-                        </tr>
-                    </thead>
-                    <tbody id="otQueueTableBody">
-                        @{
-                            ViewData["SelectedDate"] = today;
-                        }
-                        <partial name="_OTQueueRows" model="employees" />
-                    </tbody>
-                </table>
+        
+        <div class="la-metrics-grid">
+            <div class="la-metric-card pending">
+                <div class="la-metric-icon"><i class="bi bi-clock"></i></div>
+                <div class="la-metric-info">
+                    <div class="la-metric-value">@pendingCount</div>
+                    <div class="la-metric-label">Pending OT Requests</div>
+                </div>
+            </div>
+            <div class="la-metric-card today">
+                <div class="la-metric-icon"><i class="bi bi-calendar-check"></i></div>
+                <div class="la-metric-info">
+                    <div class="la-metric-value">@(Model.MonthlyPresentCount)</div>
+                    <div class="la-metric-label">Today's OT Records</div>
+                </div>
+            </div>
+            <div class="la-metric-card conflict">
+                <div class="la-metric-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                <div class="la-metric-info">
+                    <div class="la-metric-value">@(summary.EmployeesAbove100)</div>
+                    <div class="la-metric-label">OT Conflicts (>100%)</div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Monthly OT Calendar -->
-    <div class="la-card">
-        <div class="la-card-header d-flex justify-content-between align-items-center">
-            <h5>Monthly OT Calendar - @monthLabel</h5>
-            <div class="btn-group">
-                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="navigateCalendar(-1)">
-                    <i class="bi bi-chevron-left"></i> Previous
-                </button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="navigateCalendar(1)">
-                    Next <i class="bi bi-chevron-right"></i>
-                </button>
-            </div>
-        </div>
-        <div class="la-card-body">
-            <!-- Calendar Legend -->
-            <div class="d-flex gap-3 mb-3 flex-wrap">
-                <div class="d-flex align-items-center">
-                    <span style="width: 12px; height: 12px; background: #dbeafe; border: 1px solid #93c5fd; border-radius: 3px; display: inline-block;"></span>
-                    <small class="ms-1">Approved OT</small>
-                </div>
-                <div class="d-flex align-items-center">
-                    <span style="width: 12px; height: 12px; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 3px; display: inline-block;"></span>
-                    <small class="ms-1">Pending OT</small>
-                </div>
-                <div class="d-flex align-items-center">
-                    <span style="width: 12px; height: 12px; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 3px; display: inline-block;"></span>
-                    <small class="ms-1">OT Conflict</small>
-                </div>
-                <div class="d-flex align-items-center">
-                    <span style="width: 12px; height: 12px; background: #d1fae5; border: 1px solid #6ee7b7; border-radius: 3px; display: inline-block;"></span>
-                    <small class="ms-1">Holiday</small>
-                </div>
-            </div>
-
-            <!-- Calendar Grid -->
-            <div class="la-calendar-header">
-                <div class="la-calendar-header-cell">Sun</div>
-                <div class="la-calendar-header-cell">Mon</div>
-                <div class="la-calendar-header-cell">Tue</div>
-                <div class="la-calendar-header-cell">Wed</div>
-                <div class="la-calendar-header-cell">Thu</div>
-                <div class="la-calendar-header-cell">Fri</div>
-                <div class="la-calendar-header-cell">Sat</div>
-            </div>
-            <div class="la-calendar-grid">
-                @{
-                    var calMonth = Model.OTCurrentMonthStart != default ? Model.OTCurrentMonthStart : new DateTime(today.Year, today.Month, 1);
-                    var firstDayOfWeek = (int)calMonth.DayOfWeek;
-                    var daysInMonth = DateTime.DaysInMonth(calMonth.Year, calMonth.Month);
-                    var totalCells = firstDayOfWeek + daysInMonth;
-                    var calDayMap = calDays.GroupBy(d => d.Day).ToDictionary(g => g.Key, g => g.First());
-                    int cellIndex = 0;
-                    int dayNum = 1;
-                }
-                @for (int i = 0; i < totalCells; i++)
-                {
-                    if (cellIndex < firstDayOfWeek || dayNum > daysInMonth)
-                    {
-                        <div class="la-calendar-day" style="opacity: 0.3; cursor: default; border-color: transparent;"></div>
-                    }
-                    else
-                    {
-                        var calDay = calDayMap.ContainsKey(dayNum) ? calDayMap[dayNum] : null;
-                        var statusClass = calDay?.OTStatus switch
-                        {
-                            "above100" => "conflict",
-                            "95-100"   => "pending",
-                            "80-95"    => "approved",
-                            _          => ""
-                        };
-                        var isToday = calDay?.IsToday == true;
-                        <div class="la-calendar-day @statusClass @(isToday ? "today" : "")"
-                             title="@dayNum: @(calDay?.EmployeesOnOT ?? 0) on OT"
-                             onclick="loadOTDataForDate('@calMonth.Year-@calMonth.Month.ToString("00")-@dayNum.ToString("00")')">
-                            <span class="la-calendar-day-number">@dayNum</span>
-                            @if (calDay != null && calDay.EmployeesOnOT > 0)
-                            {
-                                <span class="la-calendar-ot-count">@calDay.EmployeesOnOT</span>
-                            }
+    <!-- Main split dashboard area -->
+    <div class="la-dashboard-grid">
+        <div class="la-grid-left">
+            <!-- OT Queue Card -->
+            <div class="la-card">
+                <div class="la-card-header">
+                    <div class="la-card-title-group">
+                        <i class="bi bi-list-task"></i>
+                        <h5>OT Queue</h5>
+                    </div>
+                    <div class="la-card-actions">
+                        <div class="la-search-wrapper">
+                            <i class="bi bi-search"></i>
+                            <input type="text" class="la-search-bar" placeholder="Search employees..." id="otSearchInput">
                         </div>
-                        dayNum++;
-                    }
-                    cellIndex++;
-                }
+                        <input type="date" class="la-date-input" id="otDateFilter" value="@today.ToString("yyyy-MM-dd")" style="padding: 0.4rem 0.75rem; font-size: 0.82rem; height: 35px; border-radius: 8px;">
+                        <select class="la-filter-select" id="otPercentageFilter" style="height: 35px; border-radius: 8px;">
+                            <option value="all">All OT %</option>
+                            <option value="below75">Below 75%</option>
+                            <option value="above75">Above 75%</option>
+                            <option value="above80">Above 80%</option>
+                            <option value="above100">Above 100%</option>
+                        </select>
+                        <button type="button" class="la-btn-primary" onclick="fetchOTQueue()" style="height: 35px; border-radius: 8px; font-size: 0.82rem; padding: 0.45rem 1rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+                            <i class="bi bi-search"></i> Search
+                        </button>
+                    </div>
+                </div>
+                <div class="la-card-body">
+                    <div class="la-table-container">
+                        <table class="la-table" id="otQueueTable">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Department</th>
+                                    <th>OT Date</th>
+                                    <th>Start Time</th>
+                                    <th>End Time</th>
+                                    <th>OT Hours</th>
+                                    <th style="width: 80px; text-align: center;">Edit</th>
+                                </tr>
+                            </thead>
+                            <tbody id="otQueueTableBody">
+                                @{
+                                    ViewData["SelectedDate"] = today;
+                                }
+                                <partial name="_OTQueueRows" model="employees" />
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="la-grid-right">
+            <!-- Compact Calendar Card -->
+            <div class="la-card">
+                <div class="la-card-header">
+                    <div class="la-card-title-group">
+                        <i class="bi bi-calendar3"></i>
+                        <h5>Monthly Calendar</h5>
+                    </div>
+                    <div class="la-calendar-nav">
+                        <button type="button" class="la-calendar-nav-btn" onclick="navigateCalendar(-1)" title="Previous Month">
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                        <span class="la-calendar-month-title">@monthLabel</span>
+                        <button type="button" class="la-calendar-nav-btn" onclick="navigateCalendar(1)" title="Next Month">
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="la-card-body calendar-body">
+                    <div class="la-calendar-weekdays">
+                        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                    </div>
+                    <div class="la-calendar-days-grid">
+                        @{
+                            var calMonth = Model.OTCurrentMonthStart != default ? Model.OTCurrentMonthStart : new DateTime(today.Year, today.Month, 1);
+                            var firstDayOfWeek = (int)calMonth.DayOfWeek;
+                            var daysInMonth = DateTime.DaysInMonth(calMonth.Year, calMonth.Month);
+                            var totalCells = firstDayOfWeek + daysInMonth;
+                            var calDayMap = calDays.GroupBy(d => d.Day).ToDictionary(g => g.Key, g => g.First());
+                            int cellIndex = 0;
+                            int dayNum = 1;
+                        }
+                        @for (int i = 0; i < totalCells; i++)
+                        {
+                            if (cellIndex < firstDayOfWeek || dayNum > daysInMonth)
+                            {
+                                <div class="la-calendar-day-cell empty"></div>
+                            }
+                            else
+                            {
+                                var calDay = calDayMap.ContainsKey(dayNum) ? calDayMap[dayNum] : null;
+                                var statusClass = calDay?.OTStatus switch
+                                {
+                                    "above100" => "conflict",
+                                    "95-100"   => "pending",
+                                    "80-95"    => "approved",
+                                    _          => ""
+                                };
+                                var isToday = calDay?.IsToday == true;
+                                <div class="la-calendar-day-cell @statusClass @(isToday ? "today" : "")"
+                                     title="@dayNum: @(calDay?.EmployeesOnOT ?? 0) on OT"
+                                     onclick="loadOTDataForDate('@calMonth.Year-@calMonth.Month.ToString("00")-@dayNum.ToString("00")')">
+                                    <span class="la-calendar-day-number">@dayNum</span>
+                                    @if (calDay != null && calDay.EmployeesOnOT > 0)
+                                    {
+                                        <span class="la-calendar-dot @statusClass"></span>
+                                    }
+                                </div>
+                                dayNum++;
+                            }
+                            cellIndex++;
+                        }
+                    </div>
+
+                    <!-- Clean inline calendar legend -->
+                    <div class="la-calendar-legend">
+                        <div class="la-legend-item"><span class="la-legend-dot approved"></span><span>Approved</span></div>
+                        <div class="la-legend-item"><span class="la-legend-dot pending"></span><span>Pending</span></div>
+                        <div class="la-legend-item"><span class="la-legend-dot conflict"></span><span>Conflict</span></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Export OT Data -->
+    <!-- Export OT Data Section -->
     <div class="la-card">
+        <div class="la-card-header">
+            <div class="la-card-title-group">
+                <i class="bi bi-file-earmark-pdf"></i>
+                <h5>Export Overtime Report</h5>
+            </div>
+        </div>
         <div class="la-card-body">
-            <div class="la-export-section">
-                <div>
-                    <h5 class="mb-1">Export OT Data</h5>
-                    <p class="text-muted mb-0 small">Export OT records for selected date range and percentage to PDF.</p>
+            <div class="la-export-form-row">
+                <div class="la-form-field">
+                    <label>From Date</label>
+                    <input type="date" class="la-date-input" id="exportFromDate">
                 </div>
-                <div class="la-date-range">
-                    <input type="date" class="la-date-input" id="exportFromDate" placeholder="From">
-                    <span style="color: #9ca3af;">to</span>
-                    <input type="date" class="la-date-input" id="exportToDate" placeholder="To">
+                <div class="la-form-field">
+                    <label>To Date</label>
+                    <input type="date" class="la-date-input" id="exportToDate">
+                </div>
+                <div class="la-form-field">
+                    <label>OT Filter</label>
                     <select class="la-filter-select" id="exportOtPercentageFilter">
                         <option value="all">All OT %</option>
                         <option value="below75">Below 75%</option>
-                        <option value="75-80">75% - 80%</option>
-                        <option value="80-95">80% - 95%</option>
-                        <option value="95-100">95% - 100%</option>
+                        <option value="above75">Above 75%</option>
+                        <option value="above80">Above 80%</option>
                         <option value="above100">Above 100%</option>
                     </select>
-                    <button type="button" class="la-btn-export" onclick="exportToPDF()">
-                        <i class="bi bi-file-earmark-pdf"></i> Export PDF
-                    </button>
                 </div>
+                <button type="button" class="la-btn-export" onclick="exportToPDF()">
+                    <i class="bi bi-file-earmark-pdf"></i> Export PDF
+                </button>
             </div>
             
-            <div id="exportPreviewSection" style="display: none; border-top: 1px solid #e5e7eb; margin-top: 20px; padding-top: 20px;">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h6 class="mb-0 text-secondary" style="font-weight: 600;">Filtered Records Preview</h6>
+            <div id="exportPreviewSection" class="la-export-preview-container" style="display: none;">
+                <div class="la-preview-header">
+                    <h6>Filtered Records Preview</h6>
                     <span class="badge bg-secondary text-light" id="previewRecordCount" style="font-size: 0.8rem; padding: 0.4em 0.8em; border-radius: 4px;">0 records</span>
                 </div>
-                <div id="exportPreviewTableContainer"></div>
+                <div id="exportPreviewTableContainer" class="la-table-container"></div>
             </div>
         </div>
     </div>
@@ -1675,11 +1036,13 @@
     <script>
         // OT Calendar Navigation
         function navigateCalendar(delta) {
-            console.log("Navigate calendar by", delta);
+            const currentDate = new Date('@Model.SelectedDate.ToString("yyyy-MM-dd")');
+            currentDate.setMonth(currentDate.getMonth() + delta);
+            window.location.href = `/Dashboard/Index?selectedDate=${currentDate.toISOString().split('T')[0]}`;
         }
 
         function loadOTDataForDate(dateStr) {
-            console.log("Load OT data for date:", dateStr);
+            window.location.href = `/Dashboard/Index?selectedDate=${dateStr}`;
         }
 
         // Edit OT Modal Functions
@@ -1709,7 +1072,7 @@
             closeEditModal();
         }
 
-        // Export to PDF with Preview Modal (Tasks 1, 3)
+        // Export to PDF with Preview Modal
         let lastPreviewHtml = "";
 
         function exportToPDF() {
@@ -1753,7 +1116,7 @@
             closePdfPreviewModal();
         }
 
-        // Live Preview Loader for Export card (Task 2)
+        // Live Preview Loader for Export card
         function loadExportPreview() {
             const fromDate = document.getElementById('exportFromDate').value;
             const toDate = document.getElementById('exportToDate').value;
@@ -1795,13 +1158,13 @@
                 });
         }
 
-        // Search and Filter Functionality (Tasks 2, 3, 4, 5, 6)
+        // Search and Filter Functionality
         let searchTimeout = null;
 
         function fetchOTQueue() {
             const searchTerm = document.getElementById('otSearchInput')?.value || '';
             const otPercentage = document.getElementById('otPercentageFilter')?.value || 'all';
-            const selectedDate = '@Model.SelectedDate.ToString("yyyy-MM-dd")';
+            const selectedDate = document.getElementById('otDateFilter')?.value || '@Model.SelectedDate.ToString("yyyy-MM-dd")';
 
             const url = `/Dashboard/GetOTQueueRows?searchTerm=${encodeURIComponent(searchTerm)}&otPercentage=${encodeURIComponent(otPercentage)}&selectedDate=${selectedDate}`;
 
@@ -1835,6 +1198,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             const searchInput = document.getElementById('otSearchInput');
             const otPercentageFilter = document.getElementById('otPercentageFilter');
+            const otDateFilter = document.getElementById('otDateFilter');
             
             if (searchInput) {
                 searchInput.addEventListener('input', onSearchInput);
@@ -1842,6 +1206,10 @@
             
             if (otPercentageFilter) {
                 otPercentageFilter.addEventListener('change', onPercentageFilterChange);
+            }
+
+            if (otDateFilter) {
+                otDateFilter.addEventListener('change', fetchOTQueue);
             }
 
             // Export Preview listeners

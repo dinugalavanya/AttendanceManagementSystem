@@ -1330,9 +1330,8 @@ namespace AttendanceManagementSystem.Controllers
                     employeeData = otPercentage switch
                     {
                         "below75" => employeeData.Where(e => e.OTAllocationPercentage <= 75).ToList(),
-                        "75-80" => employeeData.Where(e => e.OTAllocationPercentage > 75 && e.OTAllocationPercentage <= 80).ToList(),
-                        "80-95" => employeeData.Where(e => e.OTAllocationPercentage > 80 && e.OTAllocationPercentage <= 95).ToList(),
-                        "95-100" => employeeData.Where(e => e.OTAllocationPercentage > 95 && e.OTAllocationPercentage <= 100).ToList(),
+                        "above75" => employeeData.Where(e => e.OTAllocationPercentage > 75).ToList(),
+                        "above80" => employeeData.Where(e => e.OTAllocationPercentage > 80).ToList(),
                         "above100" => employeeData.Where(e => e.OTAllocationPercentage > 100).ToList(),
                         _ => employeeData
                     };
@@ -1464,9 +1463,8 @@ namespace AttendanceManagementSystem.Controllers
                     employeeData = otPercentage switch
                     {
                         "below75" => employeeData.Where(e => e.OTAllocationPercentage <= 75).ToList(),
-                        "75-80" => employeeData.Where(e => e.OTAllocationPercentage > 75 && e.OTAllocationPercentage <= 80).ToList(),
-                        "80-95" => employeeData.Where(e => e.OTAllocationPercentage > 80 && e.OTAllocationPercentage <= 95).ToList(),
-                        "95-100" => employeeData.Where(e => e.OTAllocationPercentage > 95 && e.OTAllocationPercentage <= 100).ToList(),
+                        "above75" => employeeData.Where(e => e.OTAllocationPercentage > 75).ToList(),
+                        "above80" => employeeData.Where(e => e.OTAllocationPercentage > 80).ToList(),
                         "above100" => employeeData.Where(e => e.OTAllocationPercentage > 100).ToList(),
                         _ => employeeData
                     };
@@ -1605,6 +1603,18 @@ namespace AttendanceManagementSystem.Controllers
                 if (otPercentage == "above100")
                 {
                     employeeData = employeeData.Where(e => e.OTAllocationPercentage > 100).ToList();
+                }
+                else if (otPercentage == "below75")
+                {
+                    employeeData = employeeData.Where(e => e.OTAllocationPercentage <= 75).ToList();
+                }
+                else if (otPercentage == "above75")
+                {
+                    employeeData = employeeData.Where(e => e.OTAllocationPercentage > 75).ToList();
+                }
+                else if (otPercentage == "above80")
+                {
+                    employeeData = employeeData.Where(e => e.OTAllocationPercentage > 80).ToList();
                 }
                 else if (decimal.TryParse(otPercentage, out var threshold))
                 {
