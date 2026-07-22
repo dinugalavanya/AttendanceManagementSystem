@@ -1309,6 +1309,16 @@ namespace AttendanceManagementSystem.Controllers
                         _ => "Above 100%"
                     };
 
+                    var dailyTasks = otRecords
+                        .OrderBy(a => a.AttendanceDate)
+                        .Select(a => new OTDailyTaskViewModel
+                        {
+                            Date = a.AttendanceDate.Date,
+                            OTHours = Math.Round(a.OvertimeMinutes / 60m, 2),
+                            TaskDescription = ExtractCleanTaskDescription(a.Notes)
+                        })
+                        .ToList();
+
                     employeeData.Add(new OTEmployeeViewModel
                     {
                         Id = employee.Id,
@@ -1320,7 +1330,8 @@ namespace AttendanceManagementSystem.Controllers
                         OTAllocationPercentage = Math.Round(otAllocationPercentage, 2),
                         TotalOTHours = Math.Round(totalOTMinutes / 60m, 2),
                         Status = status,
-                        Initials = BuildInitials(employee.FirstName, employee.LastName)
+                        Initials = BuildInitials(employee.FirstName, employee.LastName),
+                        DailyTasks = dailyTasks
                     });
                 }
 
@@ -1442,6 +1453,16 @@ namespace AttendanceManagementSystem.Controllers
                         _ => "Above 100%"
                     };
 
+                    var dailyTasks = otRecords
+                        .OrderBy(a => a.AttendanceDate)
+                        .Select(a => new OTDailyTaskViewModel
+                        {
+                            Date = a.AttendanceDate.Date,
+                            OTHours = Math.Round(a.OvertimeMinutes / 60m, 2),
+                            TaskDescription = ExtractCleanTaskDescription(a.Notes)
+                        })
+                        .ToList();
+
                     employeeData.Add(new OTEmployeeViewModel
                     {
                         Id = employee.Id,
@@ -1453,7 +1474,8 @@ namespace AttendanceManagementSystem.Controllers
                         OTAllocationPercentage = Math.Round(otAllocationPercentage, 2),
                         TotalOTHours = Math.Round(totalOTMinutes / 60m, 2),
                         Status = status,
-                        Initials = BuildInitials(employee.FirstName, employee.LastName)
+                        Initials = BuildInitials(employee.FirstName, employee.LastName),
+                        DailyTasks = dailyTasks
                     });
                 }
 
@@ -2105,6 +2127,19 @@ namespace AttendanceManagementSystem.Controllers
             }
 
             return calendarDays;
+        }
+
+        private static string ExtractCleanTaskDescription(string? notes)
+        {
+            if (string.IsNullOrWhiteSpace(notes)) return "No description provided";
+            var trimmed = notes.Trim();
+            if (trimmed.StartsWith("[Pattern:") && trimmed.Contains(']'))
+            {
+                var idx = trimmed.IndexOf(']');
+                var clean = trimmed.Substring(idx + 1).Trim();
+                return string.IsNullOrWhiteSpace(clean) ? "No description provided" : clean;
+            }
+            return trimmed;
         }
     }
 }

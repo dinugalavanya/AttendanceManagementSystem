@@ -151,6 +151,13 @@ namespace AttendanceManagementSystem.ViewModels
         public string OTStatus { get; set; } = "below75"; // below75, 75-80, 80-95, 95-100, above100
     }
 
+    public class OTDailyTaskViewModel
+    {
+        public DateTime Date { get; set; }
+        public decimal OTHours { get; set; }
+        public string TaskDescription { get; set; } = string.Empty;
+    }
+
     public class OTEmployeeViewModel
     {
         public int Id { get; set; }
@@ -163,6 +170,7 @@ namespace AttendanceManagementSystem.ViewModels
         public decimal TotalOTHours { get; set; }
         public string Status { get; set; } = string.Empty;
         public string Initials { get; set; } = string.Empty;
+        public List<OTDailyTaskViewModel> DailyTasks { get; set; } = new();
     }
 
     public class OTSummaryViewModel
