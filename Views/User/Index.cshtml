@@ -67,7 +67,7 @@
                                 <tbody>
                                     @foreach (var user in Model)
                                     {
-                                        <tr>
+                                        <tr id="row_@user.ServiceId">
                                             <td>@user.Id</td>
                                             <td>@user.ServiceId</td>
                                             <td>@user.FullName</td>
@@ -159,6 +159,11 @@
                 <form id="createAdminForm">
                     @Html.AntiForgeryToken()
                     <div class="mb-3">
+                        <label for="adminServiceId" class="form-label">Employee ID</label>
+                        <input type="text" class="form-control" id="adminServiceId" readonly>
+                        <small class="text-muted">Auto-generated next available ID</small>
+                    </div>
+                    <div class="mb-3">
                         <label for="adminFirstName" class="form-label">First Name</label>
                         <input type="text" class="form-control" id="adminFirstName" required>
                     </div>
@@ -214,6 +219,11 @@
                 <form id="createLeaveAgentForm">
                     @Html.AntiForgeryToken()
                     <div class="mb-3">
+                        <label for="leaveAgentServiceId" class="form-label">Employee ID</label>
+                        <input type="text" class="form-control" id="leaveAgentServiceId" readonly>
+                        <small class="text-muted">Auto-generated next available ID</small>
+                    </div>
+                    <div class="mb-3">
                         <label for="leaveAgentFirstName" class="form-label">First Name</label>
                         <input type="text" class="form-control" id="leaveAgentFirstName" required>
                     </div>
@@ -262,6 +272,8 @@
 window.deleteUser = function(serviceId) {
     console.log("deleteUser called with:", serviceId);
 
+    serviceId = (serviceId || '').trim().toUpperCase();
+
     if (!serviceId) {
         alert("Invalid Service ID");
         return;
@@ -301,7 +313,10 @@ window.deleteUser = function(serviceId) {
         console.log("Result:", result);
         if (result.success) {
             alert(result.message || "User deleted successfully");
-            location.reload();
+            const row = document.getElementById('row_' + serviceId);
+            if (row) {
+                row.remove();
+            }
         } else {
             alert(result.message || "Delete failed");
         }
@@ -336,7 +351,7 @@ document.getElementById('changeServiceId')?.addEventListener('blur', function() 
 
 // Change Admin Section
 window.changeAdminSection = function() {
-    const serviceId = document.getElementById('changeServiceId').value.trim();
+    const serviceId = document.getElementById('changeServiceId').value.trim().toUpperCase();
     const sectionId = document.getElementById('changeSectionSelect').value;
     const errorDiv = document.getElementById('changeError');
 
@@ -387,6 +402,7 @@ window.createAdmin = function() {
     const phone = document.getElementById('adminPhone').value.trim();
     const address = document.getElementById('adminAddress').value.trim();
     const sectionId = document.getElementById('adminSection').value;
+    const serviceId = document.getElementById('adminServiceId').value.trim();
     const errorDiv = document.getElementById('errorMessage');
 
     if (!firstName || !lastName || !email || !sectionId) {
@@ -409,7 +425,8 @@ window.createAdmin = function() {
             email: email,
             phone: phone || null,
             address: address || null,
-            sectionId: parseInt(sectionId)
+            sectionId: parseInt(sectionId),
+            serviceId: serviceId || null
         })
     })
     .then(response => response.json())
@@ -437,6 +454,7 @@ window.createLeaveAgent = function() {
     const phone = document.getElementById('leaveAgentPhone').value.trim();
     const address = document.getElementById('leaveAgentAddress').value.trim();
     const sectionId = document.getElementById('leaveAgentSection').value;
+    const serviceId = document.getElementById('leaveAgentServiceId').value.trim();
     const errorDiv = document.getElementById('leaveAgentErrorMessage');
 
     if (!firstName || !lastName || !email || !sectionId) {
@@ -459,7 +477,8 @@ window.createLeaveAgent = function() {
             email: email,
             phone: phone || null,
             address: address || null,
-            sectionId: parseInt(sectionId)
+            sectionId: parseInt(sectionId),
+            serviceId: serviceId || null
         })
     })
     .then(response => response.json())
@@ -478,5 +497,37 @@ window.createLeaveAgent = function() {
         errorDiv.classList.remove('d-none');
     });
 };
+
+// Fetch next ServiceId when modals open
+document.addEventListener('DOMContentLoaded', function() {
+    const createAdminModal = document.getElementById('createAdminModal');
+    const createLeaveAgentModal = document.getElementById('createLeaveAgentModal');
+
+    if (createAdminModal) {
+        createAdminModal.addEventListener('shown.bs.modal', function() {
+            fetch('/User/GetNextServiceId')
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        document.getElementById('adminServiceId').value = result.serviceId;
+                    }
+                })
+                .catch(err => console.error('Error fetching next ServiceId:', err));
+        });
+    }
+
+    if (createLeaveAgentModal) {
+        createLeaveAgentModal.addEventListener('shown.bs.modal', function() {
+            fetch('/User/GetNextServiceId')
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        document.getElementById('leaveAgentServiceId').value = result.serviceId;
+                    }
+                })
+                .catch(err => console.error('Error fetching next ServiceId:', err));
+        });
+    }
+});
 </script>
 }

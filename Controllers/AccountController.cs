@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 
 namespace AttendanceManagementSystem.Controllers
@@ -12,11 +13,13 @@ namespace AttendanceManagementSystem.Controllers
     {
         private readonly IAuthService _authService;
         private readonly IConfiguration _configuration;
+        private readonly ILogger<AccountController> _logger;
 
-        public AccountController(IAuthService authService, IConfiguration configuration)
+        public AccountController(IAuthService authService, IConfiguration configuration, ILogger<AccountController> logger)
         {
             _authService = authService;
             _configuration = configuration;
+            _logger = logger;
         }
 
         [AllowAnonymous]
@@ -150,8 +153,13 @@ namespace AttendanceManagementSystem.Controllers
         [IgnoreAntiforgeryToken]
         public async Task<IActionResult> ChangePassword(string currentPassword, string newPassword, string confirmPassword)
         {
-            var user = _authService.GetCurrentUser();
-            if (user == null) return Json(new { success = false, message = "Not authenticated." });
+            var userId = _authService.GetCurrentUserId();
+            if (userId == null)
+            {
+                return Json(new { success = false, message = "Not authenticated." });
+            }
+
+            _logger.LogInformation("ChangePassword requested for UserId {UserId}", userId);
 
             if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
                 return Json(new { success = false, message = "New password must be at least 6 characters." });
@@ -159,17 +167,21 @@ namespace AttendanceManagementSystem.Controllers
             if (newPassword != confirmPassword)
                 return Json(new { success = false, message = "Passwords do not match." });
 
-            if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
-                return Json(new { success = false, message = "Current password is incorrect." });
+            try
+            {
+                var changed = await _authService.ChangePasswordAsync(userId.Value, currentPassword, newPassword);
+                if (!changed)
+                {
+                    return Json(new { success = false, message = "Current password is incorrect or the password update did not persist." });
+                }
 
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
-            user.UpdatedAt = DateTime.UtcNow;
-
-            var dbContext = HttpContext.RequestServices.GetRequiredService<Data.ApplicationDbContext>();
-            dbContext.Users.Update(user);
-            await dbContext.SaveChangesAsync();
-
-            return Json(new { success = true, message = "Password changed successfully." });
+                return Json(new { success = true, message = "Password changed successfully." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ChangePassword failed for UserId {UserId}", userId);
+                return Json(new { success = false, message = "Unable to change password right now." });
+            }
         }
 
         [Authorize]

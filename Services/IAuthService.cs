@@ -9,6 +9,7 @@ namespace AttendanceManagementSystem.Services
         Task<User?> GetUserByEmailAsync(string email);
         Task<bool> RegisterAsync(User user);
         Task<User?> GetUserByIdAsync(int userId);
+        Task<bool> ChangePasswordAsync(int userId, string currentPassword, string newPassword);
         Task<bool> IsUserInRoleAsync(int userId, string roleName);
         Task<bool> HasSectionAccessAsync(int userId, int sectionId);
         bool IsSuperAdminOrGM(User? user);

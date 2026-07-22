@@ -73,14 +73,7 @@
                                                 <div class="info-box-label">OT Hours</div>
                                                 <div class="info-box-value info-value-ot">
                                                     @{
-                                                        int otMinutes = 0;
-                                                        if (Model.SelectedDateRecord.InTime.HasValue && Model.SelectedDateRecord.OutTime.HasValue)
-                                                        {
-                                                            var inDateTime = Model.SelectedDateRecord.AttendanceDate.Date + Model.SelectedDateRecord.InTime.Value;
-                                                            var outDateTime = Model.SelectedDateRecord.AttendanceDate.Date + Model.SelectedDateRecord.OutTime.Value;
-                                                            if (outDateTime < inDateTime) outDateTime = outDateTime.AddDays(1);
-                                                            otMinutes = (int)(outDateTime - inDateTime).TotalMinutes;
-                                                        }
+                                                        int otMinutes = Model.SelectedDateRecord.OvertimeMinutes;
                                                     }
                                                     @(otMinutes > 0 ? $"{otMinutes / 60:D2}:{otMinutes % 60:D2}" : "0h 0m")
                                                 </div>
@@ -164,14 +157,7 @@
                                             <td>@attendance.AttendanceDate.ToString("dd MMM yyyy")</td>
                                             <td>
                                                 @{
-                                                    int rowOTMinutes = 0;
-                                                    if (attendance.InTime.HasValue && attendance.OutTime.HasValue)
-                                                    {
-                                                        var inDateTime = attendance.AttendanceDate.Date + attendance.InTime.Value;
-                                                        var outDateTime = attendance.AttendanceDate.Date + attendance.OutTime.Value;
-                                                        if (outDateTime < inDateTime) outDateTime = outDateTime.AddDays(1);
-                                                        rowOTMinutes = (int)(outDateTime - inDateTime).TotalMinutes;
-                                                    }
+                                                    int rowOTMinutes = attendance.OvertimeMinutes;
                                                 }
                                                 @(rowOTMinutes > 0 ? $"{rowOTMinutes / 60:D2}:{rowOTMinutes % 60:D2}" : "-")
                                             </td>

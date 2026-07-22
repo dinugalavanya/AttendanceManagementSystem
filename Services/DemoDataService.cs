@@ -23,7 +23,7 @@ namespace AttendanceManagementSystem.Services
             await _context.SaveChangesAsync();
 
             // Check if users exist, if not create them
-            if (await _context.Users.CountAsync() <= 5)
+            if (await _context.Users.IgnoreQueryFilters().CountAsync() <= 5)
             {
                 Console.WriteLine("[DEMO DATA] Creating demo users...");
                 await SeedDemoUsersAsync();

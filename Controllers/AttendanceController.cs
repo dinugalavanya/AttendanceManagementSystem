@@ -137,32 +137,14 @@ namespace AttendanceManagementSystem.Controllers
                 .Where(a => a.UserId == currentUser.Id && a.AttendanceDate.Date == targetDate.Date)
                 .FirstOrDefaultAsync();
 
-            // Calculate OT Duration directly from InTime and OutTime (overtime-only logic)
+            // Calculate OT Duration from database OvertimeMinutes directly (primary source)
             int todayOTMinutes = 0;
-            if (selectedAttendance != null && selectedAttendance.InTime.HasValue && selectedAttendance.OutTime.HasValue)
+            if (selectedAttendance != null)
             {
-                var inDateTime = targetDate.Date + selectedAttendance.InTime.Value;
-                var outDateTime = targetDate.Date + selectedAttendance.OutTime.Value;
-                
-                // Handle case where OT spans midnight (end time is next day)
-                if (outDateTime < inDateTime)
-                {
-                    outDateTime = outDateTime.AddDays(1);
-                }
-                
-                todayOTMinutes = (int)(outDateTime - inDateTime).TotalMinutes;
-            }
-            
-            // Update the database record with correct OT duration if needed
-            if (selectedAttendance != null && selectedAttendance.OvertimeMinutes != todayOTMinutes)
-            {
-                selectedAttendance.OvertimeMinutes = todayOTMinutes;
-                selectedAttendance.RegularWorkedMinutes = 0;
-                selectedAttendance.TotalWorkedMinutes = todayOTMinutes;
-                await _context.SaveChangesAsync();
+                todayOTMinutes = selectedAttendance.OvertimeMinutes;
             }
 
-            // Calculate weekly OT (current week) - recalculate each record with new logic
+            // Calculate weekly OT (current week) using OvertimeMinutes directly
             var weekStart = targetDate.AddDays(-(int)targetDate.DayOfWeek);
             var weekEnd = weekStart.AddDays(6);
             var weekAttendances = await _context.Attendances
@@ -174,28 +156,10 @@ namespace AttendanceManagementSystem.Controllers
             int weeklyOTMinutes = 0;
             foreach (var att in weekAttendances)
             {
-                if (att.InTime.HasValue && att.OutTime.HasValue)
-                {
-                    var inDateTime = att.AttendanceDate.Date + att.InTime.Value;
-                    var outDateTime = att.AttendanceDate.Date + att.OutTime.Value;
-                    if (outDateTime < inDateTime)
-                    {
-                        outDateTime = outDateTime.AddDays(1);
-                    }
-                    weeklyOTMinutes += (int)(outDateTime - inDateTime).TotalMinutes;
-                    
-                    // Update record if needed
-                    if (att.OvertimeMinutes != (int)(outDateTime - inDateTime).TotalMinutes)
-                    {
-                        att.OvertimeMinutes = (int)(outDateTime - inDateTime).TotalMinutes;
-                        att.RegularWorkedMinutes = 0;
-                        att.TotalWorkedMinutes = att.OvertimeMinutes;
-                    }
-                }
+                weeklyOTMinutes += att.OvertimeMinutes;
             }
-            await _context.SaveChangesAsync();
 
-            // Calculate monthly OT (current month) - recalculate each record with new logic
+            // Calculate monthly OT (current month) using OvertimeMinutes directly
             var monthStart = new DateTime(targetDate.Year, targetDate.Month, 1);
             var monthEnd = monthStart.AddMonths(1).AddDays(-1);
             var monthAttendances = await _context.Attendances
@@ -207,26 +171,8 @@ namespace AttendanceManagementSystem.Controllers
             int monthlyOTMinutes = 0;
             foreach (var att in monthAttendances)
             {
-                if (att.InTime.HasValue && att.OutTime.HasValue)
-                {
-                    var inDateTime = att.AttendanceDate.Date + att.InTime.Value;
-                    var outDateTime = att.AttendanceDate.Date + att.OutTime.Value;
-                    if (outDateTime < inDateTime)
-                    {
-                        outDateTime = outDateTime.AddDays(1);
-                    }
-                    monthlyOTMinutes += (int)(outDateTime - inDateTime).TotalMinutes;
-                    
-                    // Update record if needed
-                    if (att.OvertimeMinutes != (int)(outDateTime - inDateTime).TotalMinutes)
-                    {
-                        att.OvertimeMinutes = (int)(outDateTime - inDateTime).TotalMinutes;
-                        att.RegularWorkedMinutes = 0;
-                        att.TotalWorkedMinutes = att.OvertimeMinutes;
-                    }
-                }
+                monthlyOTMinutes += att.OvertimeMinutes;
             }
-            await _context.SaveChangesAsync();
 
             // Format times for display
             string checkInTimeDisplay = "-";
@@ -333,7 +279,7 @@ namespace AttendanceManagementSystem.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> SaveAttendance(DateTime selectedDate, TimeSpan? inTime, TimeSpan? outTime, string? notes)
+        public async Task<IActionResult> SaveAttendance(DateTime selectedDate, TimeSpan? inTime, TimeSpan? outTime, string? notes, string? workPattern, string? scheduleOption, double? otHours, TimeSpan? normalInTime, TimeSpan? normalOutTime)
         {
             var currentUser = _authService.GetCurrentUser();
             if (currentUser == null)
@@ -356,18 +302,60 @@ namespace AttendanceManagementSystem.Controllers
                     return RedirectToAction("Index", new { selectedDate = selectedDate.Date.ToString("yyyy-MM-dd") });
                 }
 
-                // Validation: OT Start Time is required
-                if (inTime == null)
-                {
-                    TempData["Error"] = "OT Start Time is required.";
-                    return RedirectToAction("Index", new { selectedDate = selectedDate });
-                }
+                bool isOffDay = string.Equals(workPattern, "Off Day", StringComparison.OrdinalIgnoreCase);
+                int otDurationMinutes = 0;
+                string formattedNotes = notes ?? string.Empty;
 
-                // Validation: OT End Time is required
-                if (outTime == null)
+                if (isOffDay)
                 {
-                    TempData["Error"] = "OT End Time is required.";
-                    return RedirectToAction("Index", new { selectedDate = selectedDate });
+                    // Off Day Validation:
+                    // - InTime and OutTime = null
+                    // - OT hours required
+                    // - OT hours must be between 0.5 and 24
+                    if (otHours == null || otHours.Value < 0.5 || otHours.Value > 24)
+                    {
+                        TempData["Error"] = "For an Off Day, OT hours are required and must be between 0.5 and 24 hours.";
+                        return RedirectToAction("Index", new { selectedDate = selectedDate });
+                    }
+
+                    inTime = null;
+                    outTime = null;
+                    otDurationMinutes = (int)Math.Round(otHours.Value * 60);
+
+                    formattedNotes = $"[Pattern: Off Day] {notes}".Trim();
+                }
+                else
+                {
+                    // Validation: OT Start Time (Calculated) is required
+                    if (inTime == null)
+                    {
+                        TempData["Error"] = "OT Start Time is required.";
+                        return RedirectToAction("Index", new { selectedDate = selectedDate });
+                    }
+
+                    // Validation: OT End Time (Calculated) is required
+                    if (outTime == null)
+                    {
+                        TempData["Error"] = "OT End Time is required.";
+                        return RedirectToAction("Index", new { selectedDate = selectedDate });
+                    }
+
+                    if (otHours == null || otHours.Value < 0.5 || otHours.Value > 24)
+                    {
+                        TempData["Error"] = "Overtime hours must be between 0.5 and 24 hours.";
+                        return RedirectToAction("Index", new { selectedDate = selectedDate });
+                    }
+
+                    otDurationMinutes = (int)Math.Round(otHours.Value * 60);
+
+                    string patternMeta = string.IsNullOrWhiteSpace(workPattern) ? "Day Shift" : workPattern;
+                    if (normalInTime.HasValue && normalOutTime.HasValue)
+                    {
+                        var inStr = DateTime.Today.Add(normalInTime.Value).ToString("h:mm tt");
+                        var outStr = DateTime.Today.Add(normalOutTime.Value).ToString("h:mm tt");
+                        patternMeta += $" (Normal: {inStr} - {outStr})";
+                    }
+                    formattedNotes = $"[Pattern: {patternMeta}] {notes}".Trim();
                 }
 
                 // Create new record (duplicate records are blocked by validation above).
@@ -378,41 +366,16 @@ namespace AttendanceManagementSystem.Controllers
                     OtDate = selectedDate.Date,
                     InTime = inTime,
                     OutTime = outTime,
-                    Notes = notes,
+                    Notes = formattedNotes,
                     IsLocked = false,
                     CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    UpdatedAt = DateTime.UtcNow,
+                    TotalWorkedMinutes = otDurationMinutes,
+                    RegularWorkedMinutes = 0, // No regular work calculation for OT-only page
+                    OvertimeMinutes = otDurationMinutes, // All time is overtime
+                    Status = AttendanceStatus.Present // Always present for overtime entries
                 };
                 _context.Attendances.Add(existingAttendance);
-
-                // Calculate OT Duration directly: OT End Time - OT Start Time
-                if (inTime.HasValue && outTime.HasValue)
-                {
-                    var inDateTime = selectedDate.Date + inTime.Value;
-                    var outDateTime = selectedDate.Date + outTime.Value;
-                    
-                    // Handle case where OT spans midnight (end time is next day)
-                    if (outDateTime < inDateTime)
-                    {
-                        outDateTime = outDateTime.AddDays(1);
-                    }
-                    
-                    var otDurationMinutes = (int)(outDateTime - inDateTime).TotalMinutes;
-                    
-                    // Overtime-only logic: the entire duration is overtime
-                    existingAttendance.TotalWorkedMinutes = otDurationMinutes;
-                    existingAttendance.RegularWorkedMinutes = 0; // No regular work calculation
-                    existingAttendance.OvertimeMinutes = otDurationMinutes; // All time is overtime
-                    existingAttendance.Status = AttendanceStatus.Present; // Always present for overtime entries
-                }
-                else
-                {
-                    // Should not happen due to validation above, but handle defensively
-                    existingAttendance.TotalWorkedMinutes = 0;
-                    existingAttendance.RegularWorkedMinutes = 0;
-                    existingAttendance.OvertimeMinutes = 0;
-                    existingAttendance.Status = AttendanceStatus.Absent;
-                }
 
                 await _context.SaveChangesAsync();
                 TempData["Success"] = "Overtime saved successfully.";
@@ -1012,6 +975,51 @@ namespace AttendanceManagementSystem.Controllers
                     Console.WriteLine($"[DEBUG] Inner Exception: {ex.InnerException.Message}");
                 }
                 return Json(new { success = false, message = $"An error occurred while updating attendance: {ex.Message}" });
+            }
+        }
+
+        [Authorize]
+        public async Task<IActionResult> ExportOTDataPdf(DateTime? fromDate, DateTime? toDate)
+        {
+            try
+            {
+                var currentUser = _authService.GetCurrentUser();
+                if (currentUser == null)
+                {
+                    return RedirectToAction("Login", "Account");
+                }
+
+                if (!fromDate.HasValue || !toDate.HasValue)
+                {
+                    TempData["Error"] = "Both From Date and To Date are required.";
+                    return RedirectToAction("Index");
+                }
+
+                var from = fromDate.Value.Date;
+                var to = toDate.Value.Date;
+
+                if (from > to)
+                {
+                    TempData["Error"] = "From Date must be before To Date.";
+                    return RedirectToAction("Index");
+                }
+
+                var records = await _context.Attendances
+                    .AsNoTracking()
+                    .Where(a => a.UserId == currentUser.Id && a.AttendanceDate.Date >= from && a.AttendanceDate.Date <= to)
+                    .OrderBy(a => a.AttendanceDate)
+                    .ToListAsync();
+
+                var pdfBytes = WorkerOtPdfReportBuilder.BuildOTExportPdf(currentUser, records, from, to, DateTime.Now);
+                var fileName = $"OT-Export-{from:yyyyMMdd}-{to:yyyyMMdd}.pdf";
+
+                return File(pdfBytes, "application/pdf", fileName);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] ExportOTDataPdf failed: {ex.Message}");
+                TempData["Error"] = "An error occurred while generating the PDF. Please try again.";
+                return RedirectToAction("Index");
             }
         }
     }

@@ -1,0 +1,1245 @@
+@model AttendanceManagementSystem.ViewModels.DashboardViewModel
+@using System.Text.Json
+@using AttendanceManagementSystem.Models
+
+@{
+    ViewData["Title"] = "Leave Agent Dashboard";
+
+    var today = Model.SelectedDate;
+    var monthLabel = Model.OTCurrentMonthLabel != string.Empty ? Model.OTCurrentMonthLabel : today.ToString("MMMM yyyy");
+    var sectionName = Model.ScopeTitle.Replace(" Overview", "").Trim();
+
+    // Calendar data
+    var calDays = Model.OTCalendarDays ?? new();
+    var employees = Model.OTEmployees  ?? new();
+    var summary   = Model.OTSummary    ?? new();
+    var todayStatus = Model.TodayOTStatus ?? new();
+
+    // Derived stats
+    var pendingCount = summary.Employees95to100 + summary.EmployeesAbove100;
+    var onLeaveToday = todayStatus.EmployeesOnLeave;
+}
+
+<style>
+    /* ══════════════════════════════════════════════════════════════
+       DESIGN SYSTEM & HR THEME TOKENS
+       ══════════════════════════════════════════════════════════════ */
+    :root {
+        --hr-primary: #0f172a;
+        --hr-primary-light: #1e293b;
+        --hr-accent: #2563eb;
+        --hr-accent-light: #eff6ff;
+        --hr-accent-hover: #1d4ed8;
+        --hr-bg: #f8fafc;
+        --hr-card: #ffffff;
+        --hr-border: #e2e8f0;
+        --hr-border-light: #f1f5f9;
+        
+        --hr-text: #0f172a;
+        --hr-text-secondary: #475569;
+        --hr-muted: #94a3b8;
+        
+        --hr-success: #10b981;
+        --hr-success-bg: #ecfdf5;
+        --hr-success-text: #065f46;
+        
+        --hr-warning: #f59e0b;
+        --hr-warning-bg: #fffbeb;
+        --hr-warning-text: #92400e;
+        
+        --hr-danger: #ef4444;
+        --hr-danger-bg: #fef2f2;
+        --hr-danger-text: #991b1b;
+        
+        --hr-radius: 12px;
+        --hr-radius-sm: 8px;
+        --hr-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+        --hr-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+        --hr-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       MAIN WORKSPACE LAYOUT
+       ══════════════════════════════════════════════════════════════ */
+    .la-page-wrapper {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 1.5rem;
+        background-color: var(--hr-bg);
+        color: var(--hr-text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    /* Banner & Metrics Row */
+    .la-header-section {
+        display: grid;
+        grid-template-columns: 2.2fr 1fr;
+        gap: 1.25rem;
+        margin-bottom: 1.25rem;
+    }
+    @@media (max-width: 1024px) {
+        .la-header-section {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Workspace Banner */
+    .la-workspace-banner {
+        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #2563eb 100%);
+        border-radius: var(--hr-radius);
+        padding: 2rem;
+        color: white;
+        box-shadow: var(--hr-shadow-md);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .la-workspace-banner h1 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin: 0 0 0.5rem 0;
+        letter-spacing: -0.02em;
+    }
+    .la-workspace-banner p {
+        margin: 0 0 1.25rem 0;
+        opacity: 0.9;
+        font-size: 0.95rem;
+    }
+    .la-workspace-badges {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .la-badge-item {
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(8px);
+        padding: 0.35rem 0.85rem;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    /* Metrics Right Column */
+    .la-metrics-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.65rem;
+    }
+    @@media (max-width: 1024px) {
+        .la-metrics-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+    @@media (max-width: 640px) {
+        .la-metrics-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .la-metric-card {
+        background: var(--hr-card);
+        border-radius: var(--hr-radius);
+        border: 1px solid var(--hr-border);
+        padding: 1rem 1.25rem;
+        box-shadow: var(--hr-shadow);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .la-metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--hr-shadow-md);
+    }
+    .la-metric-icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+        flex-shrink: 0;
+    }
+    .la-metric-card.pending .la-metric-icon { background: var(--hr-warning-bg); color: var(--hr-warning-text); }
+    .la-metric-card.today .la-metric-icon { background: var(--hr-accent-light); color: var(--hr-accent); }
+    .la-metric-card.conflict .la-metric-icon { background: var(--hr-danger-bg); color: var(--hr-danger-text); }
+    
+    .la-metric-info {
+        display: flex;
+        flex-direction: column;
+    }
+    .la-metric-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--hr-text);
+        line-height: 1.1;
+    }
+    .la-metric-label {
+        font-size: 0.75rem;
+        color: var(--hr-text-secondary);
+        font-weight: 500;
+        margin-top: 0.15rem;
+    }
+
+    /* Column Split Layout */
+    .la-dashboard-grid {
+        display: grid;
+        grid-template-columns: 1.9fr 1.1fr;
+        gap: 1.25rem;
+        margin-bottom: 1.25rem;
+        align-items: start;
+    }
+    @@media (max-width: 1200px) {
+        .la-dashboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       CARD COMPONENT
+       ══════════════════════════════════════════════════════════════ */
+    .la-card {
+        background: var(--hr-card);
+        border: 1px solid var(--hr-border);
+        border-radius: var(--hr-radius);
+        box-shadow: var(--hr-shadow);
+        overflow: hidden;
+    }
+    .la-card-header {
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--hr-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: #fafbfc;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+    .la-card-title-group {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .la-card-title-group i {
+        font-size: 1.1rem;
+        color: var(--hr-accent);
+    }
+    .la-card-header h5 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--hr-text);
+    }
+    .la-card-body {
+        padding: 1.25rem;
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       EMPLOYEE OT QUEUE SECTION
+       ══════════════════════════════════════════════════════════════ */
+    .la-card-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+    }
+    .la-search-wrapper {
+        position: relative;
+        width: 100%;
+        max-width: 240px;
+    }
+    .la-search-wrapper i {
+        position: absolute;
+        left: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--hr-muted);
+        font-size: 0.85rem;
+    }
+    .la-search-bar {
+        border: 1.5px solid var(--hr-border);
+        border-radius: var(--hr-radius-sm);
+        padding: 0.45rem 0.75rem 0.45rem 2rem;
+        font-size: 0.82rem;
+        width: 100%;
+        color: var(--hr-text);
+        background: var(--hr-card);
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .la-search-bar:focus {
+        outline: none;
+        border-color: var(--hr-accent);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+    }
+    .la-filter-select {
+        border: 1.5px solid var(--hr-border);
+        border-radius: var(--hr-radius-sm);
+        padding: 0.45rem 2.25rem 0.45rem 0.75rem;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--hr-text-secondary);
+        background: var(--hr-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E") no-repeat right 0.75rem center;
+        appearance: none;
+        -webkit-appearance: none;
+        cursor: pointer;
+        transition: border-color 0.2s;
+    }
+    .la-filter-select:focus {
+        outline: none;
+        border-color: var(--hr-accent);
+    }
+
+    /* Queue Table Styles */
+    .la-table-container {
+        overflow-x: auto;
+    }
+    .la-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .la-table th {
+        text-align: left;
+        padding: 0.75rem 1rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--hr-muted);
+        border-bottom: 2px solid var(--hr-border);
+        background: #fafbfc;
+        white-space: nowrap;
+    }
+    .la-table td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--hr-border-light);
+        vertical-align: middle;
+        font-size: 0.85rem;
+        color: var(--hr-text-secondary);
+        white-space: nowrap;
+    }
+    .la-table tbody tr {
+        transition: background-color 0.2s;
+    }
+    .la-table tbody tr:hover {
+        background-color: var(--hr-border-light);
+    }
+
+    /* Avatars & Employee Labels */
+    .la-employee-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .la-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--hr-accent) 0%, #60a5fa 100%);
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.8rem;
+        flex-shrink: 0;
+        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.1);
+    }
+    .la-employee-info {
+        display: flex;
+        flex-direction: column;
+    }
+    .la-employee-name {
+        font-weight: 700;
+        color: var(--hr-text);
+        font-size: 0.85rem;
+    }
+    .la-employee-id {
+        font-size: 0.72rem;
+        color: var(--hr-muted);
+    }
+
+    /* Edit action button */
+    .la-btn-edit {
+        background: transparent;
+        border: 1px solid var(--hr-border);
+        color: var(--hr-text-secondary);
+        padding: 0.35rem 0.7rem;
+        border-radius: var(--hr-radius-sm);
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    .la-btn-edit:hover {
+        background: var(--hr-accent-light);
+        color: var(--hr-accent);
+        border-color: var(--hr-accent);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       COMPACT CALENDAR CARD
+       ══════════════════════════════════════════════════════════════ */
+    .la-calendar-nav {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .la-calendar-nav-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 1px solid var(--hr-border);
+        background: white;
+        color: var(--hr-text-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        padding: 0;
+    }
+    .la-calendar-nav-btn:hover {
+        background: var(--hr-border-light);
+        color: var(--hr-text);
+    }
+    .la-calendar-month-title {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--hr-text);
+        padding: 0 0.25rem;
+        min-width: 95px;
+        text-align: center;
+    }
+    .calendar-body {
+        padding: 1rem !important;
+    }
+    .la-calendar-weekdays {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        text-align: center;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--hr-muted);
+        margin-bottom: 0.5rem;
+        letter-spacing: 0.05em;
+    }
+    .la-calendar-days-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.35rem;
+    }
+    .la-calendar-day-cell {
+        aspect-ratio: 1;
+        border-radius: 50%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid transparent;
+        position: relative;
+    }
+    .la-calendar-day-cell:hover:not(.empty) {
+        background: var(--hr-border-light);
+        transform: scale(1.08);
+    }
+    .la-calendar-day-cell.today {
+        border-color: var(--hr-accent);
+        color: var(--hr-accent);
+        font-weight: 800;
+    }
+    .la-calendar-day-cell.empty {
+        cursor: default;
+        pointer-events: none;
+        opacity: 0.15;
+    }
+
+    /* Soft Pastel Calendar Highlights */
+    .la-calendar-day-cell.approved { background: var(--hr-accent-light); color: var(--hr-accent); }
+    .la-calendar-day-cell.pending { background: var(--hr-warning-bg); color: var(--hr-warning-text); }
+    .la-calendar-day-cell.conflict { background: var(--hr-danger-bg); color: var(--hr-danger-text); }
+    
+    /* Small dot inside cell */
+    .la-calendar-dot {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        position: absolute;
+        bottom: 5px;
+    }
+    .la-calendar-dot.approved { background: var(--hr-accent); }
+    .la-calendar-dot.pending { background: var(--hr-warning); }
+    .la-calendar-dot.conflict { background: var(--hr-danger); }
+
+    /* Compact Legend */
+    .la-calendar-legend {
+        display: flex;
+        justify-content: center;
+        gap: 0.75rem;
+        margin-top: 1rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--hr-border-light);
+        flex-wrap: wrap;
+    }
+    .la-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.7rem;
+        color: var(--hr-text-secondary);
+        font-weight: 500;
+    }
+    .la-legend-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .la-legend-dot.approved { background: var(--hr-accent); }
+    .la-legend-dot.pending { background: var(--hr-warning); }
+    .la-legend-dot.conflict { background: var(--hr-danger); }
+
+    /* ══════════════════════════════════════════════════════════════
+       EXPORT OT CARD (Horizontal Alignment)
+       ══════════════════════════════════════════════════════════════ */
+    .la-export-form-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr) auto;
+        gap: 1rem;
+        align-items: flex-end;
+    }
+    @@media (max-width: 900px) {
+        .la-export-form-row {
+            grid-template-columns: 1fr;
+            align-items: stretch;
+        }
+    }
+    .la-form-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+    .la-form-field label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--hr-text-secondary);
+        letter-spacing: 0.05em;
+    }
+    .la-date-input {
+        border: 1.5px solid var(--hr-border);
+        border-radius: var(--hr-radius-sm);
+        padding: 0.45rem 0.75rem;
+        font-size: 0.85rem;
+        color: var(--hr-text);
+        background: var(--hr-card);
+        font-family: inherit;
+        transition: border-color 0.2s;
+    }
+    .la-date-input:focus {
+        outline: none;
+        border-color: var(--hr-accent);
+    }
+    .la-btn-export {
+        background: linear-gradient(135deg, var(--hr-accent), var(--hr-accent-hover));
+        color: white;
+        border: none;
+        padding: 0.55rem 1.25rem;
+        border-radius: var(--hr-radius-sm);
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        transition: transform 0.2s, box-shadow 0.2s;
+        height: 38px;
+    }
+    .la-btn-export:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    }
+
+    /* Collapsible Preview Container */
+    .la-export-preview-container {
+        border-top: 1px dashed var(--hr-border);
+        margin-top: 1.25rem;
+        padding-top: 1.25rem;
+        animation: fadeIn 0.3s ease;
+    }
+    .la-preview-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.85rem;
+    }
+    .la-preview-header h6 {
+        margin: 0;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--hr-text-secondary);
+    }
+
+    /* ══════════════════════════════════════════════════════════════
+       MODAL STYLING (HR SaaS Theme)
+       ══════════════════════════════════════════════════════════════ */
+    .la-modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.3);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    .la-modal-overlay.active {
+        display: flex;
+    }
+    .la-modal {
+        background: var(--hr-card);
+        border-radius: var(--hr-radius);
+        max-width: 520px;
+        width: 90%;
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: var(--hr-shadow-lg);
+        border: 1px solid var(--hr-border);
+        animation: scaleUp 0.2s ease-out;
+    }
+    .la-modal-header {
+        padding: 1.1rem 1.5rem;
+        border-bottom: 1px solid var(--hr-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #fafbfc;
+    }
+    .la-modal-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--hr-text);
+    }
+    .la-modal-close {
+        background: none;
+        border: none;
+        font-size: 1.35rem;
+        cursor: pointer;
+        color: var(--hr-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        transition: background 0.2s;
+    }
+    .la-modal-close:hover {
+        background: var(--hr-border-light);
+        color: var(--hr-text-secondary);
+    }
+    .la-modal-body {
+        padding: 1.5rem;
+    }
+    .la-form-group {
+        margin-bottom: 1rem;
+    }
+    .la-form-label {
+        display: block;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--hr-text-secondary);
+        margin-bottom: 0.4rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    .la-form-input {
+        width: 100%;
+        padding: 0.45rem 0.75rem;
+        border: 1.5px solid var(--hr-border);
+        border-radius: var(--hr-radius-sm);
+        font-size: 0.85rem;
+        color: var(--hr-text);
+        background: var(--hr-card);
+        transition: border-color 0.2s;
+    }
+    .la-form-input:focus {
+        outline: none;
+        border-color: var(--hr-accent);
+    }
+    .la-form-input[readonly] {
+        background-color: var(--hr-border-light);
+        color: var(--hr-text-secondary);
+        cursor: not-allowed;
+    }
+    .la-modal-footer {
+        padding: 1rem 1.5rem;
+        border-top: 1px solid var(--hr-border);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        background: #fafbfc;
+    }
+    .la-btn-secondary {
+        background: var(--hr-card);
+        border: 1px solid var(--hr-border);
+        color: var(--hr-text-secondary);
+        padding: 0.45rem 1rem;
+        border-radius: var(--hr-radius-sm);
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .la-btn-secondary:hover {
+        background: var(--hr-border-light);
+    }
+    .la-btn-primary {
+        background: linear-gradient(135deg, var(--hr-accent), var(--hr-accent-hover));
+        color: white;
+        border: none;
+        padding: 0.45rem 1.15rem;
+        border-radius: var(--hr-radius-sm);
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .la-btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    }
+
+    /* Keyframe Animations */
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes scaleUp {
+        from { transform: scale(0.96); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+</style>
+
+<div class="la-page-wrapper">
+
+    <!-- Leave Agent Workspace Header & Metrics -->
+    <div class="la-header-section">
+        <div class="la-workspace-banner">
+            <h1>OT Management Workspace</h1>
+            <p>Manage overtime requests, approvals, and employee availability for @sectionName</p>
+            <div class="la-workspace-badges">
+                <span class="la-badge-item"><i class="bi bi-calendar3"></i> @today.ToString("MMMM yyyy")</span>
+                <span class="la-badge-item"><i class="bi bi-people"></i> @(employees?.Count() ?? 0) Employees</span>
+                <span class="la-badge-item"><i class="bi bi-clock-history"></i> @(Math.Round(summary.TotalOTHours, 1))h Total OT</span>
+            </div>
+        </div>
+        
+        <div class="la-metrics-grid">
+            <div class="la-metric-card pending">
+                <div class="la-metric-icon"><i class="bi bi-clock"></i></div>
+                <div class="la-metric-info">
+                    <div class="la-metric-value">@pendingCount</div>
+                    <div class="la-metric-label">Pending OT Requests</div>
+                </div>
+            </div>
+            <div class="la-metric-card today">
+                <div class="la-metric-icon"><i class="bi bi-calendar-check"></i></div>
+                <div class="la-metric-info">
+                    <div class="la-metric-value">@(Model.MonthlyPresentCount)</div>
+                    <div class="la-metric-label">Today's OT Records</div>
+                </div>
+            </div>
+            <div class="la-metric-card conflict">
+                <div class="la-metric-icon"><i class="bi bi-exclamation-triangle"></i></div>
+                <div class="la-metric-info">
+                    <div class="la-metric-value">@(summary.EmployeesAbove100)</div>
+                    <div class="la-metric-label">OT Conflicts (>100%)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main split dashboard area -->
+    <div class="la-dashboard-grid">
+        <div class="la-grid-left">
+            <!-- OT Queue Card -->
+            <div class="la-card">
+                <div class="la-card-header">
+                    <div class="la-card-title-group">
+                        <i class="bi bi-list-task"></i>
+                        <h5>OT Queue</h5>
+                    </div>
+                    <div class="la-card-actions">
+                        <div class="la-search-wrapper">
+                            <i class="bi bi-search"></i>
+                            <input type="text" class="la-search-bar" placeholder="Search employees..." id="otSearchInput">
+                        </div>
+                        <input type="date" class="la-date-input" id="otDateFilter" value="@today.ToString("yyyy-MM-dd")" style="padding: 0.4rem 0.75rem; font-size: 0.82rem; height: 35px; border-radius: 8px;">
+                        <select class="la-filter-select" id="otPercentageFilter" style="height: 35px; border-radius: 8px;">
+                            <option value="all">All OT %</option>
+                            <option value="below75">Below 75%</option>
+                            <option value="above75">Above 75%</option>
+                            <option value="above80">Above 80%</option>
+                            <option value="above100">Above 100%</option>
+                        </select>
+                        <button type="button" class="la-btn-primary" onclick="fetchOTQueue()" style="height: 35px; border-radius: 8px; font-size: 0.82rem; padding: 0.45rem 1rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+                            <i class="bi bi-search"></i> Search
+                        </button>
+                    </div>
+                </div>
+                <div class="la-card-body">
+                    <div class="la-table-container">
+                        <table class="la-table" id="otQueueTable">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Department</th>
+                                    <th>OT Date</th>
+                                    <th>Start Time</th>
+                                    <th>End Time</th>
+                                    <th>OT Hours</th>
+                                    <th style="width: 80px; text-align: center;">Edit</th>
+                                </tr>
+                            </thead>
+                            <tbody id="otQueueTableBody">
+                                @{
+                                    ViewData["SelectedDate"] = today;
+                                }
+                                <partial name="_OTQueueRows" model="employees" />
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="la-grid-right">
+            <!-- Compact Calendar Card -->
+            <div class="la-card">
+                <div class="la-card-header">
+                    <div class="la-card-title-group">
+                        <i class="bi bi-calendar3"></i>
+                        <h5>Monthly Calendar</h5>
+                    </div>
+                    <div class="la-calendar-nav">
+                        <button type="button" class="la-calendar-nav-btn" onclick="navigateCalendar(-1)" title="Previous Month">
+                            <i class="bi bi-chevron-left"></i>
+                        </button>
+                        <span class="la-calendar-month-title">@monthLabel</span>
+                        <button type="button" class="la-calendar-nav-btn" onclick="navigateCalendar(1)" title="Next Month">
+                            <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="la-card-body calendar-body">
+                    <div class="la-calendar-weekdays">
+                        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                    </div>
+                    <div class="la-calendar-days-grid">
+                        @{
+                            var calMonth = Model.OTCurrentMonthStart != default ? Model.OTCurrentMonthStart : new DateTime(today.Year, today.Month, 1);
+                            var firstDayOfWeek = (int)calMonth.DayOfWeek;
+                            var daysInMonth = DateTime.DaysInMonth(calMonth.Year, calMonth.Month);
+                            var totalCells = firstDayOfWeek + daysInMonth;
+                            var calDayMap = calDays.GroupBy(d => d.Day).ToDictionary(g => g.Key, g => g.First());
+                            int cellIndex = 0;
+                            int dayNum = 1;
+                        }
+                        @for (int i = 0; i < totalCells; i++)
+                        {
+                            if (cellIndex < firstDayOfWeek || dayNum > daysInMonth)
+                            {
+                                <div class="la-calendar-day-cell empty"></div>
+                            }
+                            else
+                            {
+                                var calDay = calDayMap.ContainsKey(dayNum) ? calDayMap[dayNum] : null;
+                                var statusClass = calDay?.OTStatus switch
+                                {
+                                    "above100" => "conflict",
+                                    "95-100"   => "pending",
+                                    "80-95"    => "approved",
+                                    _          => ""
+                                };
+                                var isToday = calDay?.IsToday == true;
+                                <div class="la-calendar-day-cell @statusClass @(isToday ? "today" : "")"
+                                     title="@dayNum: @(calDay?.EmployeesOnOT ?? 0) on OT"
+                                     onclick="loadOTDataForDate('@calMonth.Year-@calMonth.Month.ToString("00")-@dayNum.ToString("00")')">
+                                    <span class="la-calendar-day-number">@dayNum</span>
+                                    @if (calDay != null && calDay.EmployeesOnOT > 0)
+                                    {
+                                        <span class="la-calendar-dot @statusClass"></span>
+                                    }
+                                </div>
+                                dayNum++;
+                            }
+                            cellIndex++;
+                        }
+                    </div>
+
+                    <!-- Clean inline calendar legend -->
+                    <div class="la-calendar-legend">
+                        <div class="la-legend-item"><span class="la-legend-dot approved"></span><span>Approved</span></div>
+                        <div class="la-legend-item"><span class="la-legend-dot pending"></span><span>Pending</span></div>
+                        <div class="la-legend-item"><span class="la-legend-dot conflict"></span><span>Conflict</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export OT Data Section -->
+    <div class="la-card">
+        <div class="la-card-header">
+            <div class="la-card-title-group">
+                <i class="bi bi-file-earmark-pdf"></i>
+                <h5>Export Overtime Report</h5>
+            </div>
+        </div>
+        <div class="la-card-body">
+            <div class="la-export-form-row">
+                <div class="la-form-field">
+                    <label>From Date</label>
+                    <input type="date" class="la-date-input" id="exportFromDate">
+                </div>
+                <div class="la-form-field">
+                    <label>To Date</label>
+                    <input type="date" class="la-date-input" id="exportToDate">
+                </div>
+                <div class="la-form-field">
+                    <label>OT Filter</label>
+                    <select class="la-filter-select" id="exportOtPercentageFilter">
+                        <option value="all">All OT %</option>
+                        <option value="below75">Below 75%</option>
+                        <option value="above75">Above 75%</option>
+                        <option value="above80">Above 80%</option>
+                        <option value="above100">Above 100%</option>
+                    </select>
+                </div>
+                <button type="button" class="la-btn-export" onclick="exportToPDF()">
+                    <i class="bi bi-file-earmark-pdf"></i> Export PDF
+                </button>
+            </div>
+            
+            <div id="exportPreviewSection" class="la-export-preview-container" style="display: none;">
+                <div class="la-preview-header">
+                    <h6>Filtered Records Preview</h6>
+                    <span class="badge bg-secondary text-light" id="previewRecordCount" style="font-size: 0.8rem; padding: 0.4em 0.8em; border-radius: 4px;">0 records</span>
+                </div>
+                <div id="exportPreviewTableContainer" class="la-table-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF Preview Modal -->
+    <div class="la-modal-overlay" id="pdfPreviewModal">
+        <div class="la-modal" style="max-width: 900px; width: 90%;">
+            <div class="la-modal-header">
+                <h3>PDF Export Preview</h3>
+                <button class="la-modal-close" onclick="closePdfPreviewModal()">&times;</button>
+            </div>
+            <div class="la-modal-body" style="background-color: #f3f4f6; max-height: 60vh; overflow-y: auto; padding: 25px;">
+                <!-- Simulated PDF Report Layout -->
+                <div style="background-color: #ffffff; border: 1px solid #d1d5db; border-radius: 8px; padding: 30px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+                    <div class="d-flex justify-content-between align-items-start border-bottom pb-3 mb-4">
+                        <div>
+                            <h4 style="color: #1e3a8a; margin: 0; font-weight: 700; font-family: sans-serif;">PulseHR / OT Management System</h4>
+                            <p class="text-muted small mb-0" style="margin-top: 5px; font-family: sans-serif;">OT Allocation Report</p>
+                        </div>
+                        <div class="text-end text-muted small" style="font-family: sans-serif;">
+                            <div><strong>Report Date Range:</strong> <span id="pdfPreviewDateRange"></span></div>
+                            <div><strong>Generated:</strong> @DateTime.Now.ToString("dd MMM yyyy")</div>
+                        </div>
+                    </div>
+                    
+                    <div id="pdfPreviewContent" class="mb-4">
+                        <!-- Preview Table goes here -->
+                    </div>
+                </div>
+            </div>
+            <div class="la-modal-footer">
+                <button type="button" class="la-btn-secondary" onclick="closePdfPreviewModal()">Close Preview</button>
+                <button type="button" class="la-btn-primary" onclick="downloadPDF()">
+                    <i class="bi bi-download"></i> Download PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit OT Modal -->
+    <div class="la-modal-overlay" id="editOTModal">
+        <div class="la-modal">
+            <div class="la-modal-header">
+                <h3>Edit OT Request</h3>
+                <button class="la-modal-close" onclick="closeEditModal()">&times;</button>
+            </div>
+            <div class="la-modal-body">
+                <form id="editOTForm">
+                    <input type="hidden" id="editServiceId">
+                    <div class="la-form-group">
+                        <label class="la-form-label">Employee</label>
+                        <input type="text" class="la-form-input" id="editEmployeeName" readonly>
+                    </div>
+                    <div class="la-form-group">
+                        <label class="la-form-label">Department</label>
+                        <input type="text" class="la-form-input" id="editDepartment" readonly>
+                    </div>
+                    <div class="la-form-group">
+                        <label class="la-form-label">OT Date</label>
+                        <input type="date" class="la-form-input" id="editOTDate">
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="la-form-group">
+                                <label class="la-form-label">Start Time</label>
+                                <input type="time" class="la-form-input" id="editStartTime">
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="la-form-group">
+                                <label class="la-form-label">End Time</label>
+                                <input type="time" class="la-form-input" id="editEndTime">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="la-form-group">
+                        <label class="la-form-label">OT Hours</label>
+                        <input type="number" step="0.5" class="la-form-input" id="editOTHours">
+                    </div>
+                </form>
+            </div>
+            <div class="la-modal-footer">
+                <button type="button" class="la-btn-secondary" onclick="closeEditModal()">Cancel</button>
+                <button type="button" class="la-btn-primary" onclick="saveOTRequest()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // OT Calendar Navigation
+        function navigateCalendar(delta) {
+            const currentDate = new Date('@Model.SelectedDate.ToString("yyyy-MM-dd")');
+            currentDate.setMonth(currentDate.getMonth() + delta);
+            window.location.href = `/Dashboard/Index?selectedDate=${currentDate.toISOString().split('T')[0]}`;
+        }
+
+        function loadOTDataForDate(dateStr) {
+            window.location.href = `/Dashboard/Index?selectedDate=${dateStr}`;
+        }
+
+        // Edit OT Modal Functions
+        function openEditModal(serviceId, firstName, lastName, department) {
+            document.getElementById('editServiceId').value = serviceId;
+            document.getElementById('editEmployeeName').value = firstName + ' ' + lastName;
+            document.getElementById('editDepartment').value = department;
+            document.getElementById('editOTDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('editStartTime').value = '18:00';
+            document.getElementById('editEndTime').value = '22:00';
+            document.getElementById('editOTHours').value = '4.0';
+            document.getElementById('editOTModal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('editOTModal').classList.remove('active');
+        }
+
+        function saveOTRequest() {
+            const serviceId = document.getElementById('editServiceId').value;
+            const otDate = document.getElementById('editOTDate').value;
+            const startTime = document.getElementById('editStartTime').value;
+            const endTime = document.getElementById('editEndTime').value;
+            const otHours = document.getElementById('editOTHours').value;
+            
+            console.log('Saving OT request:', { serviceId, otDate, startTime, endTime, otHours });
+            closeEditModal();
+        }
+
+        // Export to PDF with Preview Modal
+        let lastPreviewHtml = "";
+
+        function exportToPDF() {
+            const fromDate = document.getElementById('exportFromDate').value;
+            const toDate = document.getElementById('exportToDate').value;
+            const otPercentage = document.getElementById('exportOtPercentageFilter').value;
+            
+            if (!fromDate || !toDate) {
+                alert('Please select both From Date and To Date before exporting.');
+                return;
+            }
+            
+            if (new Date(fromDate) > new Date(toDate)) {
+                alert('From Date must be before or equal to To Date.');
+                return;
+            }
+
+            // Open preview modal and copy preview content
+            document.getElementById('pdfPreviewDateRange').innerText = `${formatDateString(fromDate)} to ${formatDateString(toDate)}`;
+            document.getElementById('pdfPreviewContent').innerHTML = lastPreviewHtml;
+            document.getElementById('pdfPreviewModal').classList.add('active');
+        }
+
+        function formatDateString(dateStr) {
+            if (!dateStr) return '';
+            const d = new Date(dateStr);
+            const options = { day: '2-digit', month: 'short', year: 'numeric' };
+            return d.toLocaleDateString('en-GB', options);
+        }
+
+        function closePdfPreviewModal() {
+            document.getElementById('pdfPreviewModal').classList.remove('active');
+        }
+
+        function downloadPDF() {
+            const fromDate = document.getElementById('exportFromDate').value;
+            const toDate = document.getElementById('exportToDate').value;
+            const otPercentage = document.getElementById('exportOtPercentageFilter').value;
+            
+            window.location.href = `/Dashboard/ExportOTData?fromDate=${fromDate}&toDate=${toDate}&otPercentage=${otPercentage}`;
+            closePdfPreviewModal();
+        }
+
+        // Live Preview Loader for Export card
+        function loadExportPreview() {
+            const fromDate = document.getElementById('exportFromDate').value;
+            const toDate = document.getElementById('exportToDate').value;
+            const otPercentage = document.getElementById('exportOtPercentageFilter').value;
+
+            if (!fromDate || !toDate) {
+                document.getElementById('exportPreviewSection').style.display = 'none';
+                return;
+            }
+
+            if (new Date(fromDate) > new Date(toDate)) {
+                document.getElementById('exportPreviewSection').style.display = 'none';
+                return;
+            }
+
+            const url = `/Dashboard/GetExportPreviewData?fromDate=${fromDate}&toDate=${toDate}&otPercentage=${otPercentage}`;
+
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) throw new Error('Preview load failed');
+                    return response.text();
+                })
+                .then(html => {
+                    lastPreviewHtml = html;
+                    document.getElementById('exportPreviewTableContainer').innerHTML = html;
+                    
+                    // Count records
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = html;
+                    const rows = tempDiv.querySelectorAll('tbody tr');
+                    const isNoRecord = tempDiv.querySelector('.bi-inbox');
+                    const recordCount = isNoRecord ? 0 : rows.length;
+                    
+                    document.getElementById('previewRecordCount').innerText = `${recordCount} records`;
+                    document.getElementById('exportPreviewSection').style.display = 'block';
+                })
+                .catch(err => {
+                    console.error('Error loading export preview:', err);
+                });
+        }
+
+        // Search and Filter Functionality
+        let searchTimeout = null;
+
+        function fetchOTQueue() {
+            const searchTerm = document.getElementById('otSearchInput')?.value || '';
+            const otPercentage = document.getElementById('otPercentageFilter')?.value || 'all';
+            const selectedDate = document.getElementById('otDateFilter')?.value || '@Model.SelectedDate.ToString("yyyy-MM-dd")';
+
+            const url = `/Dashboard/GetOTQueueRows?searchTerm=${encodeURIComponent(searchTerm)}&otPercentage=${encodeURIComponent(otPercentage)}&selectedDate=${selectedDate}`;
+
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(html => {
+                    const tableBody = document.getElementById('otQueueTableBody');
+                    if (tableBody) {
+                        tableBody.innerHTML = html;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching OT queue:', error);
+                });
+        }
+
+        function onSearchInput() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(fetchOTQueue, 300); // 300ms debounce
+        }
+
+        function onPercentageFilterChange() {
+            fetchOTQueue();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('otSearchInput');
+            const otPercentageFilter = document.getElementById('otPercentageFilter');
+            const otDateFilter = document.getElementById('otDateFilter');
+            
+            if (searchInput) {
+                searchInput.addEventListener('input', onSearchInput);
+            }
+            
+            if (otPercentageFilter) {
+                otPercentageFilter.addEventListener('change', onPercentageFilterChange);
+            }
+
+            if (otDateFilter) {
+                otDateFilter.addEventListener('change', fetchOTQueue);
+            }
+
+            // Export Preview listeners
+            const exportFrom = document.getElementById('exportFromDate');
+            const exportTo = document.getElementById('exportToDate');
+            const exportOtPercent = document.getElementById('exportOtPercentageFilter');
+
+            if (exportFrom) exportFrom.addEventListener('change', loadExportPreview);
+            if (exportTo) exportTo.addEventListener('change', loadExportPreview);
+            if (exportOtPercent) exportOtPercent.addEventListener('change', loadExportPreview);
+            
+            // Close edit modal when clicking outside
+            const editModalOverlay = document.getElementById('editOTModal');
+            if (editModalOverlay) {
+                editModalOverlay.addEventListener('click', function(e) {
+                    if (e.target === editModalOverlay) {
+                        closeEditModal();
+                    }
+                });
+            }
+
+            // Close pdf preview modal when clicking outside
+            const previewOverlay = document.getElementById('pdfPreviewModal');
+            if (previewOverlay) {
+                previewOverlay.addEventListener('click', function(e) {
+                    if (e.target === previewOverlay) {
+                        closePdfPreviewModal();
+                    }
+                });
+            }
+        });
+    </script>
+}

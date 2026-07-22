@@ -39,7 +39,6 @@ namespace AttendanceManagementSystem.Data
                 new Role { Name = RoleNames.GM, Description = "General Manager - view all sections" },
                 new Role { Name = RoleNames.DGM, Description = "Deputy General Manager - view own section only" },
                 new Role { Name = RoleNames.Engineer, Description = "Engineer - view and edit own section" },
-                new Role { Name = RoleNames.RoleAgent, Description = "Role Agent - view and edit own section" },
                 new Role { Name = RoleNames.LeaveAgent, Description = "Leave Agent - view and edit own section" },
                 new Role { Name = RoleNames.Worker, Description = "Regular worker who can enter OT data" }
             };
@@ -106,6 +105,7 @@ namespace AttendanceManagementSystem.Data
             }
 
             var superAdmin = await context.Users
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(
                     u => u.Email.ToLower() == DefaultSuperAdminEmail.ToLower(),
                     cancellationToken);
@@ -136,51 +136,13 @@ namespace AttendanceManagementSystem.Data
                 return;
             }
 
-            var shouldUpdate = false;
-
-            if (superAdmin.RoleId != superAdminRoleId)
-            {
-                superAdmin.RoleId = superAdminRoleId;
-                shouldUpdate = true;
-            }
-
             if (!superAdmin.IsActive)
             {
-                superAdmin.IsActive = true;
-                shouldUpdate = true;
-            }
-
-            if (superAdmin.SectionId != null)
-            {
-                superAdmin.SectionId = null;
-                shouldUpdate = true;
-            }
-
-            var desiredSuperAdminServiceId = await ResolveUniqueServiceIdAsync(
-                context,
-                DefaultSuperAdminServiceId,
-                superAdmin.Id,
-                cancellationToken);
-            if (!string.Equals(superAdmin.ServiceId, desiredSuperAdminServiceId, StringComparison.Ordinal))
-            {
-                superAdmin.ServiceId = desiredSuperAdminServiceId;
-                shouldUpdate = true;
-            }
-
-            var passwordMatches = TryVerifyPassword(superAdmin.PasswordHash, DefaultSuperAdminPassword);
-            if (!passwordMatches)
-            {
-                superAdmin.PasswordHash = BCrypt.Net.BCrypt.HashPassword(DefaultSuperAdminPassword);
-                shouldUpdate = true;
-            }
-
-            if (!shouldUpdate)
-            {
+                logger.LogInformation("Default super admin exists but is inactive. Skipping reactivation to preserve soft delete.");
                 return;
             }
 
-            await context.SaveChangesAsync(cancellationToken);
-            logger.LogInformation("Default super admin account was normalized for login.");
+            logger.LogInformation("Default super admin account already exists. Leaving user data unchanged.");
         }
 
         private static async Task EnsureAdminAndWorkerAsync(
@@ -244,6 +206,7 @@ namespace AttendanceManagementSystem.Data
             CancellationToken cancellationToken)
         {
             var user = await context.Users
+                .IgnoreQueryFilters()
                 .FirstOrDefaultAsync(u => u.Email.ToLower() == email.ToLower(), cancellationToken);
 
             if (user == null)
@@ -271,67 +234,10 @@ namespace AttendanceManagementSystem.Data
                 return;
             }
 
-            var shouldUpdate = false;
-
-            if (!string.Equals(user.FirstName, firstName, StringComparison.Ordinal))
-            {
-                user.FirstName = firstName;
-                shouldUpdate = true;
-            }
-
-            if (!string.Equals(user.LastName, lastName, StringComparison.Ordinal))
-            {
-                user.LastName = lastName;
-                shouldUpdate = true;
-            }
-
-            if (!string.Equals(user.Phone, phone, StringComparison.Ordinal))
-            {
-                user.Phone = phone;
-                shouldUpdate = true;
-            }
-
-            if (user.RoleId != roleId)
-            {
-                user.RoleId = roleId;
-                shouldUpdate = true;
-            }
-
-            if (user.SectionId != sectionId)
-            {
-                user.SectionId = sectionId;
-                shouldUpdate = true;
-            }
-
             if (!user.IsActive)
-            {
-                user.IsActive = true;
-                shouldUpdate = true;
-            }
-
-            var resolvedExistingServiceId = await ResolveUniqueServiceIdAsync(
-                context,
-                preferredServiceId,
-                user.Id,
-                cancellationToken);
-            if (!string.Equals(user.ServiceId, resolvedExistingServiceId, StringComparison.Ordinal))
-            {
-                user.ServiceId = resolvedExistingServiceId;
-                shouldUpdate = true;
-            }
-
-            if (!TryVerifyPassword(user.PasswordHash, password))
-            {
-                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
-                shouldUpdate = true;
-            }
-
-            if (!shouldUpdate)
             {
                 return;
             }
-
-            await context.SaveChangesAsync(cancellationToken);
         }
 
         private static bool TryVerifyPassword(string existingHash, string password)
@@ -358,6 +264,7 @@ namespace AttendanceManagementSystem.Data
 
             var sections = await context.Sections.Where(s => s.Id > 0).ToListAsync(cancellationToken);
             var existingUsersByEmail = await context.Users
+                .IgnoreQueryFilters()
                 .ToDictionaryAsync(u => u.Email.ToLower(), cancellationToken);
 
             // Track service IDs already in use (from DB) and those we assign during seeding
@@ -431,7 +338,6 @@ namespace AttendanceManagementSystem.Data
             };
 
             var workersToAdd = new List<User>();
-            var usersToUpdate = new List<User>();
             int employeeNumber = 2; // EMP001 is used by the default worker.
 
             foreach (var section in sections.Take(10))
@@ -446,66 +352,8 @@ namespace AttendanceManagementSystem.Data
                     var preferredServiceId = BuildEmployeeServiceId(employeeNumber);
                     employeeNumber++;
 
-                    if (existingUsersByEmail.TryGetValue(email.ToLower(), out var existingUser))
+                    if (existingUsersByEmail.ContainsKey(email.ToLower()))
                     {
-                        var shouldUpdate = false;
-
-                        if (!string.Equals(existingUser.FirstName, firstName, StringComparison.Ordinal))
-                        {
-                            existingUser.FirstName = firstName;
-                            shouldUpdate = true;
-                        }
-
-                        if (!string.Equals(existingUser.LastName, lastName, StringComparison.Ordinal))
-                        {
-                            existingUser.LastName = lastName;
-                            shouldUpdate = true;
-                        }
-
-                        if (!string.Equals(existingUser.Phone, phone, StringComparison.Ordinal))
-                        {
-                            existingUser.Phone = phone;
-                            shouldUpdate = true;
-                        }
-
-                        if (!string.Equals(existingUser.Address, address, StringComparison.Ordinal))
-                        {
-                            existingUser.Address = address;
-                            shouldUpdate = true;
-                        }
-
-                        if (existingUser.RoleId != workerRoleId)
-                        {
-                            existingUser.RoleId = workerRoleId;
-                            shouldUpdate = true;
-                        }
-
-                        if (existingUser.SectionId != section.Id)
-                        {
-                            existingUser.SectionId = section.Id;
-                            shouldUpdate = true;
-                        }
-
-                        if (!existingUser.IsActive)
-                        {
-                            existingUser.IsActive = true;
-                            shouldUpdate = true;
-                        }
-
-                        var resolvedServiceId = await GetAvailableServiceIdAsync(
-                            preferredServiceId,
-                            existingUser.Id);
-                        if (!string.Equals(existingUser.ServiceId, resolvedServiceId, StringComparison.Ordinal))
-                        {
-                            existingUser.ServiceId = resolvedServiceId;
-                            shouldUpdate = true;
-                        }
-
-                        if (shouldUpdate)
-                        {
-                            usersToUpdate.Add(existingUser);
-                        }
-
                         continue;
                     }
 
@@ -534,10 +382,10 @@ namespace AttendanceManagementSystem.Data
                 context.Users.AddRange(workersToAdd);
             }
 
-            if (workersToAdd.Count > 0 || usersToUpdate.Count > 0)
+            if (workersToAdd.Count > 0)
             {
                 await context.SaveChangesAsync(cancellationToken);
-                logger.LogInformation("Seeded {AddedCount} and updated {UpdatedCount} Sri Lankan workers with unique Service IDs.", workersToAdd.Count, usersToUpdate.Count);
+                logger.LogInformation("Seeded {AddedCount} Sri Lankan workers with unique Service IDs.", workersToAdd.Count);
             }
             else
             {
@@ -676,6 +524,7 @@ namespace AttendanceManagementSystem.Data
 
             var preferredUsedByOther = await context.Users
                 .AsNoTracking()
+                .IgnoreQueryFilters()
                 .AnyAsync(
                     u => u.ServiceId != null &&
                          u.ServiceId.ToUpper() == normalizedPreferred &&
@@ -711,6 +560,7 @@ namespace AttendanceManagementSystem.Data
                 var candidate = BuildEmployeeServiceId(candidateNumber);
                 var inUse = await context.Users
                     .AsNoTracking()
+                    .IgnoreQueryFilters()
                     .AnyAsync(
                         u => u.ServiceId != null &&
                              u.ServiceId.ToUpper() == candidate &&
@@ -742,8 +592,7 @@ namespace AttendanceManagementSystem.Data
                 (RoleNames.GM,       "gm@attendance.com",      "GM@123",       "General",  "Manager",   "EMP910"),
                 (RoleNames.DGM,      "dgm@attendance.com",     "DGM@123",      "Deputy",   "Manager",   "EMP911"),
                 (RoleNames.Engineer, "engineer@attendance.com","Eng@123",      "Section",  "Engineer",  "EMP912"),
-                (RoleNames.RoleAgent,"roleagent@attendance.com","Role@123",    "Role",     "Agent",     "EMP913"),
-                (RoleNames.LeaveAgent,"leaveagent@attendance.com","Leave@123",  "Leave",    "Agent",     "EMP914"),
+                (RoleNames.LeaveAgent,"leaveagent@attendance.com","Leave@123",  "Leave",    "Agent",     "EMP913"),
             };
 
             foreach (var (roleName, email, password, firstName, lastName, preferredServiceId) in roleUsers)
@@ -768,7 +617,7 @@ namespace AttendanceManagementSystem.Data
                     cancellationToken);
             }
 
-            logger.LogInformation("GM, DGM, Engineer, Role Agent, and Leave Agent seed users ensured.");
+            logger.LogInformation("GM, DGM, Engineer, and Leave Agent seed users ensured.");
         }
     }
 }

@@ -22,7 +22,7 @@ namespace AttendanceManagementSystem.Controllers
             var today = DateTime.Today;
             var tomorrow = today.AddDays(1);
 
-            var totalUsers = await _context.Users.AsNoTracking().CountAsync();
+            var totalUsers = await _context.Users.AsNoTracking().CountAsync(u => u.IsActive);
             var totalSections = await _context.Sections.AsNoTracking().CountAsync(s => s.IsActive);
 
             var attendanceByStatus = await _context.Attendances
